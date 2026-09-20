@@ -1,17 +1,14 @@
-# Third-party notices — EYE // TAIWAN v0.12.0
+# Third-party notices
 
-This project combines or links to public/open services. Their data, imagery and services retain their own terms and attribution requirements.
+EYE // TAIWAN 本身不重新授權第三方資料、地圖圖磚或串流內容。
 
-- OpenStreetMap / Nominatim — map/geocoding data and public service usage policies.
-- OSRM — open-source routing engine; the public demo server is best-effort and not a commercial SLA.
-- Open-Meteo — zero-key weather service subject to its published usage terms.
-- Esri World Imagery — optional keyless satellite basemap; Esri attribution is displayed by the map layer.
-- Taiwan Freeway Bureau — public CCTV, VD lane/flow and freeway traffic open data.
-- Police Broadcasting Service — public traffic-event data.
-- National Police Agency — published speed-enforcement location data.
-- ADSB.lol — public ADS-B aircraft signal data used by the keyless airspace layer.
-- USGS — public earthquake data.
-- Leaflet — BSD-2-Clause licensed mapping library.
-- God's Eye View concepts / upstream source — MIT licensed codebase and interaction concepts; third-party datasets/assets used by upstream retain their own terms.
+- OpenStreetMap contributors / Nominatim — ODbL 與各服務使用政策
+- OSRM — open-source routing engine；公共 demo 為 best-effort service
+- Open-Meteo — 依其公開 API 使用條款
+- 交通部高速公路局、公路局、警廣、警政署與其他政府開放資料 — 依各資料集授權與公告
+- Esri World Imagery — 僅作可選衛星底圖，依 Esri 使用條款
+- ADSB.lol、USGS、公開新聞來源 — 依來源條款
+- Leaflet — BSD-2-Clause
+- hls.js — Apache-2.0；僅在需要解碼 HLS 且瀏覽器無原生 HLS 支援時按需從 CDN 載入
 
-No upstream third-party paid-key asset is bundled merely because it exists in God's Eye View.
+CCTV 影像透過來源公開 URL 或同源轉送顯示。轉送僅為解決 HTTPS／串流播放相容性，不改變影像內容的來源授權，也不建立影像資料庫。

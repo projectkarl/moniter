@@ -36,6 +36,10 @@ const voice = parseTravelIntent('我等下要去LaLaport南港，現在會塞車
 if (!voice || voice.origin !== '我的位置' || voice.target !== 'LaLaport南港' || !voice.wantsTraffic || !voice.wantsWeather || !voice.wantsUmbrella || voice.preference !== 'recommended') {
   throw new Error(`Voice intent mismatch: ${JSON.stringify(voice)}`);
 }
+
+const arrow = parseTravelIntent('北車 → 101');
+if (!arrow || arrow.origin !== '北車' || arrow.target !== '101') throw new Error(`Arrow point-to-point intent failed: ${JSON.stringify(arrow)}`);
+
 const fastestIntent = parseTravelIntent('從台北車站到桃園機場最快怎麼走');
 if (!fastestIntent || fastestIntent.origin !== '台北車站' || fastestIntent.target !== '桃園機場' || fastestIntent.preference !== 'fastest') {
   throw new Error(`Fastest intent mismatch: ${JSON.stringify(fastestIntent)}`);

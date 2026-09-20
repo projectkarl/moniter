@@ -66,6 +66,13 @@
       <div id="geoTransfer" class="geo-transfer" aria-hidden="true"><div class="geo-ring"><i></i><span></span></div><div class="geo-copy"><small>SATELLITE HANDOFF</small><b id="geoTransferName">RELOCATING SIGNAL</b><em id="geoTransferCoord">GRID TRANSFER</em></div></div>
       <div class="map-telemetry telemetry-left" aria-hidden="true"><span>GRID</span><b id="gridTelemetry">TW // 23.73N 120.94E</b></div>
       <div class="map-telemetry telemetry-right" aria-hidden="true"><span>LINK</span><b id="linkTelemetry">PUBLIC SIGNAL // STANDBY</b></div>
+      <div class="flow-legend" aria-label="高速公路即時流速圖例">
+        <span><i class="clear"></i>順暢 70+</span>
+        <span><i class="moderate"></i>稍慢 50–69</span>
+        <span><i class="slow"></i>緩慢 30–49</span>
+        <span><i class="critical"></i>壅塞 &lt;30</span>
+        <em>km/h · LIVE FLOW</em>
+      </div>
 
       <section class="command hud-panel" aria-label="查詢控制台">
         <div class="command-kicker"><span class="live-dot"></span> COMMAND CHANNEL</div>
@@ -75,25 +82,25 @@
           </button>
           <label class="search-box">
             <span class="search-prefix">⌕</span>
-            <input id="queryInput" type="search" autocomplete="off" placeholder="地址／簡稱：101、A11、遠百、台大、宜大、北科大、北車、南科、晶華…" aria-label="地址或查詢內容" />
+            <input id="queryInput" type="search" autocomplete="off" placeholder="去哪裡？輸入目的地或「北車 → 101」；支援 101、A11、台大、北車…" aria-label="地址或查詢內容" />
           </label>
           <button class="go-btn" type="submit">LOCK</button>
         </form>
         <div id="poiSuggestions" class="poi-suggestions" role="listbox" aria-label="地點建議" hidden></div>
-        <div class="quick-commands" aria-label="快捷功能">
-          <button data-command="locate">◎ 我的位置</button>
-          <button data-command="cctv">▣ CCTV</button>
-          <button data-command="traffic">△ 路況</button>
-          <button data-command="weather">☁ 天氣</button>
-          <button data-command="news">▤ 新聞</button>
-          <button data-command="route">⌁ 路線</button>
-        </div>
-        <div class="mission-deck" aria-label="任務模式">
-          <button data-mission="sweep"><span>01</span><b>SWEEP</b><small>區域掃描</small></button>
-          <button data-mission="mission"><span>02</span><b>MISSION</b><small>路線情報</small></button>
-          <button data-mission="watch"><span>03</span><b>WATCH</b><small>CCTV 情報牆</small></button>
-          <button data-mission="sentinel"><span>04</span><b>SENTINEL</b><small>流速異常</small></button>
-          <button data-mission="theater"><span>05</span><b>THEATER</b><small>全域訊號</small></button>
+        <div class="command-context">
+          <button type="button" id="originChip" class="origin-chip" aria-label="切換起點">
+            <span>FROM</span><b id="originLabel">台北市中心</b><em>點一下改用目前位置</em>
+          </button>
+          <div class="command-hint"><b>AUTO INTEL</b><span>搜尋後自動整合路線、ETA、路況、天氣、CCTV 與測速；指定點到點可輸入「北車 → 101」。</span></div>
+          <details class="advanced-ops">
+            <summary>ADVANCED OPS</summary>
+            <div class="mission-deck" aria-label="進階任務模式">
+              <button data-mission="sweep"><span>01</span><b>SWEEP</b><small>區域掃描</small></button>
+              <button data-mission="watch"><span>02</span><b>WATCH</b><small>CCTV 情報牆</small></button>
+              <button data-mission="sentinel"><span>03</span><b>SENTINEL</b><small>流速異常</small></button>
+              <button data-mission="theater"><span>04</span><b>THEATER</b><small>全域訊號</small></button>
+            </div>
+          </details>
         </div>
         <div id="voiceTranscript" class="voice-transcript" hidden></div>
       </section>
@@ -136,15 +143,23 @@
             <div id="targetBrief" class="target-brief"><span>NO TARGET</span><b>等待目標鎖定</b><em>STANDBY</em></div>
           </article>
           <article class="intel-card route-card" id="routeCard">
-            <div class="card-label">MISSION ROUTE · OSRM</div>
-            <div class="route-empty" id="routeEmpty">尚未規劃路線</div>
+            <div class="card-label">POINT-TO-POINT // AUTO ROUTE</div>
+            <div class="route-empty" id="routeEmpty">輸入目的地後，自動以目前起點產生路線與情報。</div>
             <div id="routeInfo" hidden>
-              <div class="route-summary"><strong id="routeEta">-- min</strong><span id="routeDistance">-- km</span><em id="routeMode">SHORTEST</em></div>
+              <div class="route-status"><span>ROUTE LOCKED</span><b id="routeRecommendation">RECOMMENDED PATH</b></div>
+              <div class="route-summary"><strong id="routeEta">-- min</strong><span id="routeDistance">-- km</span><em id="routeMode">RECOMMENDED</em></div>
               <div class="route-points"><span id="routeFrom">START</span><i></i><span id="routeTo">TARGET</span></div>
               <div id="routeThreatSummary" class="route-threat-summary" hidden></div>
               <div id="routeOptions" class="route-options" aria-label="可選路線"></div>
-              <button id="startNavBtn" class="nav-start-btn" type="button">INITIATE NAV OPS</button>
+              <button id="startNavBtn" class="nav-start-btn" type="button">START NAV OPS · 開始導航</button>
             </div>
+          </article>
+          <article class="intel-card inline-camera-card" id="inlineCameraCard" hidden>
+            <div class="card-label">LIVE CCTV // DIRECT FEED</div>
+            <div class="inline-camera-head"><b id="inlineCameraTitle">PUBLIC CCTV</b><span id="inlineCameraSignal">AUTO SELECT</span></div>
+            <div id="inlineCameraStage" class="inline-camera-stage privacy-shield"><div class="camera-placeholder">正在等待公開 CCTV 訊號…</div></div>
+            <div id="inlineCameraMeta" class="inline-camera-meta"></div>
+            <div id="inlineCameraChoices" class="inline-camera-choices"></div>
           </article>
           <article class="intel-card signal-card">
             <div class="card-label">SIGNALS</div>
@@ -222,7 +237,7 @@
         <div class="setting-stack"><div><b>MAP SOURCE</b><small>Zero-Key 地圖來源；SATELLITE 模式使用 Esri World Imagery，適合戰情監控與地形判讀</small></div><div class="map-modes" id="mapModes"><button data-map-source="tactical" class="active">TACTICAL</button><button data-map-source="satellite">SATELLITE</button></div></div>
         <div class="setting-stack"><div><b>SENSOR LOOK</b><small>沿用 God's Eye View 的感測器視覺概念；只改畫面，不改資料內容</small></div><div class="sensor-modes" id="sensorModes"><button data-sensor="normal" class="active">NORMAL</button><button data-sensor="nvg">NVG</button><button data-sensor="flir">FLIR</button><button data-sensor="noir">NOIR</button><button data-sensor="crt">CRT</button></div></div>
         <div class="setting-row"><div><b>CCTV 隱私遮罩</b><small>預設模糊公開影像；不做人臉或車牌 OCR／追蹤</small></div><button id="privacyShieldToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
-        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.12.0 PRE-MISSION COMMAND</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
+        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.14.0 LIVE FLOW MAP</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
       </section>
 
       <section id="threatAlert" class="threat-alert" aria-live="assertive" hidden>
@@ -239,11 +254,9 @@
     </main>
 
     <nav class="mobile-dock hud-panel" aria-label="主要功能">
-      <button data-command="locate"><span>◎</span>定位</button>
-      <button data-command="search"><span>⌕</span>搜尋</button>
-      <button data-command="voice"><span>◉</span>語音</button>
-      <button data-command="cctv"><span>▣</span>CCTV</button>
-      <button data-command="route"><span>⌁</span>路線</button>
+      <button data-command="locate"><span>◎</span>目前位置</button>
+      <button data-command="voice"><span>◉</span>語音任務</button>
+      <button data-mission="theater"><span>⌁</span>戰情總覽</button>
     </nav>
   </div>
 

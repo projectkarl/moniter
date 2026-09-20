@@ -1,7 +1,7 @@
 {
   "name": "EYE // TAIWAN",
   "short_name": "EYE Taiwan",
-  "description": "台灣公開資訊即時情報地圖：行前監控戰情室：自然語音任務、多路線情報、即時車流、CCTV Sensor Fusion、天氣與公開事件。",
+  "description": "台灣公開資訊即時情報地圖：行前監控戰情室：單一搜尋自動整合點到點路線、即時車流、頁內 CCTV、測速／速限、天氣與公開事件。",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
