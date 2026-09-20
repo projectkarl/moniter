@@ -42,12 +42,18 @@ function res(){
   let r=res();
   await handler({method:'GET',query:{q:'忠孝東路 與 基隆路 CCTV',limit:'20'}},r);
   if(r.code!==200) throw new Error(`query status ${r.code}`);
-  if(!r.body.items?.length || !String(r.body.items[0].road).includes('忠孝東路')) throw new Error(`intersection search failed ${JSON.stringify(r.body.items)}`);
+  if(r.body.items?.length) throw new Error('position-only Taipei CCTV must not be returned');
   if(r.body.coverage?.activeSourceCount !== r.body.coverage?.sourceCount) throw new Error('source coverage status missing');
-  if(!r.body.coverage?.liveCount || !r.body.coverage?.positionOnlyCount) throw new Error('LIVE/LOC coverage split missing');
+  if(!r.body.coverage?.liveCount || r.body.coverage?.positionOnlyCount !== 0) throw new Error('viewable-only coverage contract missing');
+
+  r=res();
+  await handler({method:'GET',query:{q:'民生路 中山路口',limit:'20'}},r);
+  if(r.code!==200 || !r.body.items?.some((x)=>String(x.road).includes('民生路') && x.streamUrl)) throw new Error('live intersection lookup failed');
 
   r=res();
   await handler({method:'GET',query:{lat:'25.041',lon:'121.565',radius:'2',limit:'50'}},r);
-  if(r.code!==200 || !r.body.items?.some((x)=>String(x.road).includes('忠孝東路'))) throw new Error('nearby lookup failed');
-  console.log('CCTV V27 API SEARCH PASS');
+  if(r.code!==200) throw new Error('nearby lookup status failed');
+  if(!r.body.discovery?.nearbyUrl?.includes('twipcam.com/nearby?lat=25.041000&lon=121.565000')) throw new Error('twipcam coordinate discovery missing');
+  if(r.body.items?.some((x)=>!x.streamUrl)) throw new Error('nearby contains position-only CCTV');
+  console.log('CCTV V28 API SEARCH PASS');
 })().catch((e)=>{console.error(e);process.exit(1);});

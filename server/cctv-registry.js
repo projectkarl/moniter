@@ -351,11 +351,12 @@ async function fetchSource(source, { force = false } = {}) {
 }
 
 async function loadRegistry(options = {}) {
-  const settled = await Promise.allSettled(SOURCES.map((source) => fetchSource(source, options)));
+  const sourceList = options.liveOnly ? SOURCES.filter((source) => source.access !== 'position-only') : SOURCES;
+  const settled = await Promise.allSettled(sourceList.map((source) => fetchSource(source, options)));
   const dedup = new Map();
   const sourceStatus = [];
   settled.forEach((result, index) => {
-    const source = SOURCES[index];
+    const source = sourceList[index];
     if (result.status === 'fulfilled') {
       sourceStatus.push({ id:source.id, name:source.name, region:source.region, ok:true, count:result.value.length, access:source.access });
       result.value.forEach((camera) => {

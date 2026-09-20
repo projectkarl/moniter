@@ -1,0 +1,25 @@
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const app = fs.readFileSync('app.js','utf8');
+const css = fs.readFileSync('styles.css','utf8');
+const html = fs.readFileSync('index.html','utf8');
+const cctv = fs.readFileSync('server/cctv.js','utf8');
+const flow = fs.readFileSync('server/flow.js','utf8');
+function ok(v,m){ assert.ok(v,m); console.log('PASS',m); }
+ok(app.includes("'a11': { name:'新光三越 台北信義新天地 A11', lat:25.03661, lon:121.56725"),'A11 zero-key direct coordinate alias');
+ok(app.includes("'新光三越台北信義新天地a11'"),'A11 full-name alias');
+ok(app.includes('state.nationalMode ? null : state.map?.getCenter?.()'),'national-mode geocoding is not biased toward the island center');
+ok(app.includes("q.get('view') !== 'shared'"),'normal lat/lon query cannot override national boot');
+ok(app.includes('setTimeout(() => { if (state.nationalMode) resetNationalMapView({ animate:false }); }, 3200)'),'post-animation Taiwan full-island reset');
+ok(css.includes('.command.search-nav #searchForm') && css.includes('.command.search-nav #commandHint'),'navigation mode only exposes A/B planning chrome');
+ok(app.includes("if ($('abTarget') && !$('abTarget').value.trim()) $('abTarget').value = state.target.name || ''"),'existing searched target seeds B field');
+ok(cctv.includes('const viewableRegistry = registry.filter((camera) => camera.streamUrl)'),'CCTV API excludes location-only cameras');
+ok(cctv.includes('loadRegistry({ liveOnly:true })'),'visible CCTV requests skip position-only source downloads');
+ok(app.includes('更多此地附近公開 CCTV · twipcam') && app.includes('https://tw.live/nearby/'),'twipcam and tw.live discovery integrated');
+ok(app.includes('map-cctv-link') && app.includes('附近公開 CCTV'),'target marker exposes nearby CCTV lookup');
+ok(!app.includes('影像串流未公開免授權；顯示官方位置與可取得車流。'),'removed position-only CCTV message');
+ok(flow.includes("tag(block, 'SectionStart') || tag(block, 'Start')") && flow.includes('geometryFallback'),'freeway shape endpoint fallback');
+ok(app.includes("pane:'flowPane'") && app.includes("color: '#050606'"),'highway traffic color layer is emphasized');
+ok(app.includes("$('flowStatus').textContent = state.latestFlow?.length ? 'STALE' : 'OFF'"),'last freeway flow stays visible during transient refresh failure');
+ok(html.includes('flow-legend'),'highway flow legend visible');
+console.log('V0.28 REGRESSION PASS');

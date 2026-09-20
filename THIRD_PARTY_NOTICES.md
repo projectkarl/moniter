@@ -27,3 +27,8 @@ The optional 3D cockpit path lazy-loads CesiumJS from a public CDN only when req
 ## CCTV registry additions (v0.27)
 - 嘉義縣政府即時路況 CCTV open dataset: official location / stream metadata published as ODS; used under the source's government open-data terms.
 - The app does not redistribute private CCTV, perform face/plate recognition, or infer identities.
+
+## Public CCTV discovery links (v0.28)
+- `twipcam.com/nearby` is used as a coordinate-based **external discovery link** for public nearby cameras. EYE does not scrape, copy, cache, proxy, or relicense twipcam-owned pages/media through this integration.
+- `tw.live/nearby/` is exposed as an external all-Taiwan nearby-camera discovery entry. EYE does not ingest its private site data or rehost its media.
+- Location-only local-government CCTV datasets remain useful for source auditing but are no longer returned to the visible map when no reusable public stream is available.

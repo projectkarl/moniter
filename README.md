@@ -1,6 +1,23 @@
-# EYE // TAIWAN — Free Immersive Navigation + Taiwan CCTV Search v0.27.0
+# EYE // TAIWAN — Target CCTV + National Flow v0.28.0
 
 Zero-Key / Vercel Hobby friendly Taiwan situation-awareness interface.
+
+
+## v0.28 Target CCTV + National Flow
+
+This release keeps the v0.27 visual design and changes the map/search/navigation behavior requested for daily use:
+
+- Opening animation always settles on a **Taiwan-wide full-island map**. Ordinary `?lat=&lon=` query parameters no longer hijack startup; only explicit `view=shared` links restore a local target.
+- Searching `101`, `A11`, or another target switches to local intelligence and looks up **nearby viewable public CCTV**. Pure camera-position records without a public/viewable stream are no longer returned or rendered.
+- The searched map target itself includes a **附近公開 CCTV** action. The CCTV panel also offers coordinate-based `twipcam` nearby discovery and the `tw.live` nearby page as public discovery fallbacks. These third-party sites are linked for discovery; EYE does not copy or rehost their private media/API.
+- `A11`, `新光A11`, `信義A11`, `新光三越A11` and the full branch name resolve locally to **新光三越台北信義新天地 A11 / 松壽路 11 號**, avoiding geocoder ambiguity.
+- Switching to NAV hides the normal single search form and leaves only **A → B** controls. If a location was already searched, it is copied into B automatically.
+- Freeway live traffic is drawn with a high-contrast road casing plus green / yellow-green / orange / red flow colors. If `SectionShape.xml` is unavailable, the server can fall back to `SectionStart`/`SectionEnd` coordinates; transient refresh failures keep the last successful flow layer visible as STALE rather than blanking the map.
+- Zero-Key architecture and Vercel Hobby footprint remain unchanged: **2 Serverless Functions**.
+
+### CCTV behavior
+
+Only cameras with a reusable public/viewable image stream are drawn by EYE itself. When a city publishes locations but does not grant reusable live-image access, those location-only records are excluded from the app rather than displayed as `LOC`. For broader public-camera discovery around any searched coordinate, use the integrated twipcam/tw.live actions.
 
 
 ## v0.27 Free immersive navigation + Taiwan CCTV search

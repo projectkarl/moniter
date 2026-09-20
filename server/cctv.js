@@ -13,8 +13,9 @@ module.exports = async (req, res) => {
   if (!hasCoords && !q) return json(res, 400, { error: 'Coordinates or q is required' });
 
   try {
-    const { items: registry, sourceStatus } = await loadRegistry();
-    let items = q ? searchRegistry(registry, q, Math.max(limit * 3, 300)) : registry;
+    const { items: registry, sourceStatus } = await loadRegistry({ liveOnly:true });
+    const viewableRegistry = registry.filter((camera) => camera.streamUrl);
+    let items = q ? searchRegistry(viewableRegistry, q, Math.max(limit * 3, 300)) : viewableRegistry;
     items = items.map((camera) => ({
       ...camera,
       name: [camera.road, camera.mile].filter(Boolean).join(' · ') || '公開 CCTV',
@@ -37,7 +38,7 @@ module.exports = async (req, res) => {
     });
     items = items.slice(0, limit);
 
-    const liveCount = registry.filter((x) => x.streamUrl).length;
+    const liveCount = viewableRegistry.length;
     const activeSources = sourceStatus.filter((x) => x.ok).map((x) => x.name);
     return json(res, 200, {
       zeroKey: true,
@@ -46,15 +47,17 @@ module.exports = async (req, res) => {
       failedSources: sourceStatus.filter((x) => !x.ok).map((x) => x.name),
       sourceStatus,
       coverage: {
-        sourceCount: SOURCES.length,
+        sourceCount: sourceStatus.length,
         activeSourceCount: sourceStatus.filter((x) => x.ok).length,
         registryCount: registry.length,
         liveCount,
-        positionOnlyCount: registry.length - liveCount,
+        viewableCount: liveCount,
+        positionOnlyCount: 0,
       },
       items,
-      message: items.length ? undefined : (q ? '目前公開 CCTV 名冊沒有命中此路口／地點，或相關來源暫時離線。' : '此範圍內目前沒有可用的公開交通 CCTV，或資料來源暫時離線。'),
-      note: '整合零金鑰政府公開交通 CCTV 與路口監視器名冊；LIVE 表示來源含可公開播放網址，LOC 表示僅公開設施位置。來源若暫時離線不會以假資料補齊。',
+      discovery: hasCoords ? { provider:'twipcam', nearbyUrl:`https://www.twipcam.com/nearby?lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}` } : undefined,
+      message: items.length ? undefined : (q ? '目前可觀看的公開 CCTV 沒有命中此路口／地點，可再使用周邊公開影像查詢。' : '此範圍內目前沒有可直接播放的公開交通 CCTV。'),
+      note: '只回傳可取得公開影像的 CCTV；純位置、沒有可觀看影像的資料不顯示。另提供 twipcam 座標周邊查詢連結作為全台公開影像探索入口。',
     }, 's-maxage=1800, stale-while-revalidate=21600');
   } catch (e) {
     return json(res, 502, { error: `CCTV 資料暫時無法取得：${e.message}` }, 'no-store');

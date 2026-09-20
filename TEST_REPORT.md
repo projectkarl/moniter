@@ -1,4 +1,22 @@
-# Test report — v0.27.0 Free Immersive + Taiwan CCTV Search Zero-Key
+# Test report — v0.28.0 Target CCTV + National Flow Zero-Key
+
+## v0.28 targeted regression — PASS
+
+- A11 zero-key direct alias + full branch-name alias: PASS
+- Normal page load ignores stray lat/lon query and returns to Taiwan-wide map: PASS
+- Post-animation Taiwan full-island reset: PASS
+- NAV mode hides normal search chrome and keeps A/B controls: PASS
+- Existing searched target seeds navigation B: PASS
+- CCTV API excludes position-only / non-viewable cameras: PASS
+- Target marker + CCTV card expose twipcam coordinate-nearby discovery: PASS
+- tw.live nearby public discovery entry: PASS
+- Removed `影像串流未公開…` position-only UI path: PASS
+- Freeway `SectionStart` / `SectionEnd` geometry fallback when `SectionShape.xml` fails: PASS
+- High-contrast flow pane + green/yellow/orange/red legend: PASS
+- Transient flow refresh failure retains last successful layer as `STALE`: PASS
+- Existing NAV / CCTV feed / API contract / original-parity / UI smoke suites: PASS
+- Vercel Hobby functions remain **2 / 12**: PASS
+
 
 ## v0.27 CCTV / free immersive regression — PASS
 

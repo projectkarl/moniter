@@ -19,19 +19,31 @@ function parseLive(xml) {
   return map;
 }
 
+function endpointFromBlock(block = '') {
+  const lat = Number(tag(block, 'PositionLat') || tag(block, 'Latitude'));
+  const lon = Number(tag(block, 'PositionLon') || tag(block, 'Longitude'));
+  return Number.isFinite(lat) && Number.isFinite(lon) ? [lat, lon] : null;
+}
+
 function parseSections(xml) {
   const map = new Map();
   for (const block of xmlBlocks(xml, 'Section')) {
     const sectionId = tag(block, 'SectionID');
     if (!sectionId) continue;
+    const startBlock = tag(block, 'SectionStart') || tag(block, 'Start');
+    const endBlock = tag(block, 'SectionEnd') || tag(block, 'End');
+    const startPoint = endpointFromBlock(startBlock);
+    const endPoint = endpointFromBlock(endBlock);
+    const geometryFallback = startPoint && endPoint ? [startPoint, endPoint] : [];
     map.set(sectionId, {
       sectionId,
       name: tag(block, 'SectionName'),
       road: tag(block, 'RoadName') || tag(block, 'RoadID'),
       direction: tag(block, 'RoadDirection'),
-      start: tag(block, 'Start'),
-      end: tag(block, 'End'),
+      start: tag(startBlock, 'LocationName') || tag(startBlock, 'Name') || '',
+      end: tag(endBlock, 'LocationName') || tag(endBlock, 'Name') || '',
       speedLimit: Number(tag(block, 'SpeedLimit')),
+      geometryFallback,
     });
   }
   return map;
@@ -77,13 +89,13 @@ module.exports = async (req, res) => {
 
     const items = [];
     for (const [sectionId, dynamic] of live) {
-      const geometry = shapes.get(sectionId);
+      const meta = sections.get(sectionId) || {};
+      const geometry = shapes.get(sectionId) || meta.geometryFallback || [];
       if (!geometry?.length) continue;
       const center = midpoint(geometry);
       if (!center) continue;
       const distance = distanceKm(lat, lon, center.lat, center.lon);
       if (distance > radius) continue;
-      const meta = sections.get(sectionId) || {};
       const item = {
         ...meta,
         ...dynamic,
@@ -104,8 +116,9 @@ module.exports = async (req, res) => {
 
     return json(res, 200, {
       zeroKey: true,
-      source: 'Freeway Bureau LiveTraffic.xml + SectionShape.xml',
+      source: 'Freeway Bureau LiveTraffic.xml + SectionShape.xml + Section endpoint fallback',
       shapeAvailable: shapes.size > 0,
+      shapeFallbackAvailable: [...sections.values()].some((x) => x.geometryFallback?.length >= 2),
       metadataAvailable: sections.size > 0,
       avgSpeed,
       status: worst,
