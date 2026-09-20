@@ -1,9 +1,9 @@
-# EYE // TAIWAN — Clear Map CCTV v0.23.0
+# EYE // TAIWAN — Clean Command v0.24.0
 
 Zero-Key Taiwan situational-intelligence dashboard for Vercel. The interface keeps the MI6/007-inspired intelligence-console language, while the **map itself is now natural, bright and readable**. Search or speak a place once and EYE assembles the relevant public intelligence in one result view. A → B routing and NAV OPS remain secondary tools.
 
 
-## v0.23 Clear Map CCTV
+## v0.24 Clean Command
 
 ### Map clarity first
 
@@ -23,6 +23,16 @@ Zero-Key Taiwan situational-intelligence dashboard for Vercel. The interface kee
 - CCTV privacy blur remains available but is **off by default** so public traffic imagery is visible immediately. No plate OCR, face recognition or cross-camera vehicle/person tracking is added.
 - If an upstream public camera is genuinely offline or exposes an unsupported/non-browser media protocol, EYE stays on the same page and shows a signal-state card; it never redirects the operator away.
 
+
+### v0.24 UX restructure
+
+- Desktop map is now a dedicated viewport that never sits underneath the right-side intelligence column.
+- `CONTACT TRACK`, NAV status and multi-route / operational briefs render inside the right automatic-intel column instead of floating over the map.
+- Public-signal standby/ribbon overlays are removed from the map surface.
+- Freeway speed is communicated by live road color only; speed numbers appear after the user clicks/taps a segment.
+- The opening sequence now transitions from a global Earth view into a Taiwan island lock before the national live-flow grid appears.
+- Layer controls and flow legend live in the right utility zone on desktop; mobile keeps a compact horizontal dock.
+- Left rail actions now bring the relevant card into the right-side intelligence column so every button has visible feedback.
 
 ## v0.22 Map-First Command
 

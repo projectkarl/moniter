@@ -1,4 +1,17 @@
-# Test report — v0.23.0 Clear Map CCTV Zero-Key
+
+## v0.24 Clean Command UX regression
+
+- CONTACT TRACK is embedded in the right-side automatic intel column: PASS
+- NAV HUD is embedded in the right-side automatic intel column: PASS
+- Multi-route / operational brief uses inline right-side card instead of floating OPS drawer: PASS
+- Persistent public-signal standby/ribbon does not cover map: PASS
+- Freeway road colors remain visible while always-on km/h badges are removed: PASS
+- Segment click popup still exposes travel speed / congestion metadata: PASS
+- Desktop map viewport reserves the intelligence side column: PASS
+- Earth → Taiwan opening sequence DOM/CSS/JS present: PASS
+- Layer controls no longer occupy a vertical map-blocking panel: PASS
+
+# Test report — v0.24.0 Clean Command Zero-Key
 
 ## Core regression — PASS
 
@@ -10,7 +23,7 @@
 - Mock API contracts: PASS
 - In-page CCTV feed proxy regression: PASS
 - Zero-Key runtime architecture retained: PASS
-- Build label: `0.23.0 CLEAR-MAP CCTV`
+- Build label: `0.24.0 CLEAN COMMAND`
 
 
 

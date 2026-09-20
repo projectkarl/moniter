@@ -1592,3 +1592,153 @@ body{font-size:17px;}
 @media(min-width:921px){.map-layer-dock{right:calc(var(--v22-panel-w) + 30px);bottom:14px;}}
 @media(max-width:920px){.map-layer-dock{right:8px;left:auto;top:calc(178px + var(--safe-top));bottom:auto;}}
 @media(max-width:520px){.map-layer-dock{top:calc(174px + var(--safe-top));max-width:calc(100vw - 16px);}}
+
+/* ========================================================================
+   v0.24 CLEAN COMMAND — unobstructed map + right-side automatic intel
+   ======================================================================== */
+:root{
+  --v24-side-w:392px;
+  --v24-rail-w:62px;
+  --v24-gap:14px;
+}
+
+/* Cinematic Earth -> Taiwan boot */
+.boot-frame{width:min(820px,92vw)!important;}
+.boot-planet-sequence{position:relative;width:240px;height:240px;margin:0 auto 22px;display:grid;place-items:center;perspective:900px;}
+.boot-earth{position:absolute;width:188px;height:188px;border-radius:50%;overflow:hidden;
+  background:
+    radial-gradient(circle at 36% 28%,rgba(255,255,255,.25),transparent 10%),
+    radial-gradient(circle at 45% 44%,rgba(92,142,174,.92),rgba(14,40,60,.98) 58%,rgba(2,7,11,.98) 72%);
+  box-shadow:0 0 0 1px rgba(179,211,230,.2),0 0 70px rgba(65,120,153,.22),inset -28px -18px 44px rgba(0,0,0,.58);
+  transform:scale(.92);opacity:1;transition:transform .9s cubic-bezier(.2,.8,.2,1),opacity .7s ease,filter .7s ease;
+}
+.boot-earth::before,.boot-earth::after{content:"";position:absolute;inset:0;border-radius:50%;}
+.boot-earth::before{background:
+  radial-gradient(ellipse at 34% 37%,rgba(99,127,82,.72) 0 11%,transparent 12%),
+  radial-gradient(ellipse at 47% 49%,rgba(103,132,84,.68) 0 14%,transparent 15%),
+  radial-gradient(ellipse at 62% 38%,rgba(109,137,85,.64) 0 9%,transparent 10%),
+  radial-gradient(ellipse at 66% 62%,rgba(91,119,75,.58) 0 10%,transparent 11%);
+  filter:blur(.4px);opacity:.9;
+}
+.boot-earth::after{background:linear-gradient(110deg,transparent 42%,rgba(255,255,255,.12) 48%,transparent 54%);animation:earthSweep 1.8s linear infinite;}
+.earth-grid{position:absolute;inset:0;border-radius:50%;background:repeating-radial-gradient(circle at 50% 50%,transparent 0 18px,rgba(202,226,238,.08) 19px 20px);mix-blend-mode:screen;}
+.earth-orbit{position:absolute;left:-24px;top:83px;width:236px;height:38px;border:1px solid rgba(224,199,127,.22);border-radius:50%;transform:rotate(-18deg);}
+.earth-lock{position:absolute;right:35px;top:62px;width:9px;height:9px;border:1px solid #e1c978;border-radius:50%;box-shadow:0 0 20px rgba(224,199,127,.65);}
+.boot-taiwan-focus{position:absolute;display:grid;place-items:center;width:120px;height:168px;opacity:0;transform:scale(.28);transition:opacity .55s ease,transform .8s cubic-bezier(.12,.78,.2,1);}
+.boot-taiwan-focus img{width:88px;height:142px;object-fit:contain;filter:drop-shadow(0 0 26px rgba(224,199,127,.36));}
+.boot-taiwan-focus span{position:absolute;inset:8px 0;border:1px solid rgba(224,199,127,.42);border-radius:50%;animation:bootRing 1.6s linear infinite;}
+.boot-taiwan-focus i{position:absolute;width:8px;height:8px;border-radius:50%;background:#edd88c;box-shadow:0 0 26px 7px rgba(224,199,127,.38);}
+.boot-sequence.phase-taiwan .boot-earth{transform:scale(2.55);opacity:.12;filter:blur(1.2px);}
+.boot-sequence.phase-taiwan .boot-taiwan-focus{opacity:1;transform:scale(1);}
+.boot-sequence.phase-flow .boot-taiwan-focus::after{content:"LIVE FLOW";position:absolute;bottom:-20px;color:#99c79f;font:700 9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;}
+.boot-sequence.phase-ready .boot-taiwan-focus{transform:scale(1.08);}
+@keyframes earthSweep{from{transform:translateX(-45%)}to{transform:translateX(45%)}}
+
+/* The map never sits underneath desktop side content. */
+@media(min-width:921px){
+  .map{left:var(--v24-rail-w)!important;right:calc(var(--v24-side-w) + var(--v24-gap) * 2)!important;}
+  .map-vignette,.scanline,.theater-grid,.reticle,.sweep-fx,.signal-trace,.target-lock,.geo-transfer,.map-telemetry{right:calc(var(--v24-side-w) + var(--v24-gap) * 2)!important;}
+  .ops-rail{width:var(--v24-rail-w)!important;}
+  .intel,.national-overview,
+  .route-drawer,.camera-drawer,.ops-drawer,.wall-drawer,.source-drawer,.settings{
+    left:auto!important;right:var(--v24-gap)!important;top:160px!important;bottom:auto!important;
+    width:var(--v24-side-w)!important;max-width:var(--v24-side-w)!important;
+    max-height:calc(100dvh - 174px)!important;border-radius:8px!important;
+  }
+  .national-overview{padding:13px!important;}
+  .source-drawer,.settings,.wall-drawer{z-index:980!important;}
+  .map-layer-dock{left:auto!important;right:var(--v24-gap)!important;top:84px!important;bottom:auto!important;width:var(--v24-side-w);justify-content:center;box-sizing:border-box;}
+  .flow-legend{left:auto!important;right:var(--v24-gap)!important;top:126px!important;bottom:auto!important;width:var(--v24-side-w);box-sizing:border-box;justify-content:center;}
+  .sensor-rack{display:none!important;}
+}
+
+/* All persistent target/navigation information belongs to the automatic intel side panel. */
+#intelBody>.nav-hud,#intelBody>.track-hud{
+  position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+  transform:none!important;width:auto!important;max-width:none!important;z-index:auto!important;
+  margin:0 0 10px!important;padding:13px!important;border-radius:6px!important;
+  box-shadow:none!important;backdrop-filter:none!important;
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015))!important;
+  border:1px solid rgba(224,199,127,.20)!important;
+}
+#intelBody>.nav-hud[hidden],#intelBody>.track-hud[hidden]{display:none!important;}
+#intelBody>.track-hud .track-head,#intelBody>.nav-hud .nav-head{font-size:10px!important;}
+#intelBody>.track-hud .track-core{grid-template-columns:1fr 1fr 1fr!important;gap:7px!important;}
+#intelBody>.track-hud .track-core b{font-size:14px!important;}
+#intelBody>.track-hud .track-details{max-height:150px;overflow:auto;}
+#intelBody>.nav-hud .nav-core{gap:8px;}
+#intelBody>.nav-hud .nav-speed strong{font-size:30px!important;}
+
+/* Inline operational/multi-route brief replaces floating route/ops overlays. */
+.ops-inline-card{border-left:2px solid rgba(224,199,127,.5)!important;}
+.ops-inline-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:9px;}
+.ops-inline-head h3{margin:3px 0 0;color:#eee6ce;font-size:17px;line-height:1.15;}
+.ops-inline-head> b{color:#d6c37d;font:700 9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;padding:5px 7px;border:1px solid rgba(224,199,127,.25);}
+
+/* Public-signal standby/ribbons no longer float over the map. */
+.theater-standby,.provenance-ribbon{display:none!important;}
+
+/* Map overlays are kept intentionally sparse. */
+.map-telemetry{opacity:.78!important;}
+.flow-speed-marker{display:none!important;}
+.national-hotspot-tag{min-width:118px;max-width:138px;height:auto;padding:8px 9px;background:rgba(27,10,10,.92);border:1px solid rgba(219,91,79,.72);box-shadow:0 9px 28px rgba(0,0,0,.25),0 0 24px rgba(218,83,73,.16);}
+.national-hotspot-tag span{font-size:8px!important;letter-spacing:.12em!important;color:#f08378!important;}
+.national-hotspot-tag b{font-size:11px!important;color:#f5d7d3!important;}
+.national-hotspot-tag em{font-size:10px!important;color:#fff!important;}
+.national-hotspot-tag i{font-size:8px!important;color:#caa6a1!important;}
+
+/* Clearer geography and larger interactive text. */
+.leaflet-container{font-size:15px!important;}
+.leaflet-popup-content{font-size:14px!important;line-height:1.55!important;min-width:210px;}
+.leaflet-popup-content b{font-size:15px!important;}
+.leaflet-tooltip{font-size:13px!important;font-weight:700!important;}
+.leaflet-control-zoom a{width:38px!important;height:38px!important;line-height:38px!important;font-size:22px!important;}
+.map-layer-dock button{font-size:11px!important;min-width:52px!important;height:36px!important;}
+.flow-legend span{font-size:9px!important;}
+
+/* Side panel typography prioritizes legibility over micro-HUD density. */
+.intel .panel-head h2,.national-head b{font-size:20px!important;}
+.intel .eyebrow,.card-label{font-size:11px!important;}
+.intel-sync{font-size:10px!important;}
+.intel-tabs button{font-size:10px!important;min-height:38px!important;}
+.auto-feed,.situation-feed,.intel-note{font-size:13px!important;}
+.target-brief b,.situation-brief b{font-size:16px!important;}
+.target-brief em,.situation-brief em{font-size:12px!important;}
+.national-hotspot-card b{font-size:14px!important;}
+.national-hotspot-card strong{font-size:12px!important;color:#dc776c!important;}
+.national-hotspot-card small{font-size:10px!important;}
+
+/* Map focus means truly full map. */
+@media(min-width:921px){
+  .map-focus .map{left:0!important;right:0!important;}
+  .map-focus .ops-rail,.map-focus .intel,.map-focus .national-overview,.map-focus .map-layer-dock,.map-focus .flow-legend{opacity:0!important;pointer-events:none!important;}
+}
+
+/* Mobile: one bottom intel drawer; no map-blocking tracking/navigation HUDs. */
+@media(max-width:920px){
+  .boot-planet-sequence{width:190px;height:190px;margin-bottom:18px}.boot-earth{width:150px;height:150px}.boot-taiwan-focus{width:98px;height:142px}.boot-taiwan-focus img{width:72px;height:116px}
+  .intel{max-height:40dvh!important;}
+  #intelBody>.nav-hud,#intelBody>.track-hud{padding:11px!important;}
+  #intelBody>.track-hud .track-core{grid-template-columns:1fr 1fr!important;}
+  #intelBody>.track-hud .track-core>div:nth-child(3){grid-column:1/-1;}
+  .map-layer-dock{top:auto!important;bottom:calc(76px + var(--safe-bottom))!important;right:8px!important;left:8px!important;width:auto!important;justify-content:flex-start!important;}
+  .flow-legend{display:none!important;}
+  .map-telemetry{display:none!important;}
+  .national-hotspot-tag{transform:scale(.9);transform-origin:center;}
+  .leaflet-popup-content{font-size:15px!important;min-width:190px;}
+}
+@media(max-width:520px){
+  .boot-title{font-size:31px!important;letter-spacing:.12em!important;}.boot-sub{font-size:11px!important}.boot-status{font-size:11px!important}
+  .intel{max-height:39dvh!important;}
+  .map-layer-dock button{height:40px!important;min-width:48px!important;font-size:10px!important;}
+}
+/* v0.24 geometry correction: cinematic map effects follow the map viewport, not the full browser. */
+@media(min-width:921px){
+  .map-vignette,.scanline,.geo-transfer{left:var(--v24-rail-w)!important;right:calc(var(--v24-side-w) + var(--v24-gap) * 2)!important;}
+  .reticle,.sweep-fx,.signal-trace,.target-lock,.theater-grid{
+    left:calc(var(--v24-rail-w) + (100vw - var(--v24-rail-w) - var(--v24-side-w) - var(--v24-gap) * 2)/2)!important;
+    right:auto!important;
+  }
+  .map-telemetry.telemetry-left{left:calc(var(--v24-rail-w) + 12px)!important;right:auto!important;}
+  .map-telemetry.telemetry-right{right:calc(var(--v24-side-w) + var(--v24-gap) * 2 + 12px)!important;left:auto!important;}
+}

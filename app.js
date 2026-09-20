@@ -384,9 +384,17 @@
     const boot = $('bootSequence');
     if (!boot || !state.motion) { if (boot) boot.classList.add('done'); return; }
     const status = $('bootStatus');
-    const steps = ['SECURE CHANNEL INITIALIZING', 'PUBLIC SIGNAL BUS ONLINE', 'PRIVACY LAYER VERIFIED', 'OPS NODE READY'];
-    steps.forEach((text, i) => setTimeout(() => { if (status) status.textContent = text; }, i * 260));
-    setTimeout(() => boot.classList.add('done'), 1500);
+    const timeline = [
+      [0, 'ORBITAL LINK ACQUIRING TAIWAN', 'phase-earth'],
+      [720, 'TAIWAN SIGNAL LOCK', 'phase-taiwan'],
+      [1500, 'NATIONAL FLOW GRID ONLINE', 'phase-flow'],
+      [2250, 'PUBLIC SIGNAL BUS READY', 'phase-ready'],
+    ];
+    timeline.forEach(([delay, text, cls]) => setTimeout(() => {
+      if (status) status.textContent = text;
+      boot.classList.add(cls);
+    }, delay));
+    setTimeout(() => boot.classList.add('done'), 3050);
   }
 
   function updateClock() {
@@ -486,6 +494,8 @@
 
   function openIntelResults() {
     state.intelOpen = true;
+    if ($('nationalOverview')) $('nationalOverview').hidden = true;
+    if ($('intelPanel')) $('intelPanel').hidden = false;
     $('intelPanel')?.classList.add('open');
     if ($('intelCollapse')) $('intelCollapse').textContent = '−';
   }
@@ -598,15 +608,13 @@
     $('nationalDataAge').textContent = new Date().toLocaleTimeString('zh-TW',{hour12:false,hour:'2-digit',minute:'2-digit'});
     const list = $('nationalHotspotList');
     list.innerHTML = critical.length ? critical.map((h,i) => {
-      const speed = Number.isFinite(Number(h.travelSpeed)) ? `${Math.round(Number(h.travelSpeed))} km/h` : 'LOW SPEED';
-      return `<button type="button" data-national-hotspot="${i}" class="national-hotspot-card ${i===0?'active':''}"><span><i></i>CRITICAL ${String(i+1).padStart(2,'0')}</span><b>${escapeHtml(shortName(h.road || h.name || 'FREEWAY'))}</b><strong>${escapeHtml(speed)}</strong><em>${escapeHtml(h.start || '')}${h.end ? ` → ${escapeHtml(h.end)}` : ''}</em><small>${escapeHtml(h.reason.label)} · ${escapeHtml(h.reason.detail)}</small></button>`;
+      return `<button type="button" data-national-hotspot="${i}" class="national-hotspot-card ${i===0?'active':''}"><span><i></i>CRITICAL ${String(i+1).padStart(2,'0')}</span><b>${escapeHtml(shortName(h.road || h.name || 'FREEWAY'))}</b><strong>${escapeHtml(h.reason.label || 'CONGESTION')}</strong><em>${escapeHtml(h.start || '')}${h.end ? ` → ${escapeHtml(h.end)}` : ''}</em><small>點擊查看時速、原因與附近 CCTV</small></button>`;
     }).join('') : '<div class="national-empty">目前公開國道流速沒有偵測到 &lt;30 km/h 的嚴重壅塞路段。</div>';
     list.querySelectorAll('[data-national-hotspot]').forEach((btn) => btn.addEventListener('click', () => { const h=critical[Number(btn.dataset.nationalHotspot)]; if(h) selectNationalHotspot(h); }));
 
     state.nationalHotspotLayer?.clearLayers();
     critical.forEach((h) => {
-      const speed = Number.isFinite(Number(h.travelSpeed)) ? Math.round(Number(h.travelSpeed)) : '—';
-      const icon = L.divIcon({ className:'', html:`<div class="national-hotspot-tag"><span>CRITICAL</span><b>${speed}<small>km/h</small></b><em>${escapeHtml(shortName(h.road || h.name || 'FLOW'))}</em><i>${escapeHtml(h.reason?.label || 'FLOW WATCH')}</i></div>`, iconSize:[124,72], iconAnchor:[62,36] });
+      const icon = L.divIcon({ className:'', html:`<div class="national-hotspot-tag"><span>CRITICAL</span><b>CONGESTION</b><em>${escapeHtml(shortName(h.road || h.name || 'FLOW'))}</em><i>${escapeHtml(h.reason?.label || 'FLOW WATCH')}</i></div>`, iconSize:[124,64], iconAnchor:[62,32] });
       const marker = L.marker([h.lat,h.lon], { icon, zIndexOffset:760, interactive:true }).addTo(state.nationalHotspotLayer);
       marker.on('click', () => selectNationalHotspot(h));
     });
@@ -1354,12 +1362,16 @@
   }
 
   function setOpsPanel({ eyebrow = 'CLASSIFIED OPS', title = 'INTELLIGENCE', code = 'LIVE', html = '' }) {
-    $('opsEyebrow').textContent = eyebrow;
-    $('opsTitle').textContent = title;
-    $('opsCode').textContent = code;
-    $('opsTimestamp').textContent = $('clock').textContent;
-    $('opsBody').innerHTML = html;
-    openOverlayPanel('opsDrawer');
+    const card = $('opsInlineCard');
+    if (card) {
+      card.hidden = false;
+      if ($('opsInlineEyebrow')) $('opsInlineEyebrow').textContent = eyebrow;
+      if ($('opsInlineTitle')) $('opsInlineTitle').textContent = title;
+      if ($('opsInlineCode')) $('opsInlineCode').textContent = code;
+      if ($('opsInlineBody')) $('opsInlineBody').innerHTML = html;
+      openIntelResults();
+      setTimeout(() => card.scrollIntoView({ behavior: state.motion ? 'smooth' : 'auto', block: 'nearest' }), 30);
+    }
     setLinkTelemetry(code);
   }
 
@@ -1661,6 +1673,7 @@
     state.navigation.lastPoint = null;
     state.navigation.lastUiAt = 0;
     $('navHud').hidden = false;
+    openIntelResults();
     $('navTargetName').textContent = shortName(cur.target?.name || 'TARGET');
     $('navAlert').className = 'nav-alert live';
     $('navAlert').innerHTML = '<span>NAV LINK</span><b>GPS TRACKING ACTIVE</b><em>LIVE</em>';
@@ -2204,15 +2217,11 @@
 
   function openCamera(cam) {
     lockMapContact({ ...cam, source:cam.source || 'PUBLIC CCTV' }, 'CCTV', { zoom:14 });
-    openOverlayPanel('cameraDrawer');
-    $('cameraTitle').textContent = shortName(cam.name || cam.road || 'CAMERA');
-    const stage = $('cameraStage');
-    flashSignal(stage);
-    renderCameraMedia(stage, cam);
     state.activeCamera = cam;
-    applyPrivacyShield();
-    $('cameraMeta').textContent = `${cam.road || ''} ${cam.direction || ''} · ${cam.source || 'PUBLIC DATA'}`.trim();
-    renderCameraIntel(cam);
+    if ($('inlineCameraCard')) $('inlineCameraCard').hidden = false;
+    selectInlineCamera(cam);
+    openIntelResults();
+    jumpIntelCard('inlineCameraCard');
   }
 
   function applyPrivacyShield() {
@@ -2381,8 +2390,6 @@
       const data = await jsonFetch(`/api/data?action=flow&lat=${lat}&lon=${lon}&radius=${Math.round(radius)}`);
       const items = data.items || [];
       state.latestFlow = items;
-      let speedLabels = 0;
-      const labelAnchors = [];
       items.forEach((segment) => {
         if (!Array.isArray(segment.geometry) || segment.geometry.length < 2) return;
         const visual = flowVisual(segment);
@@ -2396,17 +2403,8 @@
         line.bindPopup(`<b>${escapeHtml(segment.road || segment.name || '國道路段')}</b><br>${escapeHtml(segment.start || '')} → ${escapeHtml(segment.end || '')}<br><span style="color:${visual.color}">● ${escapeHtml(label)}</span> · ${escapeHtml(speed)}`);
         line.on('click', () => lockMapContact({ ...segment, name:segment.road || segment.name || 'FREEWAY FLOW', source:'高速公路局 LiveTraffic' }, 'FLOW SEGMENT', { zoom:12 }));
 
-        const point = flowLabelPoint(segment);
-        if (!point || !Number.isFinite(speedValue)) return;
-        const priority = visual.className === 'critical' || visual.className === 'slow';
-        if (nationalScale && !priority) return;
-        const spacing = nationalScale ? (visual.className === 'critical' ? 16 : 24) : (priority ? 1.05 : 1.8);
-        const farEnough = labelAnchors.every((p) => haversineKm(p[0], p[1], point[0], point[1]) > spacing);
-        if (farEnough && speedLabels < (nationalScale ? 14 : 34)) {
-          L.marker(point, { icon: flowSpeedIcon(segment), interactive: false, zIndexOffset: visual.className === 'critical' ? 450 : 120 }).addTo(state.flowLayer);
-          labelAnchors.push(point);
-          speedLabels += 1;
-        }
+        // v0.24 map-first: speed values stay off the map.
+        // Click/tap a colored road segment to reveal speed and congestion metadata.
       });
       const avg = Number(data.avgSpeed);
       $('flowStatus').textContent = Number.isFinite(avg) ? `${Math.round(avg)} km/h` : (items.length ? String(data.status || 'LIVE').toUpperCase() : 'N/A');
@@ -2487,6 +2485,7 @@
   function updateTrackHud(contact = {}, type = 'CONTACT') {
     if (!$('trackHud')) return;
     $('trackHud').hidden = false;
+    openIntelResults();
     $('trackName').textContent = shortName(contact.callsign || contact.name || contact.title || contact.road || 'PUBLIC CONTACT');
     $('trackType').textContent = String(type || 'PUBLIC SIGNAL').toUpperCase();
     const alt = Number(contact.altitude);
@@ -2931,11 +2930,11 @@
         const origin = await preferredOrigin();
         return await planRoute(origin, state.target, { preference: 'recommended' });
       }
-      if (command === 'weather') { const c = state.target || state.user || state.map.getCenter(); return await loadWeather(c.lat, c.lon ?? c.lng, true); }
-      if (command === 'cctv') { const c = state.target || state.user || state.map.getCenter(); return await loadCctv(c.lat, c.lon ?? c.lng, true); }
-      if (command === 'speed') { const c = state.target || state.user || state.map.getCenter(); return await loadSpeedCameras(c.lat, c.lon ?? c.lng, true); }
-      if (command === 'news') { const c = state.target || state.user || state.map.getCenter(); return await loadNews(c.lat, c.lon ?? c.lng, true, c.name || ''); }
-      if (command === 'traffic') { const c = state.target || state.user || state.map.getCenter(); return await Promise.allSettled([loadTraffic(c.lat, c.lon ?? c.lng, true), loadFlow(c.lat, c.lon ?? c.lng, true)]); }
+      if (command === 'weather') { const c = state.target || state.user || state.map.getCenter(); const r = await loadWeather(c.lat, c.lon ?? c.lng, true); jumpIntelCard('weatherCard'); return r; }
+      if (command === 'cctv') { const c = state.target || state.user || state.map.getCenter(); const r = await loadCctv(c.lat, c.lon ?? c.lng, false); renderInlineCctvResults(r || [], { lat:c.lat, lon:c.lon ?? c.lng }); jumpIntelCard('inlineCameraCard'); return r; }
+      if (command === 'speed') { const c = state.target || state.user || state.map.getCenter(); const r = await loadSpeedCameras(c.lat, c.lon ?? c.lng, false); jumpIntelCard('autoIntelCard'); return r; }
+      if (command === 'news') { const c = state.target || state.user || state.map.getCenter(); const r = await loadNews(c.lat, c.lon ?? c.lng, false, c.name || ''); jumpIntelCard('autoIntelCard'); return r; }
+      if (command === 'traffic') { const c = state.target || state.user || state.map.getCenter(); const r = await Promise.allSettled([loadTraffic(c.lat, c.lon ?? c.lng, false), loadFlow(c.lat, c.lon ?? c.lng, false)]); jumpIntelCard('autoIntelCard'); return r; }
     } catch (err) { toast(err.message, 4200); }
   }
 

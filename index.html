@@ -20,12 +20,15 @@
   <div id="app" class="app-shell cinematic-ui">
     <div id="bootSequence" class="boot-sequence" aria-hidden="true">
       <div class="boot-frame">
-        <div class="boot-emblem"><img src="/assets/taiwan-silhouette.svg" alt="" /><span></span><i></i></div>
+        <div class="boot-planet-sequence" aria-hidden="true">
+          <div class="boot-earth"><i class="earth-grid"></i><i class="earth-orbit"></i><span class="earth-lock"></span></div>
+          <div class="boot-taiwan-focus"><img src="/assets/taiwan-silhouette.svg" alt="" /><span></span><i></i></div>
+        </div>
         <div class="boot-title">EYE // TAIWAN</div>
-        <div class="boot-sub">PUBLIC SIGNAL INTELLIGENCE</div>
+        <div class="boot-sub">GLOBAL VIEW → TAIWAN LIVE GRID</div>
         <div class="boot-track"><i></i></div>
-        <div id="bootStatus" class="boot-status">SECURE CHANNEL INITIALIZING</div>
-        <div class="boot-codes"><span>ZERO-KEY</span><span>PRIVACY FIRST</span><span>OPS NODE TW</span></div>
+        <div id="bootStatus" class="boot-status">ORBITAL LINK ACQUIRING TAIWAN</div>
+        <div class="boot-codes"><span>ZERO-KEY</span><span>PUBLIC SIGNALS</span><span>TAIWAN GRID</span></div>
       </div>
     </div>
     <div class="hud-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -171,32 +174,6 @@
         <div id="voiceTranscript" class="voice-transcript" hidden></div>
       </section>
 
-      <section id="navHud" class="nav-hud hud-panel" aria-label="導航情報" hidden>
-        <div class="nav-head"><span><i class="live-dot"></i>NAV OPS ACTIVE</span><button id="stopNavBtn" class="micro-btn">ABORT</button></div>
-        <div class="nav-core">
-          <div class="nav-speed"><small>GROUND SPEED</small><strong id="navSpeed">--</strong><span>km/h</span><em id="navLimitBadge" class="nav-limit-badge" hidden>ENF --</em></div>
-          <div class="nav-heading"><small>HEADING</small><b id="navHeading">---°</b><span id="navTargetName">TARGET</span></div>
-          <div class="nav-remaining"><small>REMAINING</small><b id="navRemaining">-- km</b><span id="navEta">-- min</span></div>
-        </div>
-        <div id="navAlert" class="nav-alert"><span>ROUTE LINK</span><b>等待定位訊號</b><em>STANDBY</em></div>
-        <button id="navCameraHandoff" class="nav-camera-handoff" type="button" hidden>
-          <span id="navCameraThumb" class="nav-camera-thumb"><i>LINK</i></span>
-          <span class="nav-camera-copy"><small>CAMERA HANDOFF</small><b id="navCameraName">PUBLIC CCTV</b><em id="navCameraMeta">SIGNAL STANDBY</em></span>
-          <span class="cam-pulse"></span>
-        </button>
-      </section>
-
-      <section id="trackHud" class="track-hud hud-panel" aria-label="目標追蹤座艙" hidden>
-        <div class="track-head"><span><i class="live-dot"></i>CONTACT TRACK // 公開訊號</span><div><button id="cockpitToggleBtn" class="micro-btn">COCKPIT 3D</button><button id="stopTrackBtn" class="micro-btn">RELEASE</button></div></div>
-        <div class="track-core">
-          <div><small>CONTACT</small><b id="trackName">—</b><em id="trackType">PUBLIC SIGNAL</em></div>
-          <div><small>ALT / DEPTH</small><b id="trackAltitude">—</b><em id="trackSource">SOURCE N/A</em></div>
-          <div><small>SPEED</small><b id="trackSpeed">—</b><em id="trackHeading">HDG —</em></div>
-        </div>
-        <div id="trackStatus" class="track-status"><span>LOCK STATUS</span><b>TARGET ACQUIRED</b><em>FOLLOW READY</em></div>
-        <div id="trackDetails" class="track-details" aria-label="追蹤目標詳細資料"></div>
-      </section>
-
       <section id="cockpit3d" class="cockpit-3d" aria-label="3D 座艙追蹤" hidden>
         <div id="cesiumCockpitCanvas" class="cesium-cockpit-canvas"></div>
         <div class="cockpit-3d-frame" aria-hidden="true"><i></i><i></i><i></i><i></i><span></span></div>
@@ -234,6 +211,30 @@
             <div class="card-label">TARGET INTEL // 自動摘要</div>
             <div id="targetBrief" class="target-brief"><span>NO TARGET</span><b>等待地點查詢</b><em>STANDBY</em></div>
           </article>
+      <section id="navHud" class="nav-hud hud-panel" aria-label="導航情報" hidden>
+        <div class="nav-head"><span><i class="live-dot"></i>NAV OPS ACTIVE</span><button id="stopNavBtn" class="micro-btn">ABORT</button></div>
+        <div class="nav-core">
+          <div class="nav-speed"><small>GROUND SPEED</small><strong id="navSpeed">--</strong><span>km/h</span><em id="navLimitBadge" class="nav-limit-badge" hidden>ENF --</em></div>
+          <div class="nav-heading"><small>HEADING</small><b id="navHeading">---°</b><span id="navTargetName">TARGET</span></div>
+          <div class="nav-remaining"><small>REMAINING</small><b id="navRemaining">-- km</b><span id="navEta">-- min</span></div>
+        </div>
+        <div id="navAlert" class="nav-alert"><span>ROUTE LINK</span><b>等待定位訊號</b><em>STANDBY</em></div>
+        <button id="navCameraHandoff" class="nav-camera-handoff" type="button" hidden>
+          <span id="navCameraThumb" class="nav-camera-thumb"><i>LINK</i></span>
+          <span class="nav-camera-copy"><small>CAMERA HANDOFF</small><b id="navCameraName">PUBLIC CCTV</b><em id="navCameraMeta">SIGNAL STANDBY</em></span>
+          <span class="cam-pulse"></span>
+        </button>
+      </section>
+      <section id="trackHud" class="track-hud hud-panel" aria-label="目標追蹤座艙" hidden>
+        <div class="track-head"><span><i class="live-dot"></i>CONTACT TRACK // 公開訊號</span><div><button id="cockpitToggleBtn" class="micro-btn">COCKPIT 3D</button><button id="stopTrackBtn" class="micro-btn">RELEASE</button></div></div>
+        <div class="track-core">
+          <div><small>CONTACT</small><b id="trackName">—</b><em id="trackType">PUBLIC SIGNAL</em></div>
+          <div><small>ALT / DEPTH</small><b id="trackAltitude">—</b><em id="trackSource">SOURCE N/A</em></div>
+          <div><small>SPEED</small><b id="trackSpeed">—</b><em id="trackHeading">HDG —</em></div>
+        </div>
+        <div id="trackStatus" class="track-status"><span>LOCK STATUS</span><b>TARGET ACQUIRED</b><em>FOLLOW READY</em></div>
+        <div id="trackDetails" class="track-details" aria-label="追蹤目標詳細資料"></div>
+      </section>
           <article class="intel-card auto-intel-card" id="autoIntelCard">
             <div class="card-label">AREA SIGNALS // 自動整合</div>
             <div id="autoIntelOverview" class="auto-intel-overview"><div><small>事件</small><b>—</b></div><div><small>CCTV</small><b>—</b></div><div><small>新聞</small><b>—</b></div><div><small>航空</small><b>—</b></div></div>
@@ -286,6 +287,10 @@
               </div>
               <button id="startNavBtn" class="nav-start-btn" type="button">開始導航</button>
             </div>
+          </article>
+          <article class="intel-card ops-inline-card" id="opsInlineCard" hidden>
+            <div class="ops-inline-head"><div><span class="eyebrow" id="opsInlineEyebrow">LIVE OPS</span><h3 id="opsInlineTitle">INTELLIGENCE</h3></div><b id="opsInlineCode">LIVE</b></div>
+            <div id="opsInlineBody" class="ops-body"></div>
           </article>
           <details class="intel-card signal-card data-status-card">
             <summary>資料狀態 · 自動更新</summary>
@@ -377,7 +382,7 @@
         <div class="setting-row"><div><b>DETECTION OVERLAY</b><small>在可見公開訊號標記加上識別框與 ID；只標示地圖資料實體，不對 CCTV 影像做人臉／車牌辨識</small></div><button id="detectionToggle" class="toggle" aria-pressed="false"><span></span></button></div>
         <div class="setting-row"><div><b>VOICE MARKUP</b><small>Zero-Key 本地語音指令：例如「標記這裡集合點」、「清除標註」、「切換夜視」、「追蹤最近航班」</small></div><button id="voiceMarkupToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-row"><div><b>CCTV 隱私遮罩</b><small>預設關閉以直接查看公開即時影像；需要時可手動模糊。仍不做人臉或車牌 OCR／追蹤</small></div><button id="privacyShieldToggle" class="toggle" aria-pressed="false"><span></span></button></div>
-        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.23.0 CLEAR-MAP CCTV</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
+        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.24.0 CLEAN COMMAND</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
       </section>
 
       <section id="threatAlert" class="threat-alert" aria-live="assertive" hidden>
