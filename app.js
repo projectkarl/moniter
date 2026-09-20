@@ -364,7 +364,7 @@
     const status = $('bootStatus');
     const steps = ['SECURE CHANNEL INITIALIZING', 'PUBLIC SIGNAL BUS ONLINE', 'PRIVACY LAYER VERIFIED', 'OPS NODE READY'];
     steps.forEach((text, i) => setTimeout(() => { if (status) status.textContent = text; }, i * 260));
-    setTimeout(() => boot.classList.add('done'), 1180);
+    setTimeout(() => boot.classList.add('done'), 1500);
   }
 
   function updateClock() {
@@ -597,6 +597,9 @@
   }
 
   function enterNationalMode() {
+    closeOverlayPanels();
+    $('app')?.classList.remove('map-focus');
+    if ($('mapFocusBtn')) $('mapFocusBtn').textContent = 'MAP FOCUS';
     state.nationalMode = true;
     $('app')?.classList.add('national-mode');
     if ($('intelPanel')) $('intelPanel').hidden = true;
@@ -615,6 +618,7 @@
   }
 
   function exitNationalMode() {
+    closeOverlayPanels();
     state.nationalMode = false;
     if (state.nationalTimer) { clearInterval(state.nationalTimer); state.nationalTimer = null; }
     $('app')?.classList.remove('national-mode');
@@ -1311,13 +1315,29 @@
     return c ? { lat: Number(c.lat), lon: Number(c.lon ?? c.lng), name: c.name || 'MAP CENTER' } : { lat: 25.0478, lon: 121.5170, name: 'TAIPEI' };
   }
 
+  const OVERLAY_PANEL_IDS = ['routeDrawer','cameraDrawer','opsDrawer','wallDrawer','sourceDrawer','settingsPanel'];
+
+  function closeOverlayPanels(exceptId = '') {
+    OVERLAY_PANEL_IDS.forEach((id) => {
+      if (id === exceptId) return;
+      const el = $(id);
+      if (el) el.hidden = true;
+    });
+  }
+
+  function openOverlayPanel(id) {
+    closeOverlayPanels(id);
+    const el = $(id);
+    if (el) el.hidden = false;
+  }
+
   function setOpsPanel({ eyebrow = 'CLASSIFIED OPS', title = 'INTELLIGENCE', code = 'LIVE', html = '' }) {
     $('opsEyebrow').textContent = eyebrow;
     $('opsTitle').textContent = title;
     $('opsCode').textContent = code;
     $('opsTimestamp').textContent = $('clock').textContent;
     $('opsBody').innerHTML = html;
-    $('opsDrawer').hidden = false;
+    openOverlayPanel('opsDrawer');
     setLinkTelemetry(code);
   }
 
@@ -1546,7 +1566,7 @@
   function showCurrentMissionRoute() {
     const cur = state.currentRoute;
     if (!cur) {
-      $('routeDrawer').hidden = false;
+      openOverlayPanel('routeDrawer');
       if (state.user) $('routeOrigin').value = '我的位置';
       toast('先指定 A 點與 B 點，系統會建立沿途情報。');
       return;
@@ -1554,7 +1574,7 @@
     if (cur.intel?.timeline) {
       buildMissionRouteBrief({ ...cur, traffic: cur.intel.traffic, flow: cur.intel.flow, cctv: cur.intel.cctv, speedCameras: cur.intel.speedCameras || [] });
     } else {
-      $('routeDrawer').hidden = false;
+      openOverlayPanel('routeDrawer');
     }
   }
 
@@ -1600,7 +1620,7 @@
   async function startNavigation() {
     const cur = state.currentRoute;
     if (!cur?.route) {
-      $('routeDrawer').hidden = false;
+      openOverlayPanel('routeDrawer');
       toast('請先建立一條路線，再啟動 NAV OPS。');
       return;
     }
@@ -1804,7 +1824,7 @@
 
   async function openCctvWall() {
     const c = getOpsCenter();
-    $('wallDrawer').hidden = false;
+    openOverlayPanel('wallDrawer');
     signalAcquire(true, 'CAMERA SIGNAL ACQUISITION');
     $('wallGrid').innerHTML = '<div class="ops-empty" style="grid-column:1/-1">ACQUIRING PUBLIC CAMERA SIGNALS…</div>';
     const items = await loadCctv(c.lat, c.lon, false, 35);
@@ -2112,7 +2132,7 @@
 
   function openCamera(cam) {
     lockMapContact({ ...cam, source:cam.source || 'PUBLIC CCTV' }, 'CCTV', { zoom:14 });
-    $('cameraDrawer').hidden = false;
+    openOverlayPanel('cameraDrawer');
     $('cameraTitle').textContent = shortName(cam.name || cam.road || 'CAMERA');
     const stage = $('cameraStage');
     flashSignal(stage);
@@ -2370,7 +2390,7 @@
 
   function openSourceStatus() {
     renderSourceMatrix();
-    $('sourceDrawer').hidden = false;
+    openOverlayPanel('sourceDrawer');
   }
 
   function addAnnotation(label = 'MARK', point = null) {
@@ -2734,7 +2754,7 @@
     $('brandHome')?.addEventListener('click', () => bootstrapDefaultCenter().catch((err)=>toast(err.message,4200)));
     $('brandHome')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bootstrapDefaultCenter().catch((err)=>toast(err.message,4200)); } });
     $('stopNavBtn').addEventListener('click', () => stopNavigation(true));
-    $('openSettings').addEventListener('click', () => { tactile(8); $('settingsPanel').hidden = false; });
+    $('openSettings').addEventListener('click', () => { tactile(8); openOverlayPanel('settingsPanel'); });
     $('abRouteBtn')?.addEventListener('click', async () => {
       const a = $('abOrigin')?.value?.trim() || '台北市中心';
       const b = $('abTarget')?.value?.trim();
@@ -2752,6 +2772,20 @@
     });
     $('abTarget')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('abRouteBtn')?.click(); } });
 
+    $('mapFocusBtn')?.addEventListener('click', () => {
+      const active = !$('app').classList.contains('map-focus');
+      $('app').classList.toggle('map-focus', active);
+      $('mapFocusBtn').textContent = active ? 'EXIT FOCUS' : 'MAP FOCUS';
+      tactile(6);
+    });
+    $('nationalCompactBtn')?.addEventListener('click', () => {
+      const panel = $('nationalOverview');
+      if (!panel) return;
+      const compact = !panel.classList.contains('compact');
+      panel.classList.toggle('compact', compact);
+      $('nationalCompactBtn').textContent = compact ? '+' : '−';
+      tactile(6);
+    });
     $('shareBtn')?.addEventListener('click', shareCurrentView);
     $('threatDismiss')?.addEventListener('click', () => { $('threatAlert').hidden = true; $('app').classList.remove('condition-red'); });
     $('threatCompare')?.addEventListener('click', () => { $('threatAlert').hidden = true; $('app').classList.remove('condition-red'); state.intelOpen = true; $('intelPanel').classList.add('open'); $('intelCollapse').textContent = '−'; $('routeCard')?.scrollIntoView?.({ behavior: state.motion ? 'smooth' : 'auto', block: 'center' }); });
@@ -2765,7 +2799,7 @@
       setRailActive(key);
       if (key === 'overview') return bootstrapDefaultCenter().catch((err) => toast(err.message, 4200));
       if (key === 'environment') return jumpIntelCard('situationCard');
-      if (key === 'tools') { $('settingsPanel').hidden = false; return; }
+      if (key === 'tools') { openOverlayPanel('settingsPanel'); return; }
     }));
     document.querySelectorAll('.ops-rail [data-command]').forEach((btn) => btn.addEventListener('click', () => setRailActive(btn.dataset.command)));
     document.querySelectorAll('.ops-rail [data-mission]').forEach((btn) => btn.addEventListener('click', () => setRailActive(btn.dataset.mission)));

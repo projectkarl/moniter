@@ -1422,3 +1422,96 @@ body{font-size:15px;background:#030506;}
   .search-row{grid-template-columns:42px minmax(0,1fr) 58px;}
   .go-btn{min-width:58px;padding:0 6px;}
 }
+
+
+/* =========================================================
+   v0.22 MAP-FIRST UX — simplify chrome, protect map visibility
+   ========================================================= */
+:root{--v22-panel-w:350px;--v22-rail-w:58px;}
+
+/* Larger cinematic boot */
+.boot-frame{width:min(760px,90vw);}
+.boot-emblem{width:132px;height:156px;margin:0 auto 28px;border:0;transform:none;display:grid;place-items:center;}
+.boot-emblem img{width:104px;height:142px;object-fit:contain;filter:drop-shadow(0 0 24px rgba(224,199,127,.22));animation:bootIsland 1.8s ease-in-out infinite alternate;}
+.boot-emblem span{inset:14px 5px;border:1px solid rgba(224,199,127,.35);border-radius:50%;animation:bootRing 1.7s linear infinite;}
+.boot-emblem i{width:7px;height:7px;box-shadow:0 0 24px 6px rgba(224,199,127,.34);}
+.boot-title{font-size:38px;letter-spacing:.20em;color:#efe5c6;text-shadow:0 0 28px rgba(224,199,127,.13);}
+.boot-sub{margin-top:14px;font-size:12px;letter-spacing:.28em;color:#8d8d84;}
+.boot-track{margin:34px auto 16px;width:min(510px,76vw);height:2px;}
+.boot-status{font-size:12px;letter-spacing:.20em;min-height:20px;color:#b8a477;}
+.boot-codes{gap:24px;margin-top:24px;font-size:9px;letter-spacing:.17em;}
+@keyframes bootIsland{from{transform:scale(.97);opacity:.82}to{transform:scale(1.035);opacity:1}}
+@keyframes bootRing{from{transform:rotate(0deg) scale(.96);opacity:.45}to{transform:rotate(360deg) scale(1.04);opacity:.9}}
+
+/* Map should visually dominate. */
+.map-vignette{background:radial-gradient(circle at 50% 48%,transparent 63%,rgba(0,0,0,.08) 83%,rgba(0,0,0,.21) 100%);}
+.scanline{opacity:.20;}
+.theater-grid{opacity:.34;}
+.map-fx .leaflet-tile-pane img{filter:grayscale(.28) invert(.90) hue-rotate(175deg) brightness(.88) contrast(1.06) sepia(.05);}
+
+/* Rail is icon-first; labels appear only when deliberately hovered. */
+.ops-rail{width:var(--v22-rail-w);left:12px;top:calc(82px + var(--safe-top));bottom:12px;padding:8px 5px;overflow:hidden;transition:width .20s ease,background .20s ease;}
+.ops-rail:hover,.ops-rail:focus-within{width:156px;background:linear-gradient(180deg,rgba(8,10,11,.97),rgba(4,6,7,.96));}
+.ops-rail button{grid-template-columns:42px 1fr;min-height:48px;padding:5px 2px;text-align:left;}
+.ops-rail button>span{width:42px;text-align:center;font-size:17px;}
+.ops-rail button>b,.ops-rail button>small,.rail-foot span{opacity:0;white-space:nowrap;transform:translateX(-6px);transition:opacity .16s ease,transform .16s ease;}
+.ops-rail:hover button>b,.ops-rail:hover button>small,.ops-rail:hover .rail-foot span,.ops-rail:focus-within button>b,.ops-rail:focus-within button>small{opacity:1;transform:none;}
+
+/* Search remains available, but compact. */
+.command{left:82px;top:calc(82px + var(--safe-top));width:min(500px,calc(100vw - 470px));min-width:390px;padding:11px 12px;}
+.command-kicker{font-size:8px;}.search-row{margin-top:5px}.voice-btn,.search-box{height:39px}.search-box input{font-size:14px}.command-context{margin-top:6px}.ab-route{min-height:36px}.command-hint{display:none;}
+.advanced-ops{margin-top:5px;}
+.advanced-ops summary{font-size:7px;padding:5px 0;}
+
+/* Source/provenance becomes a narrow status ribbon; sensor quick rack moves out of the map. */
+.provenance-ribbon{right:14px;top:calc(82px + var(--safe-top));height:28px;padding:0 8px;max-width:360px;background:rgba(5,7,8,.76);}
+.provenance-ribbon span{font-size:6px}.provenance-ribbon b{font-size:6px}.provenance-ribbon i{margin:0 4px}
+.sensor-rack{display:none!important;}
+
+/* National overview is a compact situation strip, not a giant floating window. */
+.national-overview{left:82px;bottom:14px;width:390px;max-height:170px;padding:10px 11px;background:linear-gradient(180deg,rgba(6,8,9,.86),rgba(5,7,8,.83));backdrop-filter:blur(10px);transition:max-height .2s ease,width .2s ease;}
+.national-head{margin-bottom:6px}.national-head span{font-size:7px}.national-head b{font-size:12px}.national-head-actions{display:flex;gap:5px}.national-head-actions button{min-width:32px;height:27px;border:1px solid rgba(205,176,107,.16);background:rgba(255,255,255,.015);color:#aa986a;font:8px ui-monospace,SFMono-Regular,Menlo,monospace;cursor:pointer;}
+.national-metrics{grid-template-columns:repeat(4,1fr);margin-bottom:6px}.national-metrics div{padding:6px}.national-metrics small{font-size:6px}.national-metrics b{font-size:14px}
+.national-body{display:block}.national-preview{display:none!important}.national-hotspot-list{display:grid;grid-template-columns:1fr 1fr;gap:5px;max-height:70px;overflow:auto}.national-hotspot-card:nth-child(n+3){display:none}.national-hotspot-card{min-height:58px;padding:7px 8px}.national-hotspot-card span{font-size:6px}.national-hotspot-card b{font-size:9px}.national-hotspot-card strong{font-size:12px}.national-hotspot-card em,.national-hotspot-card small{font-size:6px}.national-foot{margin-top:6px;font-size:6px}
+.national-overview.compact{max-height:52px;width:300px;overflow:hidden}.national-overview.compact .national-metrics,.national-overview.compact .national-body,.national-overview.compact .national-foot{display:none}
+.flow-legend{left:482px;bottom:14px;padding:6px 8px;background:rgba(5,7,8,.70);}
+.flow-legend span{font-size:7px}.flow-legend em{font-size:6px}
+
+/* Intel = the only persistent result window after a search. */
+.intel{top:calc(118px + var(--safe-top));right:14px;width:var(--v22-panel-w);max-height:calc(100dvh - 138px - var(--safe-top));padding:11px 12px 13px;background:linear-gradient(180deg,rgba(8,10,11,.91),rgba(5,7,8,.90));backdrop-filter:blur(12px);}
+.panel-head h2{font-size:16px}.intel-tabs{margin-top:7px}.intel-tabs button{min-height:28px;font-size:6.5px}.intel-body{padding-top:7px}.intel-card{padding:11px 12px;margin-bottom:7px}.card-label{font-size:8px}.weather-main strong{font-size:34px}.auto-feed,.situation-feed{font-size:10px}.inline-camera-stage{min-height:150px}.intel-note{font-size:9px}
+
+/* All temporary panels occupy the same right-side dock and never stack visually. */
+.route-drawer,.camera-drawer,.ops-drawer,.wall-drawer,.source-drawer,.settings{right:14px!important;left:auto!important;top:calc(118px + var(--safe-top))!important;bottom:auto!important;width:min(390px,calc(100vw - 96px))!important;max-height:calc(100dvh - 138px - var(--safe-top))!important;overflow:auto;border-radius:7px!important;z-index:1220!important;}
+.wall-drawer{width:min(660px,calc(100vw - 96px))!important;}
+
+/* User-invoked pure map focus. */
+.map-focus .ops-rail,.map-focus .command,.map-focus .provenance-ribbon,.map-focus .national-overview,.map-focus .intel,.map-focus .flow-legend{opacity:0;pointer-events:none;transform:translateY(6px);}
+.ops-rail,.command,.provenance-ribbon,.national-overview,.intel,.flow-legend{transition:opacity .18s ease,transform .18s ease,width .2s ease,max-height .2s ease;}
+.map-focus #map{filter:none;}
+.map-focus .topbar{opacity:.80;}
+
+@media (min-width:921px) and (max-width:1180px){
+  .command{left:78px;width:min(460px,calc(100vw - 446px));min-width:360px}.intel{width:330px}.provenance-ribbon{right:14px}.national-overview{left:78px;width:350px}.flow-legend{left:438px}.ops-rail{width:54px}.ops-rail:hover{width:144px}
+}
+
+@media (max-width:920px){
+  .boot-frame{width:92vw}.boot-emblem{width:108px;height:128px;margin-bottom:22px}.boot-emblem img{width:82px;height:114px}.boot-title{font-size:29px;letter-spacing:.16em}.boot-sub{font-size:10px;letter-spacing:.20em}.boot-track{width:78vw;margin-top:28px}.boot-status{font-size:10px}.boot-codes{font-size:8px;gap:12px;flex-wrap:wrap}
+  .command{left:8px;right:8px;top:calc(72px + var(--safe-top));width:auto;min-width:0;padding:9px 10px 8px}.command-kicker{font-size:8px}.search-row{margin-top:5px}.voice-btn,.search-box{height:42px}.search-box input{font-size:16px}.ab-route{min-height:34px}.ab-point input{font-size:12px}
+  .provenance-ribbon{left:10px;right:auto;top:calc(174px + var(--safe-top));max-width:calc(100vw - 20px);height:25px;}
+  .national-overview{left:8px;right:8px;bottom:calc(72px + var(--safe-bottom));width:auto;max-height:118px;padding:8px 9px}.national-head b{font-size:12px}.national-metrics{display:grid;margin-bottom:5px}.national-body{display:block}.national-hotspot-list{grid-template-columns:1fr 1fr;max-height:48px}.national-hotspot-card{min-height:45px;padding:5px 6px}.national-hotspot-card em,.national-hotspot-card small{display:none}.national-hotspot-card strong{font-size:11px}.national-foot{display:none}.national-overview.compact{left:8px;right:auto;width:250px;max-height:45px}
+  .flow-legend{left:10px;bottom:calc(196px + var(--safe-bottom));max-width:63vw;padding:5px 6px;grid-template-columns:1fr 1fr}.flow-legend span{font-size:6px}.flow-legend em{display:none}
+  .intel{left:8px;right:8px;bottom:calc(72px + var(--safe-bottom));top:auto;width:auto;max-height:42dvh;padding:10px 10px 12px;transform:translateY(calc(100% - 58px));border-radius:12px 12px 7px 7px}.intel.open{transform:translateY(0)}.intel .panel-head{min-height:46px}.panel-head h2{font-size:17px}.intel-card{padding:12px}.auto-feed,.situation-feed{font-size:12px}.inline-camera-stage{min-height:166px}.weather-main strong{font-size:39px}
+  .route-drawer,.camera-drawer,.ops-drawer,.wall-drawer,.source-drawer,.settings{left:8px!important;right:8px!important;top:auto!important;bottom:calc(72px + var(--safe-bottom))!important;width:auto!important;max-height:58dvh!important;border-radius:12px 12px 7px 7px!important;}
+  .map-fx .leaflet-tile-pane img{filter:grayscale(.18) invert(.90) hue-rotate(175deg) brightness(.93) contrast(1.04) sepia(.04);}
+  .map-vignette{background:radial-gradient(circle at 50% 47%,transparent 68%,rgba(0,0,0,.06) 87%,rgba(0,0,0,.17) 100%)}.scanline{opacity:.12}.theater-grid{opacity:.22}
+}
+
+@media (max-width:520px){
+  .boot-title{font-size:25px}.boot-sub{font-size:9px}.boot-status{font-size:9px}.boot-codes{font-size:7px}
+  .national-hotspot-list{grid-template-columns:1fr}.national-hotspot-card:nth-child(n+2){display:none}.national-overview{max-height:105px}.flow-legend{bottom:calc(183px + var(--safe-bottom));max-width:72vw}
+}
+
+/* v0.22 declutter follow-up: provenance is already represented in top status pills. */
+.provenance-ribbon{display:none!important;}
+@media (max-width:920px){.intel{max-height:38dvh;}}

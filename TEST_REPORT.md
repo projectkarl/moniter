@@ -1,4 +1,4 @@
-# Test report — v0.21.0 Cinematic Command Zero-Key
+# Test report — v0.22.0 Map-First Command Zero-Key
 
 ## Core regression — PASS
 
@@ -10,12 +10,24 @@
 - Mock API contracts: PASS
 - In-page CCTV feed proxy regression: PASS
 - Zero-Key runtime architecture retained: PASS
-- Build label: `0.21.0 CINEMATIC COMMAND`
+- Build label: `0.22.0 MAP-FIRST COMMAND`
 
 
 
 
-## v0.21 Cinematic Command UI checks — PASS
+## v0.22 Map-First Command UI checks — PASS
+
+### v0.22 map-visibility QA — PASS
+
+- Chromium static-layout audit: desktop **1440×900**, document **1440 / 1440**, no horizontal overflow.
+- Chromium static-layout audit: mobile **390×844**, document **390 / 390**, no horizontal overflow.
+- National landing state: intelligence result panel hidden; compact national monitor only; map remains the dominant canvas.
+- Search-result state: desktop intelligence board **350px** wide; mobile bottom board capped at **38dvh**.
+- Temporary drawers are mutually exclusive through `openOverlayPanel()`.
+- Source provenance remains visible in the top LIVE / OBSERVED / MODEL / DERIVED strip while the duplicate floating ribbon is removed from the map.
+- Larger boot composition checked at desktop and mobile CSS breakpoints.
+- Vercel Hobby functions remain **2 / 12**.
+
 
 - Desktop viewport layout check: **1440×900**, document width **1440 / 1440**, no horizontal overflow.
 - Desktop geometry: operations rail `96px`, search console `650px`, intelligence board `400px`, national monitor `510px`; all stay inside the viewport.

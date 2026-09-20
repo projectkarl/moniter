@@ -1,9 +1,19 @@
-# EYE // TAIWAN — Cinematic Command v0.21.0
+# EYE // TAIWAN — Map-First Command v0.22.0
 
 Zero-Key Taiwan situational-intelligence dashboard for Vercel. The primary experience is a MI6/007-inspired black-gold command room: search or speak a place once, then EYE automatically assembles the relevant public intelligence in one result view. A → B routing and NAV OPS remain secondary tools.
 
 
-## v0.21 Cinematic Command
+## v0.22 Map-First Command
+
+### v0.22 UX declutter
+
+- The map is now the protected primary canvas. Desktop uses an icon-first rail, a smaller national summary, and one result board instead of several persistent windows.
+- Temporary Route / CCTV / Ops / Source / Settings panels are mutually exclusive: opening one closes the others.
+- Mobile keeps the result board as a bottom drawer capped at roughly 38% of viewport height, preserving the map above it.
+- `MAP FOCUS` temporarily hides all nonessential chrome for a clean tactical map view.
+- The Taiwan national monitor can be collapsed to a slim header without losing the live map.
+- The boot sequence has a much larger Taiwan silhouette, title, status line and progress treatment for a more cinematic first impression.
+
 
 - Desktop UI rebuilt around the approved black-gold intelligence-control-room concept: left operations rail, full-Taiwan tactical map, source-state strip, quick Sensor Look rack, and a denser right-side intelligence board.
 - Mobile remains map-first: larger 16px search type, larger intelligence typography, clear A → B row, bottom intelligence drawer, and reduced overlays so the map remains visible.
