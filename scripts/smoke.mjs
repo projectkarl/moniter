@@ -16,23 +16,23 @@ for (const file of ['manifest.webmanifest','vercel.json']) {
   catch (e) { console.error('JSON FAIL',file,e.message); failed = true; }
 }
 const html = fs.readFileSync(path.join(root,'index.html'),'utf8');
-for (const id of ['map','queryInput','voiceBtn','intelPanel','routeDrawer','cameraDrawer','settingsPanel','flowStatus','flowSignal','sweepFx','opsDrawer','opsBody','wallDrawer','wallGrid','wallMain','newsSignal','newsCount','bootSequence','bootStatus','signalTrace','targetLock','targetLockName','targetLockCoord','gridTelemetry','linkTelemetry','motionToggle','theaterStandby','navHud','navSpeed','navHeading','navRemaining','navEta','navAlert','navCameraHandoff','navCameraThumb','navLimitBadge','routeMode','routeOptions','threatAlert','threatReasons','targetBrief','poiSuggestions','airSignal','quakeSignal','originChip','originLabel','inlineCameraCard','inlineCameraStage','inlineCameraChoices','routeRecommendation']) {
+for (const id of ['map','queryInput','voiceBtn','intelPanel','routeDrawer','cameraDrawer','settingsPanel','flowStatus','flowSignal','sweepFx','opsDrawer','opsBody','wallDrawer','wallGrid','wallMain','newsSignal','newsCount','bootSequence','bootStatus','signalTrace','targetLock','targetLockName','targetLockCoord','gridTelemetry','linkTelemetry','motionToggle','theaterStandby','navHud','navSpeed','navHeading','navRemaining','navEta','navAlert','navCameraHandoff','navCameraThumb','navLimitBadge','routeMode','routeOptions','threatAlert','threatReasons','targetBrief','poiSuggestions','airSignal','quakeSignal','originChip','originLabel','inlineCameraCard','inlineCameraStage','inlineCameraChoices','routeRecommendation','abOrigin','abTarget','abSwap','abRouteBtn','autoIntelCard','autoIntelOverview','autoTrafficFeed','autoNewsFeed','autoSignalFeed']) {
   if (!html.includes(`id="${id}"`)) { console.error('DOM ID MISSING',id); failed = true; }
 }
 const source = required.filter((x) => x.endsWith('.js')).map((x) => fs.readFileSync(path.join(root,x),'utf8')).join('\n');
 for (const forbidden of ['TDX_CLIENT_ID','TDX_CLIENT_SECRET','CWA_KEY','OPENAI_KEY']) {
   if (source.includes(forbidden)) { console.error('ZERO-KEY FAIL', forbidden); failed = true; }
 }
-if (!html.includes('0.14.0 LIVE FLOW MAP')) { console.error('BUILD LABEL MISSING'); failed = true; }
+if (!html.includes('0.15.0 AUTO INTEL')) { console.error('BUILD LABEL MISSING'); failed = true; }
 for (const id of ['vehicleIntelToggle','privacyShieldToggle','cameraIntel']) {
   if (!html.includes(`id=\"${id}\"`)) { console.error('PRIVACY DOM MISSING', id); failed = true; }
 }
 if (!html.includes('NO PLATE OCR')) { console.error('PRIVACY LABEL MISSING'); failed = true; }
-for (const mission of ['sweep','watch','sentinel','theater']) {
+for (const mission of ['sweep','watch','theater']) {
   if (!html.includes(`data-mission=\"${mission}\"`)) { console.error('MISSION ENTRY MISSING', mission); failed = true; }
 }
 const app = fs.readFileSync(path.join(root,'app.js'),'utf8');
-for (const fn of ['runAreaSweep','runSentinel','openCctvWall','buildMissionRouteBrief','runMissionMode','loadNews','newsListHtml','runBootSequence','signalAcquire','showTargetLock','flashSignal','updateMapTelemetry','setTheaterStandby','parseTravelIntent','selectRoute','forecastForArrival','umbrellaAdvice','missionVoiceBrief','speedAlertEarlyKm','announceSpeedCamera','assessRouteThreat','renderRouteOptions','runTheaterMode','setMapSource','localPoiMatches','tunnelLaneContext','renderInlineCctvResults','bootstrapDefaultCenter','preferredOrigin']) {
+for (const fn of ['runAreaSweep','runSentinel','openCctvWall','buildMissionRouteBrief','runMissionMode','loadNews','newsListHtml','runBootSequence','signalAcquire','showTargetLock','flashSignal','updateMapTelemetry','setTheaterStandby','parseTravelIntent','selectRoute','forecastForArrival','umbrellaAdvice','missionVoiceBrief','speedAlertEarlyKm','announceSpeedCamera','assessRouteThreat','renderRouteOptions','runTheaterMode','setMapSource','localPoiMatches','tunnelLaneContext','renderInlineCctvResults','bootstrapDefaultCenter','preferredOrigin','renderAutoIntel']) {
   if (!app.includes(`function ${fn}`) && !app.includes(`async function ${fn}`)) { console.error('MISSION LOGIC MISSING', fn); failed = true; }
 }
 if (!app.includes("command === 'news'")) { console.error('LOCAL NEWS COMMAND MISSING'); failed = true; }

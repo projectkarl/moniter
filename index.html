@@ -55,9 +55,9 @@
       <div class="theater-grid" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <div class="reticle" aria-hidden="true"><span></span></div>
       <div id="theaterStandby" class="theater-standby" aria-live="polite">
-        <span class="theater-kicker">TAIWAN THEATER // STANDBY</span>
+        <span class="theater-kicker">TAIWAN INTEL // STANDBY</span>
         <b>NO TARGET SELECTED</b>
-        <small>SELECT TARGET · USE VOICE · INITIATE SWEEP</small>
+        <small>SEARCH A LOCATION · ALL PUBLIC INTEL LOADS AUTOMATICALLY</small>
         <div class="theater-auth"><span>PUBLIC INTEL</span><i></i><span>ZERO-KEY</span><i></i><span>SESSION LOCAL</span></div>
       </div>
       <div id="sweepFx" class="sweep-fx" aria-hidden="true"><span></span></div>
@@ -75,7 +75,7 @@
       </div>
 
       <section class="command hud-panel" aria-label="查詢控制台">
-        <div class="command-kicker"><span class="live-dot"></span> COMMAND CHANNEL</div>
+        <div class="command-kicker"><span class="live-dot"></span> INTELLIGENCE SEARCH</div>
         <form id="searchForm" class="search-row">
           <button type="button" class="voice-btn" id="voiceBtn" aria-label="語音查詢">
             <span class="voice-core"></span>
@@ -88,17 +88,20 @@
         </form>
         <div id="poiSuggestions" class="poi-suggestions" role="listbox" aria-label="地點建議" hidden></div>
         <div class="command-context">
-          <button type="button" id="originChip" class="origin-chip" aria-label="切換起點">
-            <span>FROM</span><b id="originLabel">台北市中心</b><em>點一下改用目前位置</em>
-          </button>
-          <div class="command-hint"><b>AUTO INTEL</b><span>搜尋後自動整合路線、ETA、路況、天氣、CCTV 與測速；指定點到點可輸入「北車 → 101」。</span></div>
+          <div class="ab-route" aria-label="A 到 B 點到點設定">
+            <label class="ab-point"><span>A</span><input id="abOrigin" value="台北市中心" aria-label="A 點起點" /></label>
+            <button type="button" id="originChip" class="origin-chip ab-locate" aria-label="切換台北市中心與目前 GPS 位置"><span>◎</span><b id="originLabel">台北市中心</b><em>GPS</em><small>LOC</small></button>
+            <button type="button" id="abSwap" class="ab-swap" aria-label="交換起點與目的地">⇄</button>
+            <label class="ab-point"><span>B</span><input id="abTarget" placeholder="目的地（搜尋後自動帶入）" aria-label="B 點目的地" /></label>
+            <button type="button" id="abRouteBtn" class="ab-route-btn">ROUTE</button>
+          </div>
+          <div class="command-hint"><b>AUTO INTEL</b><span>搜尋一次，相關公開資訊全部自動載入；需要導航時直接設定 A → B。</span></div>
           <details class="advanced-ops">
-            <summary>ADVANCED OPS</summary>
-            <div class="mission-deck" aria-label="進階任務模式">
+            <summary>進階監控</summary>
+            <div class="mission-deck" aria-label="進階監控模式">
               <button data-mission="sweep"><span>01</span><b>SWEEP</b><small>區域掃描</small></button>
               <button data-mission="watch"><span>02</span><b>WATCH</b><small>CCTV 情報牆</small></button>
-              <button data-mission="sentinel"><span>03</span><b>SENTINEL</b><small>流速異常</small></button>
-              <button data-mission="theater"><span>04</span><b>THEATER</b><small>全域訊號</small></button>
+              <button data-mission="theater"><span>03</span><b>THEATER</b><small>全域訊號</small></button>
             </div>
           </details>
         </div>
@@ -124,7 +127,7 @@
         <div class="panel-head">
           <div>
             <span class="eyebrow">LIVE INTEL</span>
-            <h2 id="intelTitle">TAIWAN THEATER</h2>
+            <h2 id="intelTitle">TAIPEI CENTER</h2>
           </div>
           <button id="intelCollapse" class="icon-btn" aria-label="收合情報面板">−</button>
         </div>
@@ -139,19 +142,26 @@
             </div>
           </article>
           <article class="intel-card target-brief-card" id="targetBriefCard">
-            <div class="card-label">PRE-MISSION BRIEF</div>
-            <div id="targetBrief" class="target-brief"><span>NO TARGET</span><b>等待目標鎖定</b><em>STANDBY</em></div>
+            <div class="card-label">TARGET INTEL // AUTO</div>
+            <div id="targetBrief" class="target-brief"><span>NO TARGET</span><b>等待地點查詢</b><em>STANDBY</em></div>
+          </article>
+          <article class="intel-card auto-intel-card" id="autoIntelCard">
+            <div class="card-label">AREA SIGNALS // AUTO FUSION</div>
+            <div id="autoIntelOverview" class="auto-intel-overview"><div><small>EVENTS</small><b>—</b></div><div><small>CCTV</small><b>—</b></div><div><small>NEWS</small><b>—</b></div><div><small>AIR</small><b>—</b></div></div>
+            <div id="autoTrafficFeed" class="auto-feed"><div class="auto-empty">搜尋地點後自動顯示附近公開交通事件。</div></div>
+            <div id="autoNewsFeed" class="auto-feed"><div class="auto-empty">相關區域新聞會自動出現在這裡。</div></div>
+            <div id="autoSignalFeed" class="auto-feed"><div class="auto-empty">公開流速、測速與區域訊號待命。</div></div>
           </article>
           <article class="intel-card route-card" id="routeCard">
-            <div class="card-label">POINT-TO-POINT // AUTO ROUTE</div>
+            <div class="card-label">A → B ROUTE // AUTO COMPARE</div>
             <div class="route-empty" id="routeEmpty">輸入目的地後，自動以目前起點產生路線與情報。</div>
             <div id="routeInfo" hidden>
-              <div class="route-status"><span>ROUTE LOCKED</span><b id="routeRecommendation">RECOMMENDED PATH</b></div>
+              <div class="route-status"><span>A → B LOCKED</span><b id="routeRecommendation">RECOMMENDED PATH</b></div>
               <div class="route-summary"><strong id="routeEta">-- min</strong><span id="routeDistance">-- km</span><em id="routeMode">RECOMMENDED</em></div>
               <div class="route-points"><span id="routeFrom">START</span><i></i><span id="routeTo">TARGET</span></div>
               <div id="routeThreatSummary" class="route-threat-summary" hidden></div>
               <div id="routeOptions" class="route-options" aria-label="可選路線"></div>
-              <button id="startNavBtn" class="nav-start-btn" type="button">START NAV OPS · 開始導航</button>
+              <button id="startNavBtn" class="nav-start-btn" type="button">開始導航 · NAV OPS</button>
             </div>
           </article>
           <article class="intel-card inline-camera-card" id="inlineCameraCard" hidden>
@@ -162,7 +172,7 @@
             <div id="inlineCameraChoices" class="inline-camera-choices"></div>
           </article>
           <article class="intel-card signal-card">
-            <div class="card-label">SIGNALS</div>
+            <div class="card-label">DATA STATUS // AUTO</div>
             <div class="signal-list">
               <button id="trafficSignal"><span class="sig warning"></span><b>交通事件</b><em id="trafficCount">STBY</em></button>
               <button id="flowSignal"><span class="sig flow"></span><b>國道流速</b><em id="flowStatus">STBY</em></button>
@@ -180,7 +190,7 @@
 
       <section class="route-drawer hud-panel" id="routeDrawer" aria-label="路線規劃" hidden>
         <div class="panel-head compact">
-          <div><span class="eyebrow">ROUTE PLANNER</span><h2>MISSION PATH</h2></div>
+          <div><span class="eyebrow">POINT TO POINT</span><h2>A → B ROUTE</h2></div>
           <button class="icon-btn" data-close="routeDrawer">×</button>
         </div>
         <div class="route-form">
@@ -202,9 +212,9 @@
         <div class="camera-intel" id="cameraIntel" hidden></div>
       </section>
 
-      <section class="ops-drawer hud-panel" id="opsDrawer" aria-label="任務情報" hidden>
+      <section class="ops-drawer hud-panel" id="opsDrawer" aria-label="區域情報" hidden>
         <div class="panel-head compact">
-          <div><span class="eyebrow" id="opsEyebrow">CLASSIFIED OPS</span><h2 id="opsTitle">AREA SWEEP</h2></div>
+          <div><span class="eyebrow" id="opsEyebrow">CLASSIFIED INTEL</span><h2 id="opsTitle">AREA SIGNAL SCAN</h2></div>
           <button class="icon-btn" data-close="opsDrawer">×</button>
         </div>
         <div class="ops-status"><span id="opsCode">STANDBY</span><i></i><span id="opsTimestamp">--:--:--</span></div>
@@ -237,7 +247,7 @@
         <div class="setting-stack"><div><b>MAP SOURCE</b><small>Zero-Key 地圖來源；SATELLITE 模式使用 Esri World Imagery，適合戰情監控與地形判讀</small></div><div class="map-modes" id="mapModes"><button data-map-source="tactical" class="active">TACTICAL</button><button data-map-source="satellite">SATELLITE</button></div></div>
         <div class="setting-stack"><div><b>SENSOR LOOK</b><small>沿用 God's Eye View 的感測器視覺概念；只改畫面，不改資料內容</small></div><div class="sensor-modes" id="sensorModes"><button data-sensor="normal" class="active">NORMAL</button><button data-sensor="nvg">NVG</button><button data-sensor="flir">FLIR</button><button data-sensor="noir">NOIR</button><button data-sensor="crt">CRT</button></div></div>
         <div class="setting-row"><div><b>CCTV 隱私遮罩</b><small>預設模糊公開影像；不做人臉或車牌 OCR／追蹤</small></div><button id="privacyShieldToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
-        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.14.0 LIVE FLOW MAP</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
+        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.15.0 AUTO INTEL</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
       </section>
 
       <section id="threatAlert" class="threat-alert" aria-live="assertive" hidden>
@@ -255,7 +265,7 @@
 
     <nav class="mobile-dock hud-panel" aria-label="主要功能">
       <button data-command="locate"><span>◎</span>目前位置</button>
-      <button data-command="voice"><span>◉</span>語音任務</button>
+      <button data-command="voice"><span>◉</span>語音查詢</button>
       <button data-mission="theater"><span>⌁</span>戰情總覽</button>
     </nav>
   </div>

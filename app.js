@@ -405,6 +405,7 @@
     if (!label || !chip) return;
     const usingUser = state.originMode === 'user';
     label.textContent = usingUser ? (state.user?.name || '我的位置') : DEFAULT_CENTER.name;
+    if ($('abOrigin')) $('abOrigin').value = usingUser ? '我的位置' : DEFAULT_CENTER.name;
     const hint = chip.querySelector('em');
     if (hint) hint.textContent = usingUser ? '點一下改回台北市中心' : '點一下改用目前位置';
     chip.classList.toggle('using-user', usingUser);
@@ -467,9 +468,12 @@
       loadCctv(place.lat, place.lon, false, 32),
       loadSpeedCameras(place.lat, place.lon, false, 28),
       loadNews(place.lat, place.lon, false),
+      loadFlights(place.lat, place.lon, false, 70),
+      loadEarthquakes(place.lat, place.lon, false, 250),
     ]);
     const value = (i, fallback) => results[i].status === 'fulfilled' ? (results[i].value ?? fallback) : fallback;
     renderTargetBrief(place, { weather: value(0, null), traffic: value(1, []), flow: value(2, []), cctv: value(3, []), speedCameras: value(4, []) });
+    renderAutoIntel(place, { traffic: value(1, []), flow: value(2, []), cctv: value(3, []), speedCameras: value(4, []), news: value(5, []), flights: value(6, []), quakes: value(7, []) });
     renderInlineCctvResults(value(3, []), place);
     $('routeEmpty').textContent = '輸入目的地後，系統會自動從台北市中心建立 2–3 條候選路線；也可切換為目前位置。';
     setLinkTelemetry('TAIPEI CENTER LIVE');
@@ -498,12 +502,34 @@
     if (!el) return;
     const speeds = flow.map((x) => Number(x.travelSpeed)).filter((x) => Number.isFinite(x) && x >= 0);
     const avg = speeds.length ? Math.round(speeds.reduce((a,b) => a+b, 0) / speeds.length) : null;
-    const severe = findFlowAnomalies(flow).filter((x) => x.severity === 'HIGH').length;
     const rain = Math.round(Number(weather?.current?.precipitationProbability || 0));
-    const status = severe || traffic.length >= 2 ? 'CONDITION AMBER' : traffic.length || (avg != null && avg < 55) ? 'WATCH' : 'NOMINAL';
+    const status = traffic.length >= 2 ? 'CONDITION AMBER' : traffic.length ? 'WATCH' : 'NOMINAL';
     const flowText = avg == null ? 'FLOW N/A' : `FLOW ${avg} km/h`;
     el.className = `target-brief ${status === 'CONDITION AMBER' ? 'warning' : status === 'WATCH' ? 'watch' : 'live'}`;
     el.innerHTML = `<span>${escapeHtml(status)}</span><b>${escapeHtml(shortName(place?.name || 'TARGET'))}</b><em>${traffic.length} EVENTS · ${flowText} · ${cctv.length} CCTV · ${speedCameras.length} SPEED · RAIN ${rain}%</em>`;
+  }
+
+  function renderAutoIntel(place, { traffic = [], flow = [], cctv = [], speedCameras = [], news = [], flights = [], quakes = [] } = {}) {
+    const overview = $('autoIntelOverview');
+    const trafficBox = $('autoTrafficFeed');
+    const newsBox = $('autoNewsFeed');
+    const signalBox = $('autoSignalFeed');
+    if (!overview || !trafficBox || !newsBox || !signalBox) return;
+    const speeds = flow.map((x) => Number(x.travelSpeed)).filter((x) => Number.isFinite(x) && x >= 0);
+    const avg = speeds.length ? Math.round(speeds.reduce((a,b) => a+b,0) / speeds.length) : null;
+    overview.innerHTML = [
+      ['EVENTS', traffic.length], ['CCTV', cctv.length], ['NEWS', news.length], ['AIR', flights.length],
+    ].map(([label,value]) => `<div><small>${label}</small><b>${value}</b></div>`).join('');
+    trafficBox.innerHTML = `<div class="auto-feed-title"><span>交通與區域訊息</span><em>AUTO</em></div>` + (traffic.length
+      ? traffic.slice(0,4).map((ev) => `<div class="auto-row ${/封閉|事故|車禍|施工|回堵/.test(`${ev.title||''} ${ev.description||''}`) ? 'warning' : ''}"><span>EVENT</span><b>${escapeHtml(ev.road || ev.title || '交通事件')}</b><em>${escapeHtml((ev.description || ev.title || '').slice(0,70))}</em></div>`).join('')
+      : `<div class="auto-empty">此區目前沒有取得高關聯公開交通事件。</div>`);
+    newsBox.innerHTML = `<div class="auto-feed-title"><span>相關新聞</span><em>${news.length} MATCH</em></div>` + (news.length
+      ? news.slice(0,4).map((n) => `<a class="auto-news-row" href="${escapeAttr(n.url)}" target="_blank" rel="noopener noreferrer"><span>${escapeHtml(n.source || n.domain || 'NEWS')}</span><b>${escapeHtml(n.title)}</b><em>${escapeHtml(formatNewsTime(n.publishedAt))}</em></a>`).join('')
+      : `<div class="auto-empty">最近 7 天暫無高關聯區域新聞。</div>`);
+    const speedText = speedCameras.length ? `附近 ${speedCameras.length} 個公開測速執法點` : '附近未取得公開測速執法點';
+    const flowText = avg == null ? '國道流速資料 N/A' : `國道平均流速 ${avg} km/h`;
+    const quakeText = quakes.length ? `24H 地震訊號 ${quakes.length} 筆` : '24H 地震訊號 0 筆';
+    signalBox.innerHTML = `<div class="auto-feed-title"><span>感測訊號</span><em>${escapeHtml(shortName(place?.name || 'TARGET'))}</em></div><div class="auto-signal-grid"><div><small>FLOW</small><b>${escapeHtml(flowText)}</b></div><div><small>SPEED</small><b>${escapeHtml(speedText)}</b></div><div><small>AIRSPACE</small><b>${flights.length} PUBLIC SIGNALS</b></div><div><small>SEISMIC</small><b>${escapeHtml(quakeText)}</b></div></div>`;
   }
 
   async function lockTarget(place, zoom = 15) {
@@ -526,10 +552,14 @@
       loadCctv(place.lat, place.lon, false, 35),
       loadSpeedCameras(place.lat, place.lon, false, 30),
       loadNews(place.lat, place.lon, false),
+      loadFlights(place.lat, place.lon, false, 70),
+      loadEarthquakes(place.lat, place.lon, false, 250),
     ]);
     const value = (i, fallback) => results[i].status === 'fulfilled' ? (results[i].value ?? fallback) : fallback;
     renderTargetBrief(place, { weather: value(0, null), traffic: value(1, []), flow: value(2, []), cctv: value(3, []), speedCameras: value(4, []) });
+    renderAutoIntel(place, { traffic: value(1, []), flow: value(2, []), cctv: value(3, []), speedCameras: value(4, []), news: value(5, []), flights: value(6, []), quakes: value(7, []) });
     renderInlineCctvResults(value(3, []), place);
+    if ($('abTarget')) $('abTarget').value = place.name || '';
     openIntelResults();
   }
 
@@ -541,6 +571,8 @@
     if (travelIntent) {
       $('routeOrigin').value = travelIntent.origin || '我的位置';
       $('routeTarget').value = travelIntent.target;
+      if ($('abOrigin')) $('abOrigin').value = travelIntent.origin || '我的位置';
+      if ($('abTarget')) $('abTarget').value = travelIntent.target;
       await planRoute(travelIntent.origin, travelIntent.target, { ...travelIntent, fromVoice: Boolean(context.fromVoice) });
       openIntelResults();
       return;
@@ -553,6 +585,7 @@
     const stripped = query.replace(/(看|查看|附近|目前|的|監視器|攝影機|cctv|路況|事故|天氣|會不會下雨|下雨|新聞|消息|發生什麼|地方情報)/ig, ' ').replace(/\s+/g, ' ').trim() || query;
     toast(`TARGET ACQUISITION // ${stripped}`);
     const place = await geocode(stripped);
+    if ($('abTarget')) $('abTarget').value = place.name || stripped;
     await lockTarget(place);
     const origin = await preferredOrigin();
     await planRoute(origin, place, { preference: 'recommended', fromVoice: Boolean(context.fromVoice) });
@@ -1025,7 +1058,7 @@
     signalAcquire(true, 'AREA SIGNAL SWEEP');
     state.map?.flyTo([c.lat, c.lon], Math.max(state.map.getZoom(), 11), { duration: .7 });
     setOpsPanel({ title: 'AREA SWEEP', code: 'SCANNING', html: '<div class="ops-empty">SCANNING PUBLIC SIGNALS…<br>WEATHER · CCTV · TRAFFIC · FREEWAY FLOW · LOCAL NEWS</div>' });
-    const [_, cctv, traffic, flow, news] = await Promise.all([
+    const [weatherData, cctv, traffic, flow, news] = await Promise.all([
       loadWeather(c.lat, c.lon, false),
       loadCctv(c.lat, c.lon, false, 25),
       loadTraffic(c.lat, c.lon, false, 25),
@@ -1033,15 +1066,14 @@
       loadNews(c.lat, c.lon, false),
     ]);
     const weather = weatherData?.current || state.currentWeather?.current || {};
-    const anomalies = findFlowAnomalies(flow);
     const avg = flow.map((x) => Number(x.travelSpeed)).filter(Number.isFinite);
     const avgSpeed = avg.length ? Math.round(avg.reduce((a, b) => a + b, 0) / avg.length) : null;
     const rain = Math.round(Number(weather.precipitationProbability || 0));
-    const riskText = anomalies.length ? `${anomalies.length} 個低速異常` : traffic.length ? `${traffic.length} 個交通事件` : '未見明顯異常';
+    const riskText = traffic.length ? `${traffic.length} 個交通事件` : '未取得高關聯交通事件';
     const lines = [
       `<div class="ops-line"><span>WEATHER</span><b>${escapeHtml(weather.summary || '資料暫缺')} · ${Number.isFinite(weather.temperature) ? `${Math.round(weather.temperature)}°C` : '—'}</b><em>RAIN ${rain}%</em></div>`,
       `<div class="ops-line ${traffic.length ? 'warning' : ''}"><span>EVENTS</span><b>${traffic.length ? escapeHtml(traffic[0].road || traffic[0].title || '附近有交通事件') : '附近未取得交通事件'}</b><em>${traffic.length}</em></div>`,
-      `<div class="ops-line ${anomalies.length ? 'danger' : ''}"><span>SENTINEL</span><b>${escapeHtml(riskText)}</b><em>${avgSpeed != null ? `${avgSpeed} km/h` : 'N/A'}</em></div>`,
+      `<div class="ops-line"><span>FLOW</span><b>${escapeHtml(riskText)}</b><em>${avgSpeed != null ? `${avgSpeed} km/h` : 'N/A'}</em></div>`,
       `<div class="ops-line"><span>WATCH</span><b>${cctv.length ? `附近 ${cctv.length} 支公開 CCTV 可用` : '附近沒有可用公開 CCTV'}</b><em>${cctv.length}</em></div>`,
       `<div class="ops-line"><span>LOCAL</span><b>${news.length ? escapeHtml(news[0].title) : '附近暫無高關聯新聞'}</b><em>${news.length} NEWS</em></div>`,
     ].join('');
@@ -1091,9 +1123,9 @@
     const anomalies = findFlowAnomalies(routeFlow).slice(0, 5);
     const weather = weatherData?.current || state.currentWeather?.current || {};
     const timeline = [
-      { progress: 0, label: 'START', text: shortName(origin.name || 'ORIGIN'), meta: 'MISSION START' },
+      { progress: 0, label: 'START', text: shortName(origin.name || 'ORIGIN'), meta: 'ROUTE START' },
       ...routeTraffic.slice(0, 4).map((x) => ({ progress: x.routePos.progress, label: 'EVENT', text: x.road || x.title || '交通事件', meta: x.description || '警廣公開事件', danger: true })),
-      ...anomalies.map((x) => ({ progress: x.routePos?.progress ?? routePosition(route, x).progress, label: 'SENTINEL', text: `${x.road || x.name || '國道路段'} · ${Math.round(x.travelSpeed)} km/h`, meta: '即時低速異常；不推測原因', danger: x.severity === 'HIGH' })),
+      ...anomalies.map((x) => ({ progress: x.routePos?.progress ?? routePosition(route, x).progress, label: 'FLOW ALERT', text: `${x.road || x.name || '國道路段'} · ${Math.round(x.travelSpeed)} km/h`, meta: '即時低速異常；不推測原因', danger: x.severity === 'HIGH' })),
       ...routeSpeedCameras.slice(0, 6).map((x) => ({ progress: x.routePos.progress, label: 'SPEED', text: x.address || `${x.city || ''}${x.region || ''} 公開測速點`, meta: `${x.direction || '方向未提供'}${Number.isFinite(Number(x.limit)) ? ` · LIMIT ${Number(x.limit)}` : ''}`, danger: false })),
       { progress: 1, label: 'TARGET', text: shortName(target.name || 'TARGET'), meta: `${mins} min · ${km.toFixed(1)} km` },
     ].sort((a, b) => a.progress - b.progress);
@@ -1103,7 +1135,7 @@
     const intel = { traffic: routeTraffic, flow: routeFlow, cctv: routeCctv, speedCameras: routeSpeedCameras, anomalies, timeline };
     state.currentRoute.intel = intel;
     setOpsPanel({
-      eyebrow: 'MISSION ROUTE',
+      eyebrow: 'A → B ROUTE',
       title: 'PATH INTELLIGENCE',
       code: 'ROUTE LOCKED',
       html: `<div class="ops-grid"><div class="ops-metric"><small>ETA</small><b class="gold">${mins}m</b></div><div class="ops-metric"><small>EVENTS</small><b>${routeTraffic.length}</b></div><div class="ops-metric"><small>SPEED ENF</small><b>${routeSpeedCameras.length}</b></div><div class="ops-metric"><small>CCTV</small><b>${routeCctv.length}</b></div></div><div class="timeline">${timeline.map((x) => `<div class="timeline-item ${x.danger ? 'danger' : ''}"><small>${escapeHtml(x.label)} · ${Math.round(x.progress * 100)}%</small><b>${escapeHtml(x.text)}</b><em>${escapeHtml(x.meta)}</em></div>`).join('')}</div>`,
@@ -1118,7 +1150,7 @@
     const temp = Number.isFinite(Number(forecast.temperature)) ? `${Math.round(Number(forecast.temperature))}°C` : '—';
     const traffic = brief.traffic || { label: '路況資料暫缺', level: '' };
     setOpsPanel({
-      eyebrow: 'VOICE MISSION',
+      eyebrow: 'VOICE QUERY',
       title: shortName(target?.name || 'TARGET'),
       code: 'BRIEF READY',
       html: `<div class="voice-mission-answer"><small>AUTO INTEL BRIEF</small><b>${escapeHtml(brief.text)}</b></div><div class="ops-grid"><div class="ops-metric"><small>ETA BASE</small><b class="gold">${mins}m</b></div><div class="ops-metric"><small>DISTANCE</small><b>${km.toFixed(1)}km</b></div><div class="ops-metric"><small>ARRIVAL WX</small><b>${escapeHtml(temp)}</b></div><div class="ops-metric"><small>RAIN</small><b>${rain}%</b></div></div><div class="ops-brief"><div class="ops-line ${escapeHtml(traffic.level || '')}"><span>TRAFFIC</span><b>${escapeHtml(traffic.label)}</b><em>PUBLIC LIVE</em></div><div class="ops-line ${brief.umbrella?.shouldCarry ? 'warning' : ''}"><span>UMBRELLA</span><b>${escapeHtml(brief.umbrella?.label || '天氣資料暫缺')}</b><em>ETA WEATHER</em></div></div>`,
@@ -1130,7 +1162,7 @@
     if (!cur) {
       $('routeDrawer').hidden = false;
       if (state.user) $('routeOrigin').value = '我的位置';
-      toast('先指定起點與目的地，MISSION 會建立沿途情報。');
+      toast('先指定 A 點與 B 點，系統會建立沿途情報。');
       return;
     }
     if (cur.intel?.timeline) {
@@ -1517,11 +1549,12 @@
     ]);
     const val = (i) => settled[i].status === 'fulfilled' ? (settled[i].value || []) : [];
     const cctv = val(0), traffic = val(1), flow = val(2), flights = val(3), quakes = val(4), weather = settled[5].status === 'fulfilled' ? settled[5].value : null;
-    const anomalies = findFlowAnomalies(flow);
+    const theaterSpeeds = flow.map((x) => Number(x.travelSpeed)).filter(Number.isFinite);
+    const theaterAvg = theaterSpeeds.length ? Math.round(theaterSpeeds.reduce((a,b)=>a+b,0)/theaterSpeeds.length) : null;
     const rain = Math.round(Number(weather?.current?.precipitationProbability || 0));
     setOpsPanel({
       eyebrow: 'GLOBAL CONTEXT', title: 'TAIWAN THEATER', code: 'SIGNALS FUSED',
-      html: `<div class="ops-grid six"><div class="ops-metric"><small>AIR</small><b class="gold">${flights.length}</b></div><div class="ops-metric"><small>CCTV</small><b>${cctv.length}</b></div><div class="ops-metric"><small>EVENTS</small><b>${traffic.length}</b></div><div class="ops-metric"><small>FLOW WATCH</small><b>${anomalies.length}</b></div><div class="ops-metric"><small>SEISMIC</small><b>${quakes.length}</b></div><div class="ops-metric"><small>RAIN</small><b>${rain}%</b></div></div><div class="ops-brief"><div class="ops-line"><span>GLOBAL CONTEXT</span><b>目標周邊公開訊號已融合</b><em>ZERO-KEY</em></div><div class="ops-line ${anomalies.length ? 'warning' : ''}"><span>FLOW</span><b>${anomalies.length ? `${anomalies.length} 個低速異常路段` : '未見明顯國道流速異常'}</b><em>LIVE</em></div><div class="ops-line"><span>AIRSPACE</span><b>${flights.length} 個公開 ADS-B 航空訊號</b><em>PUBLIC</em></div><div class="ops-line"><span>SEISMIC</span><b>${quakes.length} 筆 24 小時內區域地震訊號</b><em>USGS</em></div></div>`,
+      html: `<div class="ops-grid six"><div class="ops-metric"><small>AIR</small><b class="gold">${flights.length}</b></div><div class="ops-metric"><small>CCTV</small><b>${cctv.length}</b></div><div class="ops-metric"><small>EVENTS</small><b>${traffic.length}</b></div><div class="ops-metric"><small>AVG FLOW</small><b>${theaterAvg != null ? theaterAvg : '—'}</b></div><div class="ops-metric"><small>SEISMIC</small><b>${quakes.length}</b></div><div class="ops-metric"><small>RAIN</small><b>${rain}%</b></div></div><div class="ops-brief"><div class="ops-line"><span>GLOBAL CONTEXT</span><b>目標周邊公開訊號已融合</b><em>ZERO-KEY</em></div><div class="ops-line"><span>FLOW</span><b>${theaterAvg != null ? `目前可取得路段平均 ${theaterAvg} km/h` : '國道流速資料暫缺'}</b><em>LIVE</em></div><div class="ops-line"><span>AIRSPACE</span><b>${flights.length} 個公開 ADS-B 航空訊號</b><em>PUBLIC</em></div><div class="ops-line"><span>SEISMIC</span><b>${quakes.length} 筆 24 小時內區域地震訊號</b><em>USGS</em></div></div>`,
     });
     state.map.flyTo([c.lat, c.lon], Math.min(state.map.getZoom(), 9), { duration: state.motion ? .9 : .4 });
     signalAcquire(false);
@@ -1968,6 +2001,23 @@
     $('startNavBtn').addEventListener('click', () => startNavigation());
     $('stopNavBtn').addEventListener('click', () => stopNavigation(true));
     $('openSettings').addEventListener('click', () => { tactile(8); $('settingsPanel').hidden = false; });
+    $('abRouteBtn')?.addEventListener('click', async () => {
+      const a = $('abOrigin')?.value?.trim() || '台北市中心';
+      const b = $('abTarget')?.value?.trim();
+      if (!b) { toast('請輸入 B 點目的地'); $('abTarget')?.focus(); return; }
+      await planRoute(a, b, { preference: 'recommended' });
+      openIntelResults();
+    });
+    $('abSwap')?.addEventListener('click', async () => {
+      const a = $('abOrigin')?.value?.trim() || '台北市中心';
+      const b = $('abTarget')?.value?.trim();
+      if (!b) return;
+      $('abOrigin').value = b; $('abTarget').value = a;
+      await planRoute(b, a, { preference: 'recommended' });
+      openIntelResults();
+    });
+    $('abTarget')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('abRouteBtn')?.click(); } });
+
     $('shareBtn')?.addEventListener('click', shareCurrentView);
     $('threatDismiss')?.addEventListener('click', () => { $('threatAlert').hidden = true; $('app').classList.remove('condition-red'); });
     $('threatCompare')?.addEventListener('click', () => { $('threatAlert').hidden = true; $('app').classList.remove('condition-red'); state.intelOpen = true; $('intelPanel').classList.add('open'); $('intelCollapse').textContent = '−'; $('routeCard')?.scrollIntoView?.({ behavior: state.motion ? 'smooth' : 'auto', block: 'center' }); });
