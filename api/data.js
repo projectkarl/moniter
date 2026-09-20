@@ -5,6 +5,7 @@ const handlers = {
   cctv: require('../server/cctv'),
   traffic: require('../server/traffic'),
   flow: require('../server/flow'),
+  'city-flow': require('../server/city-flow'),
   'lane-flow': require('../server/lane-flow'),
   news: require('../server/news'),
   'speed-cameras': require('../server/speed-cameras'),

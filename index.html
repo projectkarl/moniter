@@ -141,27 +141,27 @@
       </section>
 
       <section class="command hud-panel" aria-label="查詢控制台">
-        <div class="command-kicker"><span class="live-dot"></span> INTELLIGENCE SEARCH</div>
+        <div class="command-headline"><div class="command-kicker"><span class="live-dot"></span> INTELLIGENCE SEARCH</div><div class="search-mode-tabs" id="searchModeTabs" role="tablist" aria-label="查詢模式"><button type="button" class="active" data-search-mode="monitor" aria-selected="true">地點監控</button><button type="button" data-search-mode="nav" aria-selected="false">導航 A→B</button></div></div>
         <form id="searchForm" class="search-row">
           <button type="button" class="voice-btn" id="voiceBtn" aria-label="語音查詢">
             <span class="voice-core"></span>
           </button>
           <label class="search-box">
             <span class="search-prefix">⌕</span>
-            <input id="queryInput" type="search" autocomplete="off" placeholder="搜尋地點／簡稱，或輸入「北車 → 101」" aria-label="地址或查詢內容" />
+            <input id="queryInput" type="search" autocomplete="off" placeholder="搜尋地點／簡稱，例如 101、北車、A11" aria-label="地址或查詢內容" />
           </label>
           <button class="go-btn" type="submit">查詢</button>
         </form>
         <div id="poiSuggestions" class="poi-suggestions" role="listbox" aria-label="地點建議" hidden></div>
         <div class="command-context">
-          <div class="ab-route" aria-label="A 到 B 點到點設定">
+          <div class="ab-route" id="abRoutePanel" aria-label="A 到 B 點到點設定" hidden>
             <label class="ab-point"><span>A</span><input id="abOrigin" value="台北市中心" aria-label="A 點起點" /></label>
             <button type="button" id="originChip" class="origin-chip ab-locate" aria-label="切換台北市中心與目前 GPS 位置"><span>◎</span><b id="originLabel">台北市中心</b><em>GPS</em><small>LOC</small></button>
             <button type="button" id="abSwap" class="ab-swap" aria-label="交換起點與目的地">⇄</button>
             <label class="ab-point"><span>B</span><input id="abTarget" placeholder="目的地（搜尋後自動帶入）" aria-label="B 點目的地" /></label>
             <button type="button" id="abRouteBtn" class="ab-route-btn">路線</button>
           </div>
-          <div class="command-hint"><b>AUTO INTEL</b><span>搜尋一次，相關公開資訊全部自動載入；需要導航時直接設定 A → B。</span></div>
+          <div class="command-hint" id="commandHint"><b>AUTO INTEL</b><span>地點監控：搜尋一次，自動載入附近 CCTV、車流、天氣與事件。</span></div>
           <details class="advanced-ops">
             <summary>進階監控</summary>
             <div class="mission-deck" aria-label="進階監控模式">
@@ -212,7 +212,11 @@
             <div id="targetBrief" class="target-brief"><span>NO TARGET</span><b>等待地點查詢</b><em>STANDBY</em></div>
           </article>
       <section id="navHud" class="nav-hud hud-panel" aria-label="導航情報" hidden>
-        <div class="nav-head"><span><i class="live-dot"></i>NAV OPS ACTIVE</span><button id="stopNavBtn" class="micro-btn">ABORT</button></div>
+        <div class="nav-head"><span><i class="live-dot"></i>LIVE NAVIGATION</span><button id="stopNavBtn" class="micro-btn">結束導航</button></div>
+        <div class="nav-turn" aria-live="polite">
+          <strong id="navTurnArrow">↑</strong>
+          <span><small id="navTurnDistance">準備導航</small><b id="navTurnText">沿目前路線繼續行駛</b><em id="navTurnRoad">ROUTE GUIDANCE</em></span>
+        </div>
         <div class="nav-core">
           <div class="nav-speed"><small>GROUND SPEED</small><strong id="navSpeed">--</strong><span>km/h</span><em id="navLimitBadge" class="nav-limit-badge" hidden>ENF --</em></div>
           <div class="nav-heading"><small>HEADING</small><b id="navHeading">---°</b><span id="navTargetName">TARGET</span></div>
@@ -381,8 +385,8 @@
         <div class="setting-stack"><div><b>SENSOR LOOK</b><small>沿用 God's Eye View 的感測器視覺概念；NORMAL / NVG / FLIR / NOIR / CRT / SNOW 只改視覺，不改資料內容</small></div><div class="sensor-modes" id="sensorModes"><button data-sensor="normal" class="active">NORMAL</button><button data-sensor="nvg">NVG</button><button data-sensor="flir">FLIR</button><button data-sensor="noir">NOIR</button><button data-sensor="crt">CRT</button><button data-sensor="snow">SNOW</button></div></div>
         <div class="setting-row"><div><b>DETECTION OVERLAY</b><small>在可見公開訊號標記加上識別框與 ID；只標示地圖資料實體，不對 CCTV 影像做人臉／車牌辨識</small></div><button id="detectionToggle" class="toggle" aria-pressed="false"><span></span></button></div>
         <div class="setting-row"><div><b>VOICE MARKUP</b><small>Zero-Key 本地語音指令：例如「標記這裡集合點」、「清除標註」、「切換夜視」、「追蹤最近航班」</small></div><button id="voiceMarkupToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
-        <div class="setting-row"><div><b>CCTV 隱私遮罩</b><small>預設關閉以直接查看公開即時影像；需要時可手動模糊。仍不做人臉或車牌 OCR／追蹤</small></div><button id="privacyShieldToggle" class="toggle" aria-pressed="false"><span></span></button></div>
-        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.24.0 CLEAN COMMAND</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
+        <div class="setting-row"><div><b>CCTV 局部隱私遮罩</b><small>預設關閉。開啟時只遮罩畫面下緣近距離區域，保留大部分道路與車流可視；這是輕量 ROI 遮罩，不宣稱自動辨識人臉或車牌</small></div><button id="privacyShieldToggle" class="toggle" aria-pressed="false"><span></span></button></div>
+        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.26.0 LIVE NAVIGATION</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
       </section>
 
       <section id="threatAlert" class="threat-alert" aria-live="assertive" hidden>

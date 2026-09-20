@@ -13,6 +13,7 @@ const handlers = {
   parking: require('../server/parking'),
   construction: require('../server/construction'),
   flood: require('../server/flood'),
+  cityflow: require('../server/city-flow'),
 };
 const xmlCctv = `<Root><CCTV><CCTVID>C1</CCTVID><VideoStreamURL>https://example.com/cam.jpg</VideoStreamURL><PositionLon>121.55</PositionLon><PositionLat>25.03</PositionLat><RoadName>N5</RoadName><RoadDirection>S</RoadDirection></CCTV></Root>`;
 const xmlLive = `<Root><LiveTraffic><SectionID>S1</SectionID><TravelTime>90</TravelTime><TravelSpeed>22</TravelSpeed><CongestionLevelID>4</CongestionLevelID><CongestionLevel>壅塞</CongestionLevel></LiveTraffic></Root>`;
@@ -31,13 +32,14 @@ global.fetch = async (url) => {
   if(url.includes('nominatim.openstreetmap.org/reverse')) return response({display_name:'宜蘭市, 宜蘭縣, 台灣',address:{city:'宜蘭市',county:'宜蘭縣'}});
   if(url.includes('feeds.feedburner.com/rsscna/')) return response(rssNews,false);
   if(url.includes('api.gdeltproject.org')) return response({articles:[{title:'Yilan local transportation update',url:'https://example.com/yilan-news',seendate:'20260920T040000Z',domain:'example.com'}]});
-  if(url.includes('router.project-osrm.org')) return response({routes:[{distance:12000,duration:1500,geometry:{type:'LineString',coordinates:[[121.5,25],[121.6,25.1]]}}]});
+  if(url.includes('router.project-osrm.org')) return response({routes:[{distance:12000,duration:1500,geometry:{type:'LineString',coordinates:[[121.5,25],[121.55,25.04],[121.6,25.1]]},legs:[{steps:[{distance:500,duration:60,name:'忠孝東路',ref:'',driving_side:'right',maneuver:{location:[121.5,25],type:'depart',modifier:'straight',bearing_before:0,bearing_after:45}},{distance:3000,duration:300,name:'市民大道',ref:'',driving_side:'right',maneuver:{location:[121.55,25.04],type:'turn',modifier:'right',bearing_before:45,bearing_after:90}},{distance:0,duration:0,name:'',ref:'',driving_side:'right',maneuver:{location:[121.6,25.1],type:'arrive',modifier:'straight',bearing_before:90,bearing_after:90}}]}]}]});
   if(url.includes('CCTV.xml') || url.includes('opendataCCTVs.xml') || url.includes('CCTV2_Info.ashx')) return response(xmlCctv,false);
   if(url.includes('opdadm.moi.gov.tw')) return response(speedCsv,false);
   if(url.includes('roadData/opendata')) return response([{UID:'T1',y1:25.03,x1:121.55,road:'N5',roadtype:'事故',comment:'測試事件'}]);
   if(url.endsWith('/LiveTraffic.xml')) return response(xmlLive,false);
   if(url.endsWith('/Section.xml')) return response(xmlSection,false);
   if(url.endsWith('/SectionShape.xml')) return response(xmlShape,false);
+  if(url.includes('GetVDDATA.xml')) return response(xmlVDLive,false);
   if(url.endsWith('/VDLive.xml')) return response(xmlVDLive,false);
   if(url.endsWith('/VD.xml')) return response(xmlVD,false);
   if(url.includes('api.adsb.lol')) return response({ac:[{hex:'abc123',flight:'TEST123',lat:25.05,lon:121.57,alt_baro:12000,gs:280,track:90}]});
@@ -72,6 +74,7 @@ function run(handler, query){
     ['parking',{lat:'25.047',lon:'121.518',radius:'5'}],
     ['construction',{lat:'25.05',lon:'121.52',radius:'5'}],
     ['flood',{lat:'25.05',lon:'121.52',radius:'20'}],
+    ['cityflow',{lat:'25.03',lon:'121.55',radius:'8'}],
   ];
   for (const [name,query] of cases){
     const r=await run(handlers[name],query);
@@ -79,7 +82,7 @@ function run(handler, query){
     if(name==='cctv' && !r.body.items?.length) throw new Error('cctv empty');
     if(name==='traffic' && !r.body.items?.length) throw new Error('traffic empty');
     if(name==='flow' && (!r.body.items?.length || r.body.items[0].status!=='congested')) throw new Error('flow parse failed');
-    if(name==='route' && !r.body.routes?.length) throw new Error('route empty');
+    if(name==='route' && (!r.body.routes?.length || r.body.routes[0].steps?.length!==3 || r.body.routes[0].steps[1].maneuver?.modifier!=='right')) throw new Error('route steps parse failed');
     if(name==='weather' && (r.body.current?.temperature!==28 || r.body.hourly?.length!==2)) throw new Error('weather parse failed');
     if(name==='speed' && (!r.body.items?.length || r.body.items[0].limit!==50)) throw new Error('speed camera parse failed');
     if(name==='news' && (!r.body.items?.length || !r.body.location?.label)) throw new Error('news parse failed');
@@ -90,6 +93,7 @@ function run(handler, query){
     if(name==='parking' && (r.body.items?.[0]?.available!==42)) throw new Error('parking parse failed');
     if(name==='construction' && (!r.body.items?.length || !r.body.items[0].impactTraffic)) throw new Error('construction parse failed');
     if(name==='flood' && !r.body.items?.length) throw new Error('flood parse failed');
+    if(name==='cityflow' && (!r.body.items?.length || r.body.items[0].avgSpeed == null)) throw new Error('city-flow parse failed');
     console.log('API PASS',name);
   }
 })().catch((e)=>{console.error(e);process.exit(1);});

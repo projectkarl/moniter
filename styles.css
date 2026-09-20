@@ -1742,3 +1742,151 @@ body{font-size:17px;}
   .map-telemetry.telemetry-left{left:calc(var(--v24-rail-w) + 12px)!important;right:auto!important;}
   .map-telemetry.telemetry-right{right:calc(var(--v24-side-w) + var(--v24-gap) * 2 + 12px)!important;left:auto!important;}
 }
+
+/* =========================================================
+   v0.25.0 NATIONAL MONITOR — search modes + map-first markers
+   ========================================================= */
+.command-headline{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;}
+.search-mode-tabs{display:flex;align-items:center;gap:4px;padding:3px;border:1px solid rgba(224,199,127,.18);border-radius:8px;background:rgba(3,7,9,.36);flex:0 0 auto;}
+.search-mode-tabs button{height:30px;padding:0 11px;border:0;border-radius:6px;background:transparent;color:#9ea29f;font:750 10px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.04em;cursor:pointer;white-space:nowrap;}
+.search-mode-tabs button.active{background:linear-gradient(180deg,rgba(224,199,127,.22),rgba(224,199,127,.10));color:#fff0bf;box-shadow:inset 0 0 0 1px rgba(224,199,127,.32);}
+.command:not(.search-nav) #abRoutePanel{display:none!important;}
+.command.search-nav #abRoutePanel{display:grid!important;}
+
+/* National overview cameras: visible enough to scan, small enough not to obscure Taiwan. */
+.marker-camera{width:var(--cam-size,11px)!important;height:calc(var(--cam-size,11px) * .72)!important;min-width:6px;min-height:5px;border-radius:2px!important;border:1px solid rgba(232,205,123,.92)!important;background:rgba(13,21,24,.92)!important;box-shadow:0 0 0 2px rgba(0,0,0,.30),0 0 8px rgba(224,199,127,.22)!important;position:relative;}
+.marker-camera::before{content:""!important;left:32%!important;top:17%!important;width:34%!important;height:48%!important;border:1px solid #f0d786!important;border-radius:50%!important;box-sizing:border-box;}
+.marker-camera::after{right:-34%!important;top:22%!important;border-left:calc(var(--cam-size,11px) * .34) solid #ae9458!important;border-top:calc(var(--cam-size,11px) * .16) solid transparent!important;border-bottom:calc(var(--cam-size,11px) * .16) solid transparent!important;}
+.marker-camera.location-only{border-style:dashed!important;border-color:rgba(151,191,220,.92)!important;background:rgba(11,27,38,.90)!important;box-shadow:0 0 0 2px rgba(0,0,0,.28),0 0 8px rgba(104,167,207,.19)!important;}
+.marker-camera.location-only::before{border-color:#9bcbe7!important;}
+.marker-camera.location-only::after{border-left-color:#6f9db6!important;}
+
+/* Enforcement signs are secondary context, never dominant map objects. */
+.marker-speed-sign{width:22px!important;height:22px!important;border-width:2px!important;box-shadow:0 0 0 2px rgba(255,255,255,.35),0 1px 5px rgba(0,0,0,.28)!important;}
+.marker-speed-sign span{font-size:8px!important;letter-spacing:-.04em!important;}
+.marker-speed-sign i{inset:-4px!important;opacity:.35!important;}
+
+.inline-camera-choices button.location{border-style:dashed!important;opacity:.92;}
+.inline-camera-choices button.location span{color:#9bcbe7!important;}
+.camera-placeholder.official-location strong{display:block;margin-top:10px;color:#eff5f6;font:800 28px/1 ui-monospace,SFMono-Regular,Menlo,monospace;}
+.camera-placeholder.official-location em{display:block;color:#aab4b7;font-style:normal;font-size:12px;}
+
+@media(max-width:920px){
+  .command-headline{gap:7px;}
+  .search-mode-tabs{padding:2px;gap:2px;}
+  .search-mode-tabs button{height:28px;padding:0 8px;font-size:9px;}
+  .marker-speed-sign{width:19px!important;height:19px!important;}
+  .marker-speed-sign span{font-size:7px!important;}
+}
+@media(max-width:520px){
+  .command-headline{align-items:flex-end;}
+  .search-mode-tabs button{padding:0 7px;font-size:8px;}
+  .command.search-nav .command-context{margin-top:7px!important;}
+}
+
+/* v0.25 privacy correction — never fog the full CCTV frame. */
+.camera-stage.privacy-shield img,
+.camera-stage.privacy-shield video,
+.wall-main.privacy-shield img,
+.wall-main.privacy-shield video,
+.inline-camera-stage.privacy-shield img,
+.inline-camera-stage.privacy-shield video,
+.national-preview-stage.privacy-shield img,
+.national-preview-stage.privacy-shield video,
+.nav-camera-thumb.privacy-shield {
+  filter:none!important;
+  transform:none!important;
+}
+.camera-stage,.wall-main,.inline-camera-stage,.national-preview-stage,.nav-camera-thumb{position:relative;isolation:isolate;}
+.privacy-local-mask{
+  position:absolute;
+  z-index:16;
+  left:0;
+  right:0;
+  bottom:0;
+  height:22%;
+  min-height:24px;
+  pointer-events:none;
+  overflow:hidden;
+  backdrop-filter:blur(8px) saturate(.55);
+  -webkit-backdrop-filter:blur(8px) saturate(.55);
+  background:
+    linear-gradient(180deg,rgba(7,9,10,.08),rgba(7,9,10,.20)),
+    repeating-linear-gradient(90deg,rgba(225,210,166,.035) 0 3px,rgba(2,4,5,.045) 3px 6px);
+  border-top:1px solid rgba(225,210,166,.12);
+  -webkit-mask-image:linear-gradient(180deg,transparent 0,rgba(0,0,0,.64) 32%,#000 100%);
+  mask-image:linear-gradient(180deg,transparent 0,rgba(0,0,0,.64) 32%,#000 100%);
+}
+.privacy-local-mask span{
+  position:absolute;
+  right:7px;
+  bottom:5px;
+  padding:3px 5px;
+  border:1px solid rgba(226,208,154,.24);
+  background:rgba(5,7,8,.66);
+  color:rgba(243,228,185,.78);
+  font:700 7px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.10em;
+}
+.nav-camera-thumb .privacy-local-mask{height:27%;min-height:14px;}
+.nav-camera-thumb .privacy-local-mask span{display:none;}
+@media(max-width:520px){
+  .privacy-local-mask{height:20%;min-height:20px;}
+  .privacy-local-mask span{font-size:6px;right:5px;bottom:4px;}
+}
+
+/* =========================================================
+   v0.26 LIVE NAVIGATION — turn guidance + auto reroute
+   ========================================================= */
+.nav-turn{
+  display:grid;grid-template-columns:58px minmax(0,1fr);align-items:center;gap:12px;
+  margin:10px 0 8px;padding:12px 13px;border:1px solid rgba(224,199,127,.28);
+  border-left:3px solid rgba(224,199,127,.82);background:linear-gradient(90deg,rgba(224,199,127,.09),rgba(255,255,255,.018));
+}
+.nav-turn>strong{display:grid;place-items:center;width:54px;height:54px;border-radius:10px;background:rgba(224,199,127,.09);color:#f1d989;font:800 34px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;box-shadow:inset 0 0 0 1px rgba(224,199,127,.18);}
+.nav-turn>span{min-width:0;display:block}.nav-turn small,.nav-turn b,.nav-turn em{display:block}
+.nav-turn small{color:#d7bd72;font:800 11px/1.15 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.04em;margin-bottom:4px}
+.nav-turn b{color:#f4efe0;font:800 18px/1.22 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:normal}
+.nav-turn em{margin-top:5px;color:#9da5a2;font:700 10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+#app.nav-driving .intel-tabs{display:none!important}
+#app.nav-driving #intelBody>:not(#navHud){display:none!important}
+#app.nav-driving .intel{max-height:calc(100dvh - 174px)!important}
+#app.nav-driving .intel .panel-head{border-bottom:1px solid rgba(224,199,127,.18)}
+#app.nav-driving #intelTitle{color:#f0d889!important}
+#app.nav-driving #navHud{margin-bottom:0!important;background:linear-gradient(180deg,rgba(12,17,18,.96),rgba(7,10,11,.94))!important;box-shadow:0 16px 42px rgba(0,0,0,.24)!important}
+#app.nav-driving .nav-core small{font-size:9px!important}
+#app.nav-driving .nav-heading b,#app.nav-driving .nav-remaining b{font-size:17px!important}
+#app.nav-driving .nav-alert b{font-size:12px!important;white-space:normal!important}
+#app.nav-driving .nav-alert span,#app.nav-driving .nav-alert em{font-size:8px!important}
+#app.nav-driving .nav-limit-badge{font-size:9px!important;padding:4px 7px!important;border-radius:4px}
+
+@media(max-width:920px){
+  #app.nav-driving .intel{max-height:51dvh!important}
+  #app.nav-driving #navHud{padding:10px!important}
+  .nav-turn{grid-template-columns:52px minmax(0,1fr);gap:10px;padding:10px;margin:8px 0}
+  .nav-turn>strong{width:48px;height:48px;font-size:30px}
+  .nav-turn small{font-size:10px}.nav-turn b{font-size:16px}.nav-turn em{font-size:9px}
+}
+@media(max-width:520px){
+  #app.nav-driving .intel{max-height:53dvh!important}
+  .nav-turn{grid-template-columns:46px minmax(0,1fr);gap:9px;padding:9px}
+  .nav-turn>strong{width:44px;height:44px;font-size:28px}
+  .nav-turn b{font-size:15px;line-height:1.18}.nav-turn small{font-size:9px}.nav-turn em{font-size:8px}
+  #app.nav-driving .nav-core{grid-template-columns:.9fr 1fr 1fr!important}
+}
+@media(max-width:920px){
+  .intel.open{transform:translateY(0)!important;}
+}
+/* Active navigation removes planning chrome so the map becomes the primary driving surface. */
+#app.nav-driving .command{display:none!important;}
+#app.nav-driving .national-overview{display:none!important;}
+@media(max-width:920px){
+  #app.nav-driving .mobile-dock{display:none!important;}
+  #app.nav-driving .intel{bottom:8px!important;max-height:47dvh!important;}
+}
+@media(max-width:520px){
+  #app.nav-driving .intel{max-height:48dvh!important;}
+}
+#app.nav-driving #intelCollapse{display:none!important;}
+#app.nav-driving .ops-rail{opacity:.45;pointer-events:none;}

@@ -7,12 +7,12 @@ const ok=(cond,msg)=>{console.log(`${cond?'PASS':'FAIL'} ${msg}`); if(!cond) fai
 ok(html.includes('ops-rail'),'desktop operations rail');
 ok(html.includes('source-pills'),'top source-state pills');
 ok(html.includes('intel-tabs'),'intelligence quick tabs');
-ok(html.includes('0.24.0 CLEAN COMMAND'),'v0.24 build label');
+ok(html.includes('0.26.0 LIVE NAVIGATION'),'v0.26 build label');
 ok(html.includes('mapFocusBtn'),'map focus control');
 ok(html.includes('nationalCompactBtn'),'national monitor compact control');
 ok(html.includes('taiwan-silhouette.svg'),'large Taiwan boot visual');
 ok((html.match(/data-intel-jump=/g)||[]).length===5,'five intel jump tabs');
-ok(css.includes('v0.24 CLEAN COMMAND'),'v0.24 clean-command CSS block');
+ok(css.includes('v0.25.0 NATIONAL MONITOR'),'v0.25 national-monitor CSS block');
 ok(html.includes('map-layer-dock'),'compact horizontal map layer dock');
 ok(css.includes('#map .leaflet-tile-pane img{filter:none!important'),'normal map stays natural');
 ok(css.includes('max-height:36dvh'),'mobile intel drawer height cap');
@@ -23,5 +23,13 @@ ok(js.includes('probeCameraFeed'),'CCTV media format probe');
 ok(!js.includes("openOverlayPanel('cameraDrawer')") && js.includes("jumpIntelCard('inlineCameraCard')"),'CCTV opens in right-side inline intel instead of floating drawer');
 ok(js.includes("openOverlayPanel('settingsPanel')"),'settings uses single-panel manager');
 ok(css.includes('@media (max-width:920px)'),'mobile breakpoint retained');
+
+ok(html.includes('data-search-mode="monitor"') && html.includes('data-search-mode="nav"'),'monitor / nav search-mode tabs');
+ok(css.includes('.marker-speed-sign{width:22px'),'smaller speed enforcement marker');
+ok(css.includes('.privacy-local-mask'),'local CCTV privacy ROI');
+ok(css.includes('filter:none!important'),'privacy mode preserves full-frame clarity');
+ok(js.includes('renderCctvMapMarkers(cctv, { national:true })'),'national CCTV markers visible on homepage');
+ok(js.includes('loadCityFlow(place.lat, place.lon'),'target city-flow enrichment');
+
 if(failed) process.exit(1);
-console.log('UI V24 PASS');
+console.log('UI V26 PASS');

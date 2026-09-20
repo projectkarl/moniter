@@ -1,3 +1,46 @@
+# Test report — v0.26.0 Live Navigation Zero-Key
+
+## v0.26 navigation regression — PASS
+
+- OSRM route adapter requests and returns turn-by-turn steps: PASS
+- Large next-turn UI (`navTurnArrow / navTurnText / navTurnDistance / navTurnRoad`): PASS
+- Turn instruction translation / early-near-now voice stages: PASS
+- GPS map follow with route look-ahead point: PASS
+- Route-position calculation upgraded from sparse-point sampling to segment projection: PASS
+- Dynamic off-route threshold uses GPS accuracy: PASS
+- Consecutive / severe deviation triggers automatic reroute: PASS
+- Reroute starts from current GPS position and preserves destination: PASS
+- Navigation mode hides nonessential right-panel cards while active: PASS
+- Speed-enforcement early warning + published-limit HUD retained: PASS
+- Desktop static layout 1440×900: no horizontal overflow.
+- Mobile static layout 390×844: no horizontal overflow; navigation remains a bottom/right intel mode rather than a map overlay.
+- Vercel Hobby functions remain 2 / 12.
+- Runtime remains Zero-Key.
+
+Automated check: `scripts/nav-v26-test.mjs`.
+
+---
+
+# Test report — v0.25.0 National Monitor Zero-Key
+
+## v0.25 regression targets
+
+- Taiwan-wide default view and nationwide live-flow bootstrap.
+- Highway flow uses color bands; no permanent speed labels on map.
+- Nationwide CCTV markers rendered on homepage.
+- Monitor / Navigation search modes.
+- Taipei local CCTV location + city VD support.
+- Smaller speed-enforcement markers.
+- CCTV privacy shield changed from full-frame blur to local bottom ROI only.
+- Vercel Hobby functions remain 2 / 12.
+- Runtime remains Zero-Key.
+
+## Automated regression
+
+See `scripts/smoke.mjs`, `scripts/ui-v22-test.mjs`, `scripts/original-parity-test.mjs`, `scripts/ops-logic-test.mjs`, `scripts/api-contract-test.cjs`, and `scripts/cctv-feed-test.cjs`.
+
+---
+
 
 ## v0.24 Clean Command UX regression
 

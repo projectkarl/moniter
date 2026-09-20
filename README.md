@@ -1,4 +1,38 @@
-# EYE // TAIWAN — Clean Command v0.24.0
+# EYE // TAIWAN — Live Navigation v0.26.0
+
+Zero-Key / Vercel Hobby friendly Taiwan situation-awareness interface.
+
+
+## v0.26 Live Navigation
+
+- NAV OPS 進入真正的**行進中導航模式**：右側戰情欄暫時只保留導航必要資訊，地圖維持主視覺。
+- OSRM 改用 `steps=true`，顯示下一個轉向動作、距離與道路名稱，並在接近轉彎時主動語音播報。
+- GPS 持續 `watchPosition()` 跟隨；地圖自動保持近距離跟車視角並向前方路線略微預看。
+- 偏離路線會依 GPS accuracy 動態判斷；連續偏離或明顯偏離時自動 `AUTO REROUTE`，從目前位置重新計算並繼續導航。
+- 公開測速執法點維持提早分級提醒；若資料含速限，導航 HUD 主動顯示 `ENF LIMIT` 並在接近時語音提醒。
+- 前方事故／事件與 CCTV handoff 保留；導航模式不把一般天氣、新聞等卡片堆在畫面上。
+- 手機導航使用同一個底部情報抽屜；地圖至少保留約一半以上可視區。
+- Zero-Key / Vercel Hobby 架構不變，仍只有 2 個 Serverless Functions。
+
+## v0.25 National Monitor
+
+- 首頁預設 **台灣全島**，國道即時流速直接以淺綠／黃綠／橘／紅色帶顯示；地圖不常駐 km/h，點路段後才顯示實際速度。
+- 全台公開 CCTV 位置直接顯示在地圖。可直接播放的來源使用實心金色鏡頭；只有位置資料的地方政府 CCTV 使用藍色虛線鏡頭。
+- 搜尋框可在 **地點監控 / 導航 A→B** 兩種模式直接切換。地點模式搜尋一次，自動載入附近 CCTV、車流、天氣、事件與新聞；導航模式才展開 A→B。
+- 臺北目標（例如 101）會整合臺北市公開 CCTV 設施位置與附近 VD 道路速度；若地方政府未提供免授權公開串流，系統只顯示官方位置與附近公開車流，不冒充 LIVE 影像。
+- 測速／速限標誌縮小為次要圖層，避免遮擋道路。
+- **CCTV 局部隱私遮罩**：預設關閉；開啟時只模糊畫面下緣約 20–22% 的近距離 ROI，保留大部分道路與車流。這是輕量顯示遮罩，不宣稱自動辨識人臉／車牌。
+- Vercel Hobby 仍只有 `2 / 12` Serverless Functions：`/api/data` 與 `/api/cctv-feed`。
+
+## 重要資料透明度
+
+- `LIVE`：官方即時／準即時資料，仍可能有來源發布延遲。
+- `OBSERVED`：官方測站／VD 觀測。
+- `DERIVED`：以公開訊號計算的推論，例如 lane-flow edge。
+- `MODEL / ESTIMATED`：模型或估算，不能視為現場觀測。
+- `VISUAL`：NVG / FLIR / CRT 等視覺濾鏡，不改變資料本身。
+
+---
 
 Zero-Key Taiwan situational-intelligence dashboard for Vercel. The interface keeps the MI6/007-inspired intelligence-console language, while the **map itself is now natural, bright and readable**. Search or speak a place once and EYE assembles the relevant public intelligence in one result view. A → B routing and NAV OPS remain secondary tools.
 
