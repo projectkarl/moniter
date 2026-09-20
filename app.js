@@ -45,11 +45,11 @@
     inlineCamera: null,
     weatherAuto: true,
     speech: false,
-    mapFx: true,
+    mapFx: false,
     deferredInstall: null,
     intelOpen: false,
     vehicleIntel: true,
-    privacyShield: true,
+    privacyShield: false,
     speedAlerts: true,
     cameraHandoff: true,
     transferFx: true,
@@ -60,7 +60,8 @@
     trackedContact: null,
     annotations: [],
     cesium: { viewer:null, entity:null, loadPromise:null },
-    mapSource: 'tactical',
+    mapSource: 'satellite',
+    overlayVisibility: { flow:true, cctv:true, event:true, speed:true },
     baseMapLayer: null,
     lastThreatSignature: '',
     activeCamera: null,
@@ -212,20 +213,41 @@
     }));
   }
 
-  function setMapSource(source = 'tactical', announce = true) {
+  function setMapSource(source = 'satellite', announce = true) {
     if (!state.map || !window.L) return;
     const next = source === 'satellite' ? 'satellite' : 'tactical';
     if (state.baseMapLayer) state.map.removeLayer(state.baseMapLayer);
-    state.baseMapLayer = next === 'satellite'
-      ? L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' })
-      : L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' });
+    if (next === 'satellite') {
+      const imagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
+      const labels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, opacity: .98, attribution: 'Labels &copy; Esri' });
+      state.baseMapLayer = L.layerGroup([imagery, labels]);
+    } else {
+      state.baseMapLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' });
+    }
     state.baseMapLayer.addTo(state.map);
-    state.baseMapLayer.bringToBack?.();
     state.mapSource = next;
-    document.querySelectorAll('[data-map-source]').forEach((btn) => btn.classList.toggle('active', btn.dataset.mapSource === next));
+    document.querySelectorAll('[data-map-source]').forEach((btn) => {
+      const active = btn.dataset.mapSource === next;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
     $('app')?.classList.toggle('map-satellite', next === 'satellite');
     if (state.cockpitActive && state.cesium.viewer && window.Cesium) syncCockpitImagery(window.Cesium);
-    if (announce) toast(`MAP SOURCE // ${next.toUpperCase()}`);
+    if (announce) toast(`MAP // ${next === 'satellite' ? 'SATELLITE + LABELS' : 'STREET'}`);
+  }
+
+  function setOverlayVisibility(key, visible, announce = true) {
+    const prop = { flow:'flowLayer', cctv:'cameraLayer', event:'incidentLayer', speed:'speedLayer' }[key];
+    const layer = prop ? state[prop] : null;
+    if (!layer || !state.map) return;
+    state.overlayVisibility[key] = !!visible;
+    if (visible) { if (!state.map.hasLayer(layer)) layer.addTo(state.map); }
+    else if (state.map.hasLayer(layer)) state.map.removeLayer(layer);
+    document.querySelectorAll(`[data-layer-toggle="${key}"]`).forEach((btn) => {
+      btn.classList.toggle('active', !!visible);
+      btn.setAttribute('aria-pressed', visible ? 'true' : 'false');
+    });
+    if (announce) toast(`${key.toUpperCase()} LAYER // ${visible ? 'ON' : 'OFF'}`);
   }
 
   function initMap() {
@@ -234,8 +256,8 @@
       return;
     }
     state.map = L.map('map', { zoomControl: false, preferCanvas: true, minZoom: 6 }).setView([NATIONAL_CENTER.lat, NATIONAL_CENTER.lon], window.innerWidth <= 920 ? 7 : 7);
-    setMapSource('tactical', false);
-    $('map').classList.add('map-fx');
+    setMapSource('satellite', false);
+    $('map').classList.toggle('map-fx', state.mapFx);
     state.cameraLayer = L.layerGroup().addTo(state.map);
     state.incidentLayer = L.layerGroup().addTo(state.map);
     state.flowLayer = L.layerGroup().addTo(state.map);
@@ -2019,25 +2041,39 @@
   }
 
   function cameraFeedUrl(cam) {
-    const raw = String(cam?.streamUrl || '');
-    if (/^https:\/\//i.test(raw) && !/\.m3u8(?:\?|$)/i.test(raw)) return raw;
     if (cam?.id) return `/api/cctv-feed?id=${encodeURIComponent(cam.id)}`;
-    return /^https:\/\//i.test(raw) ? raw : '';
+    return '';
   }
 
   let hlsLoaderPromise = null;
   function ensureHlsJs() {
     if (window.Hls) return Promise.resolve(window.Hls);
     if (hlsLoaderPromise) return hlsLoaderPromise;
+    const candidates = [
+      'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js',
+      'https://unpkg.com/hls.js@1/dist/hls.min.js',
+    ];
     hlsLoaderPromise = new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js';
-      script.async = true;
-      script.onload = () => window.Hls ? resolve(window.Hls) : reject(new Error('HLS unavailable'));
-      script.onerror = () => reject(new Error('HLS loader failed'));
-      document.head.appendChild(script);
+      let i = 0;
+      const loadNext = () => {
+        if (i >= candidates.length) { reject(new Error('HLS loader failed')); return; }
+        const script = document.createElement('script');
+        script.src = candidates[i++];
+        script.async = true;
+        script.onload = () => window.Hls ? resolve(window.Hls) : loadNext();
+        script.onerror = loadNext;
+        document.head.appendChild(script);
+      };
+      loadNext();
     });
     return hlsLoaderPromise;
+  }
+
+  function clearCameraStage(stage) {
+    clearInterval(stage?._eyeRefresh);
+    stage._eyeRefresh = null;
+    stage?.querySelectorAll?.('video').forEach((v) => { try { v._eyeHls?.destroy?.(); } catch (_) {} });
+    if (stage) stage.innerHTML = '';
   }
 
   function renderHls(stage, url) {
@@ -2046,50 +2082,77 @@
     stage.appendChild(video);
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = url;
+      video.play?.().catch(()=>{});
       return;
     }
     ensureHlsJs().then((Hls) => {
       if (!Hls?.isSupported?.()) throw new Error('HLS unsupported');
-      const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+      const hls = new Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 20 });
       hls.loadSource(url); hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => video.play?.().catch(()=>{}));
       video._eyeHls = hls;
     }).catch(() => {
-      stage.innerHTML = '<div class="camera-placeholder">此公開串流格式目前無法在本瀏覽器直接解碼。系統不會另開外部網頁。</div>';
+      stage.innerHTML = '<div class="camera-placeholder"><b>SIGNAL FORMAT UNAVAILABLE</b><span>此公開串流目前無法由瀏覽器解碼；系統仍留在本頁並持續嘗試其他附近鏡頭。</span></div>';
     });
   }
 
-  function renderCameraMedia(stage, cam) {
-    stage.querySelectorAll('video').forEach((v) => { try { v._eyeHls?.destroy?.(); } catch (_) {} });
-    stage.innerHTML = '';
-    const original = String(cam?.streamUrl || '');
-    const url = cameraFeedUrl(cam);
-    if (!original || !url) {
-      stage.innerHTML = '<div class="camera-placeholder">此攝影機目前沒有可內嵌的公開串流。</div>';
-      return;
-    }
-    if (/\.m3u8(?:\?|$)/i.test(original)) {
-      renderHls(stage, url);
-      return;
-    }
-    if (/\.(?:mp4|webm)(?:\?|$)/i.test(original)) {
-      const video = document.createElement('video');
-      video.src = url; video.controls = true; video.autoplay = true; video.muted = true; video.playsInline = true;
-      video.addEventListener('error', () => { stage.innerHTML = '<div class="camera-placeholder">公開影像暫時無法播放，請稍後重試。</div>'; });
-      stage.appendChild(video);
-      return;
-    }
+  async function probeCameraFeed(cam, signal) {
+    if (!cam?.id) return { kind:'unknown', contentType:'' };
+    const res = await fetch(`/api/cctv-feed?id=${encodeURIComponent(cam.id)}&probe=1`, { cache:'no-store', signal });
+    if (!res.ok) throw new Error(`probe ${res.status}`);
+    return res.json();
+  }
+
+  function renderCameraImage(stage, url, refresh = false, fallbackUnknown = false) {
     const img = document.createElement('img');
-    img.src = url;
     img.alt = 'CCTV 即時影像';
     img.referrerPolicy = 'no-referrer';
+    const apply = () => { img.src = `${url}${url.includes('?') ? '&' : '?'}frame=${Date.now()}`; };
     img.addEventListener('error', () => {
-      stage.innerHTML = '';
-      const video = document.createElement('video');
-      video.src = url; video.controls = true; video.autoplay = true; video.muted = true; video.playsInline = true;
-      video.addEventListener('error', () => { stage.innerHTML = '<div class="camera-placeholder">公開影像暫時無法直接播放，系統不會跳離本頁。</div>'; });
-      stage.appendChild(video);
-    }, { once: true });
+      clearInterval(stage._eyeRefresh); stage._eyeRefresh = null;
+      if (fallbackUnknown) { clearCameraStage(stage); renderCameraVideo(stage, url, true); return; }
+      stage.innerHTML = '<div class="camera-placeholder"><b>CAMERA SIGNAL RETRYING</b><span>公開影像目前沒有可解碼畫面，請切換附近鏡頭或稍後重試。</span></div>';
+    }, { once:true });
     stage.appendChild(img);
+    apply();
+    if (refresh) stage._eyeRefresh = setInterval(apply, 4500);
+  }
+
+  function renderCameraVideo(stage, url, fallbackHls = false) {
+    const video = document.createElement('video');
+    video.src = url; video.controls = true; video.autoplay = true; video.muted = true; video.playsInline = true; video.preload = 'auto';
+    video.addEventListener('error', () => {
+      if (fallbackHls) { clearCameraStage(stage); renderHls(stage, url); return; }
+      stage.innerHTML = '<div class="camera-placeholder"><b>VIDEO SIGNAL UNAVAILABLE</b><span>目前串流暫時無法播放；不會跳離本頁。</span></div>';
+    }, { once:true });
+    stage.appendChild(video);
+    video.play?.().catch(()=>{});
+  }
+
+  async function renderCameraMedia(stage, cam) {
+    if (!stage) return;
+    const token = `${Date.now()}-${Math.random()}`;
+    stage.dataset.renderToken = token;
+    clearCameraStage(stage);
+    const url = cameraFeedUrl(cam);
+    if (!cam?.id || !url) {
+      stage.innerHTML = '<div class="camera-placeholder"><b>NO PUBLIC SIGNAL</b><span>此攝影機目前沒有可內嵌的公開串流。</span></div>';
+      return;
+    }
+    stage.innerHTML = '<div class="camera-loading"><i></i><b>ACQUIRING LIVE CCTV</b><span>正在辨識公開串流格式…</span></div>';
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 9000);
+    let probe = cam?._probe || null;
+    try { if (!probe) probe = await probeCameraFeed(cam, ctrl.signal); } catch (_) {}
+    clearTimeout(timer);
+    if (stage.dataset.renderToken !== token) return;
+    clearCameraStage(stage);
+    const kind = probe?.kind || (/\.m3u8(?:\?|$)/i.test(cam.streamUrl||'') ? 'hls' : 'unknown');
+    if (kind === 'hls') { renderHls(stage, url); return; }
+    if (kind === 'image' || kind === 'mjpeg') { renderCameraImage(stage, url, kind === 'image'); return; }
+    if (kind === 'video') { renderCameraVideo(stage, url); return; }
+    // Unknown endpoints are often snapshot endpoints without a useful extension.
+    renderCameraImage(stage, url, true, true);
   }
 
   function selectInlineCamera(cam) {
@@ -2127,7 +2190,16 @@
       const cam = cameras.find((x) => String(x.id) === btn.dataset.inlineCamera);
       if (cam) selectInlineCamera(cam);
     }));
-    selectInlineCamera(cameras[0]);
+    $('inlineCameraStage').innerHTML = '<div class="camera-loading"><i></i><b>SELECTING LIVE CAMERA</b><span>正在檢查附近公開鏡頭可播放訊號…</span></div>';
+    (async () => {
+      for (const cam of cameras) {
+        try {
+          const probe = await probeCameraFeed(cam);
+          if (['hls','image','mjpeg','video'].includes(probe?.kind)) { cam._probe = probe; selectInlineCamera(cam); return; }
+        } catch (_) {}
+      }
+      selectInlineCamera(cameras[0]);
+    })();
   }
 
   function openCamera(cam) {
@@ -2791,6 +2863,7 @@
     $('threatCompare')?.addEventListener('click', () => { $('threatAlert').hidden = true; $('app').classList.remove('condition-red'); state.intelOpen = true; $('intelPanel').classList.add('open'); $('intelCollapse').textContent = '−'; $('routeCard')?.scrollIntoView?.({ behavior: state.motion ? 'smooth' : 'auto', block: 'center' }); });
     document.querySelectorAll('[data-sensor]').forEach((btn) => btn.addEventListener('click', () => setSensorMode(btn.dataset.sensor)));
     document.querySelectorAll('[data-map-source]').forEach((btn) => btn.addEventListener('click', () => setMapSource(btn.dataset.mapSource))); 
+    document.querySelectorAll('[data-layer-toggle]').forEach((btn) => btn.addEventListener('click', () => { const key=btn.dataset.layerToggle; setOverlayVisibility(key, !state.overlayVisibility[key]); }));
     document.querySelectorAll('[data-close]').forEach((btn) => btn.addEventListener('click', () => $(btn.dataset.close).hidden = true));
     document.querySelectorAll('[data-intel-jump]').forEach((btn) => btn.addEventListener('click', () => { tactile(6); jumpIntelCard(btn.dataset.intelJump); }));
     document.querySelectorAll('.ops-rail [data-rail]').forEach((btn) => btn.addEventListener('click', async () => {

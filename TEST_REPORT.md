@@ -1,4 +1,4 @@
-# Test report — v0.22.0 Map-First Command Zero-Key
+# Test report — v0.23.0 Clear Map CCTV Zero-Key
 
 ## Core regression — PASS
 
@@ -10,9 +10,28 @@
 - Mock API contracts: PASS
 - In-page CCTV feed proxy regression: PASS
 - Zero-Key runtime architecture retained: PASS
-- Build label: `0.22.0 MAP-FIRST COMMAND`
+- Build label: `0.23.0 CLEAR-MAP CCTV`
 
 
+
+
+## v0.23 Clear-map / CCTV regression — PASS
+
+- Default map source state is satellite and uses Esri imagery + public reference overlays: PASS
+- Normal mode tile CSS has no grayscale/invert filter: PASS
+- Map-FX control defaults OFF: PASS
+- Privacy shield defaults OFF while remaining user-toggleable: PASS
+- Compact horizontal `SAT / MAP / FLOW / CAM / EVT / SPD` quick dock is present: PASS
+- Overlay visibility toggles control the existing Leaflet layer groups without creating new server functions: PASS
+- Larger user-facing typography overrides are present for search, POI suggestions, intelligence cards, popups and freeway speed labels: PASS
+- CCTV frontend always prefers same-origin `/api/cctv-feed?id=...`: PASS
+- CCTV media probe endpoint returns format metadata without adding a Serverless Function: PASS
+- HLS playlist rewrite regression: PASS
+- HLS native/hls.js browser path: PASS (external hls.js CDN availability still requires deployment-network QA)
+- Snapshot/JPEG refresh path: PASS
+- MP4/WebM Range/206 proxy handling: PASS by code inspection / mocked response contract
+- Wrapper-page media discovery path: PASS by syntax/static regression; source-specific live behavior requires deployed feed QA
+- Vercel Hobby functions remain **2 / 12**: PASS
 
 
 ## v0.22 Map-First Command UI checks — PASS

@@ -1,6 +1,27 @@
-# EYE // TAIWAN — Map-First Command v0.22.0
+# EYE // TAIWAN — Clear Map CCTV v0.23.0
 
-Zero-Key Taiwan situational-intelligence dashboard for Vercel. The primary experience is a MI6/007-inspired black-gold command room: search or speak a place once, then EYE automatically assembles the relevant public intelligence in one result view. A → B routing and NAV OPS remain secondary tools.
+Zero-Key Taiwan situational-intelligence dashboard for Vercel. The interface keeps the MI6/007-inspired intelligence-console language, while the **map itself is now natural, bright and readable**. Search or speak a place once and EYE assembles the relevant public intelligence in one result view. A → B routing and NAV OPS remain secondary tools.
+
+
+## v0.23 Clear Map CCTV
+
+### Map clarity first
+
+- Normal mode no longer applies the black-gold/inverted filter to map tiles. The spy aesthetic stays in HUD, panels, target locks and alerts rather than obscuring geography.
+- The default basemap now follows the upstream God's Eye View Zero-Key idea more closely: **Esri World Imagery** plus public place-reference labels for readable roads and labels. A clear OpenStreetMap street map remains one tap away.
+- A compact horizontal map dock replaces map-blocking layer windows: `SAT / MAP / FLOW / CAM / EVT / SPD`.
+- Leaflet popups, map markers, freeway `km/h` badges, hotspot labels and target information are enlarged.
+- User-facing typography across search, POI suggestions, intelligence cards, route ETA, CCTV metadata and national-watch cards is substantially larger.
+
+### CCTV direct in-page playback
+
+- Public CCTV is now routed through the same-origin `/api/cctv-feed` path whenever a camera ID is available instead of sending normal HTTPS feeds directly to the browser. This avoids many source-side CORS/hotlink failures.
+- The proxy now probes the upstream media type and distinguishes HLS, MJPEG, still-image snapshots and normal video.
+- HLS uses native playback when available, otherwise hls.js is loaded on demand with a secondary CDN fallback.
+- JPEG/snapshot cameras refresh in-place; MP4/WebM Range requests preserve upstream `206`, `Content-Range` and `Accept-Ranges` semantics.
+- Basic CCTV wrapper pages can be inspected server-side for a directly referenced public media URL.
+- CCTV privacy blur remains available but is **off by default** so public traffic imagery is visible immediately. No plate OCR, face recognition or cross-camera vehicle/person tracking is added.
+- If an upstream public camera is genuinely offline or exposes an unsupported/non-browser media protocol, EYE stays on the same page and shows a signal-state card; it never redirects the operator away.
 
 
 ## v0.22 Map-First Command

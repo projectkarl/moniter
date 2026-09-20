@@ -10,7 +10,7 @@ EYE // TAIWAN does not relicense third-party data, map tiles, video streams or i
 - 經濟部水利署防災／淹水警戒開放資料 — used as public warning signals; subject to dataset license and notices
 - 臺北市停車管理工程處公開停車資訊 — used for supported parking facility / availability context; subject to Taipei open-data terms
 - 臺北市工務局道路施工公開資料 — used for supported current-roadwork context; subject to Taipei open-data terms
-- Esri World Imagery — optional satellite basemap; subject to Esri terms
+- Esri World Imagery plus Esri public place/reference labels — default Zero-Key satellite basemap and labels; subject to Esri terms
 - ADSB.lol / public ADS-B source, public seismic sources and public news sources — subject to each source's terms
 - Leaflet — BSD-2-Clause
 - hls.js — Apache-2.0; loaded on demand only when the browser needs HLS decoding support

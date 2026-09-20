@@ -2,6 +2,7 @@ const { Readable } = require('node:stream');
 const { fetchText, tag, xmlBlocks } = require('../server/_utils');
 
 const registryCache = new Map();
+const mediaCache = new Map();
 
 const SOURCES = {
   freeway: { id: 'freeway', url: 'https://tisvcloud.freeway.gov.tw/history/motc20/CCTV.xml' },
@@ -39,6 +40,7 @@ async function resolveCamera(id) {
 function safeHttpUrl(value) {
   const url = new URL(value);
   if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Unsupported CCTV protocol');
+  if (/^(localhost|127\.|0\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[0-1])\.)/i.test(url.hostname)) throw new Error('Private CCTV host rejected');
   return url;
 }
 
@@ -65,6 +67,100 @@ function rewritePlaylist(text, sourceUrl, id) {
   }).join('\n');
 }
 
+function mediaKind(contentType = '', url = '') {
+  const type = String(contentType).toLowerCase();
+  const target = String(url).toLowerCase();
+  if (/mpegurl|m3u8/.test(type) || /\.m3u8(?:\?|$)/.test(target)) return 'hls';
+  if (/multipart\/x-mixed-replace/.test(type) || /\.(?:mjpg|mjpeg)(?:\?|$)/.test(target)) return 'mjpeg';
+  if (/^image\//.test(type) || /\.(?:jpg|jpeg|png|webp)(?:\?|$)/.test(target)) return 'image';
+  if (/^video\//.test(type) || /\.(?:mp4|webm)(?:\?|$)/.test(target)) return 'video';
+  if (/text\/html/.test(type)) return 'html';
+  return 'unknown';
+}
+
+
+function sniffKind(bytes) {
+  if (!bytes || !bytes.length) return 'unknown';
+  const head = Buffer.from(bytes).subarray(0, 512);
+  const text = head.toString('utf8');
+  if (/^#EXTM3U/m.test(text)) return 'hls';
+  if (head[0] === 0xff && head[1] === 0xd8) return 'image';
+  if (head.length > 12 && head.subarray(4, 8).toString('ascii') === 'ftyp') return 'video';
+  return 'unknown';
+}
+
+function discoverMediaFromHtml(html, baseUrl) {
+  const candidates = [];
+  const attrRe = /(?:src|href)\s*=\s*["']([^"']+)["']/ig;
+  let m;
+  while ((m = attrRe.exec(html))) candidates.push(m[1]);
+  const rawRe = /(https?:\/\/[^"'\s<>]+(?:\.m3u8|\.mp4|\.webm|\.mjpg|\.mjpeg|\.jpg|\.jpeg)(?:\?[^"'\s<>]*)?)/ig;
+  while ((m = rawRe.exec(html))) candidates.push(m[1]);
+  for (const item of candidates) {
+    try {
+      const abs = new URL(item.replace(/&amp;/g, '&'), baseUrl);
+      if (!['http:', 'https:'].includes(abs.protocol)) continue;
+      if (/\.(?:m3u8|mp4|webm|mjpg|mjpeg|jpg|jpeg)(?:\?|$)/i.test(abs.toString())) return abs;
+    } catch (_) {}
+  }
+  return null;
+}
+
+async function fetchWithTimeout(url, opts = {}, timeout = 12000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeout);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal, redirect: 'follow' });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function resolveMediaTarget(camera) {
+  const cached = mediaCache.get(camera.id);
+  if (cached && cached.expiresAt > Date.now()) return cached;
+  const original = safeHttpUrl(camera.streamUrl);
+  let response = await fetchWithTimeout(original.toString(), {
+    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'EYE-Taiwan/0.23 public-cctv-probe' },
+  }, 10000);
+  if (!response.ok) throw new Error(`CCTV upstream HTTP ${response.status}`);
+  const finalUrl = safeHttpUrl(response.url || original.toString());
+  const contentType = response.headers.get('content-type') || '';
+  let kind = mediaKind(contentType, finalUrl.toString());
+  let target = finalUrl;
+
+  if (kind === 'html') {
+    const length = Number(response.headers.get('content-length') || 0);
+    if (length > 1_500_000) throw new Error('CCTV wrapper page too large');
+    const html = await response.text();
+    const discovered = discoverMediaFromHtml(html, finalUrl);
+    if (!discovered) throw new Error('No playable media found in CCTV wrapper');
+    target = safeHttpUrl(discovered.toString());
+    response = await fetchWithTimeout(target.toString(), {
+      headers: { Accept: '*/*', Range: 'bytes=0-4095', 'User-Agent': 'EYE-Taiwan/0.23 public-cctv-probe' },
+    }, 10000);
+    if (!response.ok) throw new Error(`CCTV media HTTP ${response.status}`);
+    kind = mediaKind(response.headers.get('content-type') || '', response.url || target.toString());
+    target = safeHttpUrl(response.url || target.toString());
+  } else if (kind === 'unknown') {
+    try {
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      kind = sniffKind(bytes);
+    } catch (_) {}
+  }
+
+  try { await response.body?.cancel?.(); } catch (_) {}
+  const out = { url: target, kind, contentType: response.headers.get('content-type') || contentType, expiresAt: Date.now() + 10 * 60 * 1000 };
+  mediaCache.set(camera.id, out);
+  return out;
+}
+
+function sendJson(res, code, value) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(code).send(JSON.stringify(value));
+}
+
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -76,7 +172,18 @@ module.exports = async (req, res) => {
 
   try {
     const camera = await resolveCamera(id);
-    const base = safeHttpUrl(camera.streamUrl);
+    const resolved = await resolveMediaTarget(camera);
+    const base = safeHttpUrl(resolved.url.toString());
+
+    if (String(req.query.probe || '') === '1') {
+      return sendJson(res, 200, {
+        id,
+        kind: resolved.kind,
+        contentType: resolved.contentType,
+        proxied: true,
+      });
+    }
+
     let target = base;
     if (req.query.resource) {
       const requested = safeHttpUrl(String(req.query.resource));
@@ -84,43 +191,35 @@ module.exports = async (req, res) => {
       target = requested;
     }
 
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 12000);
-    let upstream;
-    try {
-      upstream = await fetch(target.toString(), {
-        signal: ctrl.signal,
-        redirect: 'follow',
-        headers: {
-          Accept: '*/*',
-          'User-Agent': 'EYE-Taiwan/0.13 public-cctv-inline-proxy',
-        },
-      });
-    } finally {
-      clearTimeout(timer);
-    }
+    const headers = {
+      Accept: '*/*',
+      'User-Agent': 'EYE-Taiwan/0.23 public-cctv-inline-proxy',
+    };
+    if (req.headers?.range) headers.Range = req.headers.range;
+    const upstream = await fetchWithTimeout(target.toString(), { headers }, 15000);
     if (!upstream.ok || !upstream.body) return res.status(502).send(`CCTV upstream HTTP ${upstream.status}`);
 
+    const finalUrl = safeHttpUrl(upstream.url || target.toString());
+    if (!sameStreamHost(target, finalUrl)) return res.status(403).send('CCTV redirect host rejected');
     const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
-    const finalUrl = upstream.url || target.toString();
-    const isPlaylist = /mpegurl|m3u8/i.test(contentType) || /\.m3u8(?:\?|$)/i.test(finalUrl);
+    const isPlaylist = /mpegurl|m3u8/i.test(contentType) || /\.m3u8(?:\?|$)/i.test(finalUrl.toString());
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
     res.setHeader('X-Content-Type-Options', 'nosniff');
 
     if (isPlaylist) {
       const text = await upstream.text();
       res.setHeader('Content-Type', 'application/vnd.apple.mpegurl; charset=utf-8');
-      res.status(200).send(rewritePlaylist(text, finalUrl, id));
+      res.status(200).send(rewritePlaylist(text, finalUrl.toString(), id));
       return;
     }
 
     res.setHeader('Content-Type', contentType);
-    const length = upstream.headers.get('content-length');
-    if (length) res.setHeader('Content-Length', length);
-    const acceptRanges = upstream.headers.get('accept-ranges');
-    if (acceptRanges) res.setHeader('Accept-Ranges', acceptRanges);
-    res.statusCode = 200;
+    for (const h of ['content-length', 'content-range', 'accept-ranges', 'last-modified', 'etag']) {
+      const value = upstream.headers.get(h);
+      if (value) res.setHeader(h.split('-').map((x) => x[0].toUpperCase() + x.slice(1)).join('-'), value);
+    }
+    res.statusCode = upstream.status;
     Readable.fromWeb(upstream.body).pipe(res);
   } catch (err) {
     res.status(502).send(`CCTV inline feed unavailable: ${err.message}`);
