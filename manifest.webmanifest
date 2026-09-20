@@ -1,0 +1,15 @@
+{
+  "name": "EYE // TAIWAN",
+  "short_name": "EYE Taiwan",
+  "description": "台灣公開資訊即時情報地圖：行前監控戰情室：自然語音任務、多路線情報、即時車流、CCTV Sensor Fusion、天氣與公開事件。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#08090a",
+  "theme_color": "#08090a",
+  "orientation": "any",
+  "icons": [
+    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
