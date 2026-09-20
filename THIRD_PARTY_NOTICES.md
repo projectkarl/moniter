@@ -23,3 +23,7 @@ The area-status / threat display is a visualization derived from public signals.
 ## CesiumJS (lazy 3D cockpit)
 
 The optional 3D cockpit path lazy-loads CesiumJS from a public CDN only when requested. CesiumJS is an open-source geospatial visualization library; its own license and notices apply. The Taiwan build uses OSM imagery over a WGS84 ellipsoid and does not claim Google Photorealistic 3D Tiles or Cesium World Terrain.
+
+## CCTV registry additions (v0.27)
+- 嘉義縣政府即時路況 CCTV open dataset: official location / stream metadata published as ODS; used under the source's government open-data terms.
+- The app does not redistribute private CCTV, perform face/plate recognition, or infer identities.

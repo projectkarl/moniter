@@ -7,7 +7,7 @@ const ok=(cond,msg)=>{console.log(`${cond?'PASS':'FAIL'} ${msg}`); if(!cond) fai
 ok(html.includes('ops-rail'),'desktop operations rail');
 ok(html.includes('source-pills'),'top source-state pills');
 ok(html.includes('intel-tabs'),'intelligence quick tabs');
-ok(html.includes('0.26.0 LIVE NAVIGATION'),'v0.26 build label');
+ok(html.includes('0.27.0 FREE IMMERSIVE + CCTV SEARCH'),'v0.27 build label');
 ok(html.includes('mapFocusBtn'),'map focus control');
 ok(html.includes('nationalCompactBtn'),'national monitor compact control');
 ok(html.includes('taiwan-silhouette.svg'),'large Taiwan boot visual');
@@ -32,4 +32,4 @@ ok(js.includes('renderCctvMapMarkers(cctv, { national:true })'),'national CCTV m
 ok(js.includes('loadCityFlow(place.lat, place.lon'),'target city-flow enrichment');
 
 if(failed) process.exit(1);
-console.log('UI V26 PASS');
+console.log('UI V27 PASS');

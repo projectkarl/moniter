@@ -1,4 +1,20 @@
-# Test report — v0.26.0 Live Navigation Zero-Key
+# Test report — v0.27.0 Free Immersive + Taiwan CCTV Search Zero-Key
+
+## v0.27 CCTV / free immersive regression — PASS
+
+- FREE 3D GPS/route-follow mode and MAP toggle: PASS
+- Turn guidance, heading, speed, remaining distance and nearby route CCTV handoff: PASS
+- End navigation clears fields and returns to Taiwan national mode: PASS
+- Intersection-first CCTV search independent of geocoder: PASS
+- Search normalization preserves road names and handles `與 / 和 / 及 / ／`: PASS
+- CCTV registry XML / JSON / CSV adapters: PASS
+- ODS ZIP/content.xml parser for the official Chiayi County CCTV dataset: PASS
+- LIVE vs LOC classification: PASS
+- Per-source success/failure health reporting without fabricated fallback cameras: PASS
+- National camera marker sampling while full-registry text search remains available: PASS
+- Vercel Serverless Functions remain 2: PASS
+
+Automated checks: `scripts/cctv-v27-test.cjs`, `scripts/cctv-api-v27-test.cjs`, `scripts/nav-v26-test.mjs`.
 
 ## v0.26 navigation regression — PASS
 

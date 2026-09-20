@@ -1,41 +1,7 @@
 const { Readable } = require('node:stream');
-const { fetchText, tag, xmlBlocks } = require('../server/_utils');
+const { resolveCamera } = require('../server/cctv-registry');
 
-const registryCache = new Map();
 const mediaCache = new Map();
-
-const SOURCES = {
-  freeway: { id: 'freeway', url: 'https://tisvcloud.freeway.gov.tw/history/motc20/CCTV.xml' },
-  highway: { id: 'highway', url: 'https://cctv-maintain.thb.gov.tw/opendataCCTVs.xml' },
-  'chiayi-city': { id: 'chiayi-city', url: 'https://117.56.103.67/MOTC_XML/XML/CCTV2_Info.ashx' },
-};
-
-function decodeXmlUrl(v = '') {
-  return String(v).replace(/&amp;/g, '&').replace(/&#38;/g, '&').trim();
-}
-
-function parseStandardXml(xml, source) {
-  return xmlBlocks(xml, 'CCTV').map((block, index) => ({
-    id: `${source.id}:${tag(block, 'CCTVID') || index}`,
-    streamUrl: decodeXmlUrl(tag(block, 'VideoStreamURL') || tag(block, 'videostreamurl') || tag(block, 'URL')),
-  })).filter((x) => x.streamUrl);
-}
-
-async function resolveCamera(id) {
-  const prefix = String(id || '').split(':')[0];
-  const source = SOURCES[prefix];
-  if (!source) throw new Error('Unknown CCTV source');
-  const now = Date.now();
-  let cached = registryCache.get(prefix);
-  if (!cached || cached.expiresAt < now) {
-    const xml = await fetchText(source.url, {}, 15000);
-    cached = { items: parseStandardXml(xml, source), expiresAt: now + 6 * 60 * 60 * 1000 };
-    registryCache.set(prefix, cached);
-  }
-  const camera = cached.items.find((x) => x.id === id);
-  if (!camera) throw new Error('CCTV not found');
-  return camera;
-}
 
 function safeHttpUrl(value) {
   const url = new URL(value);

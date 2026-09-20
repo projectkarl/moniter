@@ -24,6 +24,7 @@
     trackTrailLayer: null,
     currentWeather: null,
     latestCctv: [],
+    cctvCoverage: null,
     latestTraffic: [],
     latestFlow: [],
     latestCityFlow: [],
@@ -83,6 +84,8 @@
       rerouting: false,
       lastRerouteAt: 0,
       lastRouteProgress: 0,
+      viewMode: 'map',
+      immersiveCameraId: null,
     },
     motion: !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
   };
@@ -517,11 +520,11 @@
     const input = $('queryInput');
     if (input) input.placeholder = next === 'nav'
       ? '輸入目的地，或直接說「從北車到 101」'
-      : '搜尋地點／簡稱，例如 101、北車、A11';
+      : '搜尋地點／路口／CCTV，例如 101、北車、忠孝東路與基隆路';
     const hint = $('commandHint');
     if (hint) hint.innerHTML = next === 'nav'
       ? '<b>NAV MODE</b><span>設定 A → B；系統比較替代路線、ETA、沿途事件與即時流速。</span>'
-      : '<b>AUTO INTEL</b><span>地點監控：搜尋一次，自動載入附近 CCTV、車流、天氣與事件。</span>';
+      : '<b>AUTO INTEL</b><span>搜尋地點或路口；自動載入附近 CCTV、車流、天氣與事件。可直接輸入「XX路與YY路 CCTV」。</span>';
     if (focus) setTimeout(() => (next === 'nav' ? $('abTarget') : $('queryInput'))?.focus?.(), 0);
   }
 
@@ -716,7 +719,7 @@
       loadFlow(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon, false, 220),
       loadTraffic(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon, false, 250, { draw:false }),
     ];
-    if (includeCctv || !state.latestCctv.length) jobs.push(loadCctv(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon, false, 180, { draw:false }));
+    if (includeCctv || !state.latestCctv.length) jobs.push(loadCctv(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon, false, 420, { draw:false, national:true }));
     const results = await Promise.allSettled(jobs);
     const flow = results[0]?.status === 'fulfilled' ? (results[0].value || []) : state.latestFlow;
     const traffic = results[1]?.status === 'fulfilled' ? (results[1].value || []) : state.latestTraffic;
@@ -1039,6 +1042,48 @@
     openIntelResults();
   }
 
+  function cctvSearchIntent(text = '') {
+    const raw = String(text || '').trim();
+    if (!raw) return false;
+    return /cctv|監視器|監視攝影機|攝影機|即時影像|路口|交叉口/i.test(raw)
+      || /(?:路|街|大道|巷|道).*(?:與|和|及|交叉).*(?:路|街|大道|巷|道)/.test(raw);
+  }
+
+  function mergeCctvItems(primary = [], secondary = []) {
+    const map = new Map();
+    [...primary, ...secondary].forEach((cam) => {
+      if (!cam) return;
+      const key = cam.id || cam.streamUrl || `${Number(cam.lat).toFixed(5)},${Number(cam.lon).toFixed(5)},${cam.road || cam.name || ''}`;
+      if (!map.has(key)) map.set(key, cam);
+    });
+    return [...map.values()];
+  }
+
+  async function searchCctvByText(query, limit = 100) {
+    const q = String(query || '').trim();
+    if (!q) return { items:[] };
+    return jsonFetch(`/api/data?action=cctv&q=${encodeURIComponent(q)}&limit=${Math.min(180, Math.max(20, Number(limit) || 100))}`);
+  }
+
+  async function openCctvSearchMatch(data, fallbackName = '') {
+    const exact = Array.isArray(data?.items) ? data.items.filter((x) => Number.isFinite(Number(x.lat)) && Number.isFinite(Number(x.lon))) : [];
+    if (!exact.length) return false;
+    const first = exact[0];
+    const place = { name:first.road || first.name || fallbackName || 'CCTV 路口', lat:Number(first.lat), lon:Number(first.lon), cctvMatch:true };
+    await lockTarget(place, 16);
+    const merged = mergeCctvItems(exact, state.latestCctv);
+    state.latestCctv = merged;
+    renderCctvMapMarkers(merged);
+    renderInlineCctvResults(merged, place, state.latestCityFlow || []);
+    if ($('cameraCount')) $('cameraCount').textContent = String(merged.length);
+    if ($('inlineCameraMeta')) {
+      const live = exact.filter((x) => x.streamUrl).length;
+      $('inlineCameraMeta').textContent = `路口名冊命中 ${exact.length} · LIVE ${live} · LOC ${exact.length-live}`;
+    }
+    jumpIntelCard('inlineCameraCard');
+    return true;
+  }
+
   async function handleSearch(raw, context = {}) {
     const query = raw.trim();
     if (!query) return;
@@ -1059,11 +1104,35 @@
       return;
     }
     const wantsNews = /新聞|消息|發生什麼|地方情報/i.test(query);
-    const stripped = query.replace(/(看|查看|附近|目前|的|監視器|攝影機|cctv|路況|事故|天氣|會不會下雨|下雨|新聞|消息|發生什麼|地方情報)/ig, ' ').replace(/\s+/g, ' ').trim() || query;
+    const wantsCctv = cctvSearchIntent(query);
+    const stripped = query.replace(/(看|查看|附近|目前|的|監視器|監視攝影機|攝影機|cctv|即時影像|路況|事故|天氣|會不會下雨|下雨|新聞|消息|發生什麼|地方情報)/ig, ' ').replace(/\s+/g, ' ').trim() || query;
     toast(`TARGET ACQUISITION // ${stripped}`);
-    const place = await geocode(stripped);
+    let cctvLookup = null;
+    if (wantsCctv) {
+      try { cctvLookup = await searchCctvByText(stripped, 100); }
+      catch (_) { cctvLookup = null; }
+    }
+    let place = null;
+    try { place = await geocode(stripped); }
+    catch (geoErr) {
+      if (cctvLookup?.items?.length) {
+        await openCctvSearchMatch(cctvLookup, stripped);
+        openIntelResults();
+        return;
+      }
+      throw geoErr;
+    }
     if ($('abTarget')) $('abTarget').value = place.name || stripped;
     await lockTarget(place);
+    if (cctvLookup?.items?.length) {
+      const exact = cctvLookup.items.filter((x)=>Number.isFinite(Number(x.lat))&&Number.isFinite(Number(x.lon)));
+      if (exact.length) {
+        const merged = mergeCctvItems(exact, state.latestCctv);
+        state.latestCctv = merged;
+        renderCctvMapMarkers(merged);
+        renderInlineCctvResults(merged, place, state.latestCityFlow || []);
+      }
+    }
     if (state.searchMode === 'nav') {
       const origin = await preferredOrigin();
       await planRoute(origin, place, { preference: 'recommended', fromVoice: Boolean(context.fromVoice) });
@@ -1904,6 +1973,43 @@
     }
   }
 
+  function setNavigationViewMode(mode = 'map') {
+    const next = mode === 'immersive' ? 'immersive' : 'map';
+    state.navigation.viewMode = next;
+    const active = next === 'immersive' && state.navigation.active;
+    $('app')?.classList.toggle('nav-immersive-mode', active);
+    if ($('navImmersive')) $('navImmersive').hidden = !active;
+    const btn = $('navViewBtn');
+    if (btn) {
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      btn.textContent = active ? 'MAP' : 'FREE 3D';
+      btn.title = active ? '返回一般地圖導航' : '免費 GPS＋路線沉浸導航（非 Street View）';
+    }
+  }
+
+  function renderImmersiveNavigation(nextStep, speed, remainingKm, camera = null) {
+    if (state.navigation.viewMode !== 'immersive' || !state.navigation.active) return;
+    const heading = Number(state.navigation.heading);
+    if ($('immersiveHeading')) $('immersiveHeading').textContent = Number.isFinite(heading) ? `HDG ${String(Math.round(heading)).padStart(3,'0')}°` : 'HDG ---°';
+    if ($('immersiveSpeed')) $('immersiveSpeed').textContent = Number.isFinite(speed) ? String(Math.round(speed)) : '--';
+    if ($('immersiveRemain')) $('immersiveRemain').textContent = Number.isFinite(remainingKm) ? remainingKm.toFixed(1) : '--';
+    if ($('immersiveArrow')) $('immersiveArrow').textContent = nextStep?.step ? navTurnArrow(nextStep.step) : '↑';
+    if ($('immersiveDistance')) $('immersiveDistance').textContent = nextStep?.step ? navDistanceLabel(nextStep.distance) : '沿路線前進';
+    if ($('immersiveText')) $('immersiveText').textContent = nextStep?.step ? navTurnText(nextStep.step) : '沿目前路線前進';
+    if ($('immersiveRoad')) $('immersiveRoad').textContent = nextStep?.step?.name || nextStep?.step?.ref || 'ROUTE GUIDANCE';
+    const camBox = $('immersiveCctv');
+    if (camBox) {
+      if (camera) {
+        camBox.hidden = false;
+        $('immersiveCctvName').textContent = shortName(camera.name || camera.road || 'PUBLIC CCTV');
+        $('immersiveCctvDistance').textContent = `${Number(camera.navDistance || camera.distance || 0).toFixed(1)} km`;
+        camBox.onclick = () => camera.streamUrl ? openCamera(camera) : openCctvPosition(camera);
+      } else camBox.hidden = true;
+    }
+    const immersive = $('navImmersive');
+    if (immersive && Number.isFinite(heading)) immersive.style.setProperty('--nav-heading', `${heading}deg`);
+  }
+
   async function startNavigation() {
     const cur = state.currentRoute;
     if (!cur?.route) {
@@ -1934,6 +2040,7 @@
     if ($('intelTitle')) $('intelTitle').textContent = 'LIVE NAVIGATION';
     if ($('intelSync')) $('intelSync').textContent = 'GPS FOLLOW · TURN GUIDANCE · AUTO REROUTE';
     $('navHud').hidden = false;
+    setNavigationViewMode('immersive');
     openIntelResults();
     $('navTargetName').textContent = shortName(cur.target?.name || 'TARGET');
     $('navAlert').className = 'nav-alert live';
@@ -1970,8 +2077,25 @@
     if ($('navHud')) $('navHud').hidden = true;
     if ($('navCameraHandoff')) $('navCameraHandoff').hidden = true;
     if ($('navLimitBadge')) { $('navLimitBadge').hidden = true; $('navLimitBadge').classList.remove('danger'); }
-    if (showToast) toast('NAV OPS 已結束');
-    setLinkTelemetry('LIVE');
+    setNavigationViewMode('map');
+    if (showToast) {
+      if ($('queryInput')) $('queryInput').value = '';
+      if ($('abTarget')) $('abTarget').value = '';
+      if ($('abOrigin')) $('abOrigin').value = '';
+      if ($('routeTarget')) $('routeTarget').value = '';
+      if ($('routeOrigin')) $('routeOrigin').value = '';
+      state.currentRoute = null;
+      state.routeCandidates = [];
+      toast('導航已結束，返回台灣全域。');
+      bootstrapDefaultCenter().then(() => {
+        if ($('queryInput')) $('queryInput').value = '';
+        if ($('abTarget')) $('abTarget').value = '';
+        if ($('abOrigin')) $('abOrigin').value = '';
+        if ($('routeTarget')) $('routeTarget').value = '';
+        if ($('routeOrigin')) $('routeOrigin').value = '';
+      }).catch(() => {});
+    }
+    if (!showToast) setLinkTelemetry('LIVE');
   }
 
   function estimateGroundSpeed(point, previous, nativeSpeed) {
@@ -2088,6 +2212,7 @@
       .map((x) => ({ ...x, navDistance: haversineKm(point.lat, point.lon, x.lat, x.lon) }))
       .filter((x) => x.navDistance <= 4.5);
     if (state.cameraHandoff && cameraCandidates[0]) renderNavCameraHandoff(cameraCandidates[0], cameraCandidates[0].navDistance);
+    renderImmersiveNavigation(nextStep, speed, remainingKm, cameraCandidates[0] || null);
 
     const earlySpeedKm = speedAlertEarlyKm(speed);
     const speedCandidates = routeAheadItems(cur.route, intel.speedCameras || state.latestSpeedCameras, progress, Math.max(earlySpeedKm + .5, 2.4))
@@ -2371,11 +2496,14 @@
     if (draw) state.cameraLayer.clearLayers();
     $('cameraCount').textContent = '…';
     try {
-      const data = await jsonFetch(`/api/data?action=cctv&lat=${lat}&lon=${lon}&radius=${Math.round(radius)}`);
+      const nationalQuery = options.national ? '&national=1&limit=900' : '';
+      const data = await jsonFetch(`/api/data?action=cctv&lat=${lat}&lon=${lon}&radius=${Math.round(radius)}${nationalQuery}`);
       const items = data.items || [];
       state.latestCctv = items;
+      state.cctvCoverage = data.coverage || null;
       if (draw) renderCctvMapMarkers(items, { national:Boolean(options.national) });
       $('cameraCount').textContent = String(items.length);
+      if ($('cameraCount') && data.coverage) $('cameraCount').title = `公開名冊 ${data.coverage.registryCount || 0} · LIVE ${data.coverage.liveCount || 0} · LOC ${data.coverage.positionOnlyCount || 0} · ${data.coverage.activeSourceCount || 0}/${data.coverage.sourceCount || 0} SOURCES`;
       if (focus && items.length) {
         const nearest = items[0];
         state.map.flyTo([nearest.lat, nearest.lon], Math.max(state.map.getZoom(), 13));
@@ -3230,6 +3358,10 @@
     $('brandHome')?.addEventListener('click', () => bootstrapDefaultCenter().catch((err)=>toast(err.message,4200)));
     $('brandHome')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bootstrapDefaultCenter().catch((err)=>toast(err.message,4200)); } });
     $('stopNavBtn').addEventListener('click', () => stopNavigation(true));
+    $('navViewBtn')?.addEventListener('click', () => {
+      setNavigationViewMode(state.navigation.viewMode === 'immersive' ? 'map' : 'immersive');
+      tactile(8);
+    });
     $('openSettings').addEventListener('click', () => { tactile(8); openOverlayPanel('settingsPanel'); });
     $('abRouteBtn')?.addEventListener('click', async () => {
       setSearchMode('nav', { focus:false });

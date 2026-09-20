@@ -55,6 +55,30 @@ async function fetchText(url, init = {}, timeoutMs = 10000) {
   }
 }
 
+async function fetchBuffer(url, init = {}, timeoutMs = 10000, maxBytes = 20 * 1024 * 1024) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, {
+      ...init,
+      signal: ctrl.signal,
+      headers: {
+        Accept: '*/*',
+        'User-Agent': 'EYE-Taiwan/0.27 zero-key-public-data-client',
+        ...(init.headers || {}),
+      },
+    });
+    if (!r.ok) throw new Error(`Upstream HTTP ${r.status}`);
+    const declared = Number(r.headers?.get?.('content-length') || 0);
+    if (declared > maxBytes) throw new Error('Upstream payload too large');
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length > maxBytes) throw new Error('Upstream payload too large');
+    return buf;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function distanceKm(aLat, aLon, bLat, bLon) {
   const rad = (v) => v * Math.PI / 180;
   const R = 6371;
@@ -103,4 +127,4 @@ function simplifyCoords(coords, max = 28) {
   return out;
 }
 
-module.exports = { json, fetchJson, fetchText, distanceKm, setCors, tag, xmlBlocks, parseWktLineString, midpoint, simplifyCoords };
+module.exports = { json, fetchJson, fetchText, fetchBuffer, distanceKm, setCors, tag, xmlBlocks, parseWktLineString, midpoint, simplifyCoords };

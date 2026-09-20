@@ -1,7 +1,22 @@
-# EYE // TAIWAN — Live Navigation v0.26.0
+# EYE // TAIWAN — Free Immersive Navigation + Taiwan CCTV Search v0.27.0
 
 Zero-Key / Vercel Hobby friendly Taiwan situation-awareness interface.
 
+
+## v0.27 Free immersive navigation + Taiwan CCTV search
+
+This release keeps the existing command-room design and adds a zero-key navigation/CCTV layer:
+
+- NAV OPS starts in a lightweight **FREE 3D** route-follow view driven by browser GPS, route geometry and device heading. It is not Google Street View and does not claim photorealistic or live street imagery.
+- `MAP / FREE 3D` switches views without stopping navigation.
+- Ending navigation clears route/search fields and returns to the Taiwan-wide national analysis view.
+- CCTV lookup supports direct road/intersection text matching before geocoding, e.g. `忠孝東路與基隆路 CCTV`.
+- Registered official public sources are queried together; sources with playable URLs are labeled `LIVE`, while public camera-location datasets without a reusable stream are labeled `LOC`.
+- Current registry includes freeway, provincial highway, Chiayi City, **Chiayi County ODS**, Tainan, Taichung, Taipei location, New Taipei location, Keelung and Taoyuan intersection-location sources.
+- The Chiayi County adapter parses the official ODS resource server-side with Node built-ins, adding no npm dependency and no extra Serverless Function.
+- National mode samples markers geographically for performance while text search still runs against the full successfully loaded registry.
+
+Important: “Taiwan-wide” here means the app aggregates the official/open sources that are publicly reachable without an API key. Some local governments publish only locations, some publish no reusable live stream, and public endpoints can temporarily fail. The UI reports source health instead of fabricating missing cameras.
 
 ## v0.26 Live Navigation
 

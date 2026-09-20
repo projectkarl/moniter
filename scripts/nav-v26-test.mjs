@@ -12,8 +12,11 @@ const checks = [
   ['navigation mode class', app.includes("classList.add('nav-driving')") && css.includes('#app.nav-driving')],
   ['speed alert preserved', app.includes('speedAlertEarlyKm') && app.includes('announceSpeedCamera') && app.includes('ENF LIMIT')],
   ['navigation right-panel layout', css.includes('#app.nav-driving #intelBody>:not(#navHud)')],
+  ['free immersive DOM', ['navViewBtn','navImmersive','immersiveHeading','immersiveArrow','immersiveCctv'].every(x=>html.includes(`id="${x}"`))],
+  ['free immersive follow logic', app.includes('setNavigationViewMode') && app.includes('renderImmersiveNavigation') && app.includes("setNavigationViewMode('immersive')")],
+  ['end navigation returns national', app.includes('bootstrapDefaultCenter().then') && app.includes('返回台灣全域')],
 ];
 let failed=false;
 for(const [name,ok] of checks){ console.log(ok?'PASS':'FAIL',name); if(!ok) failed=true; }
 if(failed) process.exit(1);
-console.log('NAV V26 PASS');
+console.log('NAV V27 PASS');

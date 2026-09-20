@@ -1,7 +1,7 @@
 const { Writable } = require('node:stream');
 const xml = `<Root>
-<CCTV><CCTVID>C1</CCTVID><VideoStreamURL>http://cam.example/live/master.m3u8</VideoStreamURL></CCTV>
-<CCTV><CCTVID>C2</CCTVID><VideoStreamURL>https://cam.example/video.mp4</VideoStreamURL></CCTV>
+<CCTV><CCTVID>C1</CCTVID><VideoStreamURL>http://cam.example/live/master.m3u8</VideoStreamURL><PositionLon>121.5</PositionLon><PositionLat>25.0</PositionLat><RoadName>測試路口一</RoadName></CCTV>
+<CCTV><CCTVID>C2</CCTVID><VideoStreamURL>https://cam.example/video.mp4</VideoStreamURL><PositionLon>121.6</PositionLon><PositionLat>25.1</PositionLat><RoadName>測試路口二</RoadName></CCTV>
 </Root>`;
 const playlist = `#EXTM3U\n#EXT-X-TARGETDURATION:4\nseg01.ts\n#EXT-X-ENDLIST`;
 let lastHeaders = null;

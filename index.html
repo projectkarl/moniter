@@ -74,6 +74,20 @@
         <div class="rail-foot"><i></i><span>TW // OPS</span></div>
       </aside>
       <div id="map" class="map" aria-label="台灣情報地圖"></div>
+      <section id="navImmersive" class="nav-immersive" aria-label="免費沉浸式導航" hidden>
+        <div class="nav-immersive-horizon" aria-hidden="true"><span></span><i></i></div>
+        <div class="nav-immersive-heading"><small>FREE 3D // GPS + ROUTE</small><b id="immersiveHeading">HDG ---°</b><em>ZERO-KEY · NOT STREET VIEW</em></div>
+        <div class="nav-immersive-road" aria-hidden="true">
+          <i class="lane lane-a"></i><i class="lane lane-b"></i><i class="lane lane-c"></i>
+          <span class="route-beam"></span>
+        </div>
+        <div class="nav-immersive-guide">
+          <strong id="immersiveArrow">↑</strong>
+          <span><small id="immersiveDistance">準備導航</small><b id="immersiveText">沿目前路線前進</b><em id="immersiveRoad">ROUTE GUIDANCE</em></span>
+        </div>
+        <div class="nav-immersive-stats"><span><small>SPEED</small><b id="immersiveSpeed">--</b><em>km/h</em></span><span><small>REMAIN</small><b id="immersiveRemain">--</b><em>km</em></span></div>
+        <button id="immersiveCctv" class="nav-immersive-cctv" type="button" hidden><small>LIVE CCTV AHEAD</small><b id="immersiveCctvName">PUBLIC CAMERA</b><em id="immersiveCctvDistance">-- km</em></button>
+      </section>
       <div class="map-vignette" aria-hidden="true"></div>
       <div class="scanline" aria-hidden="true"></div>
       <div class="theater-grid" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -148,7 +162,7 @@
           </button>
           <label class="search-box">
             <span class="search-prefix">⌕</span>
-            <input id="queryInput" type="search" autocomplete="off" placeholder="搜尋地點／簡稱，例如 101、北車、A11" aria-label="地址或查詢內容" />
+            <input id="queryInput" type="search" autocomplete="off" placeholder="搜尋地點／路口／CCTV，例如 101、北車、忠孝東路與基隆路" aria-label="地址或查詢內容" />
           </label>
           <button class="go-btn" type="submit">查詢</button>
         </form>
@@ -161,7 +175,7 @@
             <label class="ab-point"><span>B</span><input id="abTarget" placeholder="目的地（搜尋後自動帶入）" aria-label="B 點目的地" /></label>
             <button type="button" id="abRouteBtn" class="ab-route-btn">路線</button>
           </div>
-          <div class="command-hint" id="commandHint"><b>AUTO INTEL</b><span>地點監控：搜尋一次，自動載入附近 CCTV、車流、天氣與事件。</span></div>
+          <div class="command-hint" id="commandHint"><b>AUTO INTEL</b><span>搜尋地點或路口；自動載入附近 CCTV、車流、天氣與事件。</span></div>
           <details class="advanced-ops">
             <summary>進階監控</summary>
             <div class="mission-deck" aria-label="進階監控模式">
@@ -212,7 +226,7 @@
             <div id="targetBrief" class="target-brief"><span>NO TARGET</span><b>等待地點查詢</b><em>STANDBY</em></div>
           </article>
       <section id="navHud" class="nav-hud hud-panel" aria-label="導航情報" hidden>
-        <div class="nav-head"><span><i class="live-dot"></i>LIVE NAVIGATION</span><button id="stopNavBtn" class="micro-btn">結束導航</button></div>
+        <div class="nav-head"><span><i class="live-dot"></i>LIVE NAVIGATION</span><div class="nav-head-actions"><button id="navViewBtn" class="micro-btn" type="button" aria-pressed="false">FREE 3D</button><button id="stopNavBtn" class="micro-btn">結束導航</button></div></div>
         <div class="nav-turn" aria-live="polite">
           <strong id="navTurnArrow">↑</strong>
           <span><small id="navTurnDistance">準備導航</small><b id="navTurnText">沿目前路線繼續行駛</b><em id="navTurnRoad">ROUTE GUIDANCE</em></span>
@@ -386,7 +400,7 @@
         <div class="setting-row"><div><b>DETECTION OVERLAY</b><small>在可見公開訊號標記加上識別框與 ID；只標示地圖資料實體，不對 CCTV 影像做人臉／車牌辨識</small></div><button id="detectionToggle" class="toggle" aria-pressed="false"><span></span></button></div>
         <div class="setting-row"><div><b>VOICE MARKUP</b><small>Zero-Key 本地語音指令：例如「標記這裡集合點」、「清除標註」、「切換夜視」、「追蹤最近航班」</small></div><button id="voiceMarkupToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-row"><div><b>CCTV 局部隱私遮罩</b><small>預設關閉。開啟時只遮罩畫面下緣近距離區域，保留大部分道路與車流可視；這是輕量 ROI 遮罩，不宣稱自動辨識人臉或車牌</small></div><button id="privacyShieldToggle" class="toggle" aria-pressed="false"><span></span></button></div>
-        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.26.0 LIVE NAVIGATION</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
+        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.27.0 FREE IMMERSIVE + CCTV SEARCH</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
       </section>
 
       <section id="threatAlert" class="threat-alert" aria-live="assertive" hidden>
