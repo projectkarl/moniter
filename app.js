@@ -3,6 +3,7 @@
 
   const $ = (id) => document.getElementById(id);
   const DEFAULT_CENTER = Object.freeze({ lat: 25.0478, lon: 121.5170, name: '台北市中心' });
+  const NATIONAL_CENTER = Object.freeze({ lat: 23.72, lon: 120.97, name: '台灣全域' });
   const state = {
     map: null,
     user: null,
@@ -16,6 +17,10 @@
     speedLayer: null,
     airLayer: null,
     quakeLayer: null,
+    threatLayer: null,
+    nationalHotspotLayer: null,
+    annotationLayer: null,
+    trackTrailLayer: null,
     currentWeather: null,
     latestCctv: [],
     latestTraffic: [],
@@ -24,6 +29,15 @@
     latestSpeedCameras: [],
     latestFlights: [],
     latestQuakes: [],
+    latestAqi: null,
+    latestParking: [],
+    latestConstruction: [],
+    latestFlood: [],
+    currentSituation: null,
+    nationalMode: true,
+    nationalHotspots: [],
+    nationalTimer: null,
+    watchedZones: [],
     routeCandidates: [],
     newsLocation: null,
     currentRoute: null,
@@ -40,6 +54,12 @@
     cameraHandoff: true,
     transferFx: true,
     sensorMode: 'normal',
+    detectionOverlay: false,
+    voiceMarkup: true,
+    cockpitActive: false,
+    trackedContact: null,
+    annotations: [],
+    cesium: { viewer:null, entity:null, loadPromise:null },
     mapSource: 'tactical',
     baseMapLayer: null,
     lastThreatSignature: '',
@@ -53,6 +73,7 @@
       activeCameraId: null,
       announced: new Set(),
       lastUiAt: 0,
+      flowTimer: null,
     },
     motion: !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
   };
@@ -126,6 +147,31 @@
 
   const ambiguousAliases = new Set(['遠百','大遠百','老爺']);
 
+  const SOURCE_CATALOG = [
+    { id:'basemap', name:'底圖', source:'OpenStreetMap / Esri World Imagery', mode:'STATIC', note:'參考底圖，不是即時影像。' },
+    { id:'weather', name:'天氣', source:'Open-Meteo', mode:'MODEL', note:'模式分析／預報資料；不等同現地測站即時觀測。' },
+    { id:'route', name:'A→B 路線', source:'OSRM', mode:'MODEL', note:'道路路由與 baseline ETA；不等同完整即時交通 ETA。' },
+    { id:'traffic', name:'交通事件', source:'警察廣播電臺公開資料', mode:'LIVE', note:'公開即時路況，可能有短暫發布延遲。' },
+    { id:'flow', name:'國道流速', source:'高速公路局 LiveTraffic / SectionShape', mode:'LIVE', note:'官方路段流速；網站以快取降低公共服務負載。' },
+    { id:'lane', name:'車道 Flow Edge', source:'高速公路局 VD lane-level', mode:'DERIVED', note:'以官方 Speed / Occupancy / Volume 計算短時相對流動優勢；不是保證。' },
+    { id:'cctv', name:'公開 CCTV', source:'高速公路局／公路局／地方公開來源', mode:'LIVE', note:'公開串流；鏡頭可能離線、延遲或格式不支援。' },
+    { id:'speed', name:'測速執法點', source:'警政署公開資料', mode:'STATIC', note:'公開設置點清單與公布速限；不是即時警方位置。' },
+    { id:'aqi', name:'AQI', source:'環境部官方測站', mode:'OBSERVED', note:'官方測站觀測；更新頻率較交通資料慢，不等同秒級即時。' },
+    { id:'flood', name:'淹水／水情', source:'水利署公開資料', mode:'LIVE', note:'官方警戒／水情訊號；依來源更新週期刷新。' },
+    { id:'parking', name:'停車', source:'地方政府公開動態', mode:'LIVE', note:'目前以有公開動態的支援區域為主。' },
+    { id:'construction', name:'施工', source:'地方政府／警廣公開資料', mode:'LIVE', note:'施工排程與事件；部分為計畫資訊而非現地感測。' },
+    { id:'air', name:'航空訊號', source:'adsb.lol public ADS-B', mode:'LIVE', note:'公開 ADS-B；位置刷新有網路與接收延遲。' },
+    { id:'quake', name:'地震', source:'USGS recent seismic feed', mode:'LIVE', note:'近期事件資料；並非地震預測。' },
+    { id:'news', name:'區域新聞', source:'公開新聞來源', mode:'LIVE', note:'發布時間依各媒體而異。' },
+    { id:'alert', name:'壅塞／威脅判斷', source:'EYE local sensor fusion', mode:'DERIVED', note:'由官方事件、流速、天氣等融合；原因不確定時會標示未確認。' },
+    { id:'cockpit', name:'Cockpit Follow', source:'ADS-B + CesiumJS / OSM', mode:'DERIVED', note:'公開 ADS-B 為 live；3D Cockpit 為按需載入的 OSM + WGS84 ellipsoid 視覺化，不是原版 Google Photorealistic 3D Tiles。' },
+    { id:'cockpit-camera', name:'Cockpit Camera Framing', source:'EYE camera transform', mode:'ESTIMATED', note:'由公開航空位置、航向、高度推導追蹤視角；不是機上真實攝影機或真實駕駛艙畫面。' },
+    { id:'voice', name:'語音控制／標註', source:'Browser SpeechRecognition + local command parser', mode:'DERIVED', note:'Zero-Key 本地指令；不是原版需要 OpenAI key 的 Realtime AI agent。' },
+    { id:'sensor', name:'NVG / FLIR / CRT / NOIR / SNOW', source:'EYE display shader / CSS visual treatment', mode:'VISUAL', note:'只改畫面觀感，不改原始資料，也不是熱感測器或夜視硬體的真實量測。' },
+    { id:'detection', name:'Detection Overlay', source:'EYE map-entity overlay', mode:'VISUAL', note:'只框選已載入的公開地圖實體；不是電腦視覺人臉／車牌偵測。' },
+    { id:'simulation', name:'原版模擬交通／粗估軌跡', source:'Original GEV parity note', mode:'UNAVAILABLE', note:'台灣版國道流速改用官方 LIVE；目前沒有火箭圖層，因此不製造模擬交通或粗估火箭軌跡。' },
+  ];
+
   function aliasKey(value) {
     return String(value || '').toLowerCase().replace(/[\s\-_.·・／\/()（）]/g, '').replace(/臺/g, '台');
   }
@@ -178,6 +224,7 @@
     state.mapSource = next;
     document.querySelectorAll('[data-map-source]').forEach((btn) => btn.classList.toggle('active', btn.dataset.mapSource === next));
     $('app')?.classList.toggle('map-satellite', next === 'satellite');
+    if (state.cockpitActive && state.cesium.viewer && window.Cesium) syncCockpitImagery(window.Cesium);
     if (announce) toast(`MAP SOURCE // ${next.toUpperCase()}`);
   }
 
@@ -186,7 +233,7 @@
       toast('地圖元件載入失敗，請確認網路連線。');
       return;
     }
-    state.map = L.map('map', { zoomControl: false, preferCanvas: true, minZoom: 6 }).setView([DEFAULT_CENTER.lat, DEFAULT_CENTER.lon], 13);
+    state.map = L.map('map', { zoomControl: false, preferCanvas: true, minZoom: 6 }).setView([NATIONAL_CENTER.lat, NATIONAL_CENTER.lon], window.innerWidth <= 920 ? 7 : 7);
     setMapSource('tactical', false);
     $('map').classList.add('map-fx');
     state.cameraLayer = L.layerGroup().addTo(state.map);
@@ -196,13 +243,17 @@
     state.speedLayer = L.layerGroup().addTo(state.map);
     state.airLayer = L.layerGroup().addTo(state.map);
     state.quakeLayer = L.layerGroup().addTo(state.map);
+    state.threatLayer = L.layerGroup().addTo(state.map);
+    state.nationalHotspotLayer = L.layerGroup().addTo(state.map);
+    state.annotationLayer = L.layerGroup().addTo(state.map);
+    state.trackTrailLayer = L.layerGroup().addTo(state.map);
     state.map.on('moveend', debounce(() => {
       const c = state.map.getCenter();
       updateMapTelemetry(c.lat, c.lng);
       if (!state.weatherAuto || (!state.target && !state.user)) return;
       loadWeather(c.lat, c.lng, false);
     }, 700));
-    updateMapTelemetry(DEFAULT_CENTER.lat, DEFAULT_CENTER.lon);
+    updateMapTelemetry(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon);
   }
 
   function markerIcon(type, size = 10) {
@@ -364,7 +415,7 @@
     const bias = state.user || state.target || state.map?.getCenter?.();
     const biasQuery = bias && Number.isFinite(Number(bias.lat)) && Number.isFinite(Number(bias.lon ?? bias.lng))
       ? `&lat=${Number(bias.lat).toFixed(5)}&lon=${Number(bias.lon ?? bias.lng).toFixed(5)}` : '';
-    const data = await jsonFetch(`/api/geocode?q=${encodeURIComponent(lookup)}${biasQuery}`);
+    const data = await jsonFetch(`/api/data?action=geocode&q=${encodeURIComponent(lookup)}${biasQuery}`);
     if (!data.results?.length) throw new Error('找不到這個地點');
     const first = data.results[0];
     if (alias && typeof alias === 'string') first.aliasFrom = clean;
@@ -391,7 +442,7 @@
       state.map.flyTo([state.user.lat, state.user.lon], 14, { duration: state.transferFx && state.motion ? 1.15 : .8 });
     }
     loadWeather(state.user.lat, state.user.lon, true);
-    loadNews(state.user.lat, state.user.lon, false).catch(() => {});
+    loadNews(state.user.lat, state.user.lon, false, state.user.name || '我的位置').catch(() => {});
     signalAcquire(false);
     showTargetLock(state.user);
     toast('定位完成');
@@ -415,6 +466,21 @@
     state.intelOpen = true;
     $('intelPanel')?.classList.add('open');
     if ($('intelCollapse')) $('intelCollapse').textContent = '−';
+  }
+
+  function setRailActive(key) {
+    document.querySelectorAll('.ops-rail button').forEach((btn) => {
+      const active = btn.dataset.rail === key || btn.dataset.command === key || btn.dataset.mission === key;
+      btn.classList.toggle('active', active);
+    });
+  }
+
+  function jumpIntelCard(id) {
+    const el = $(id);
+    if (!el) return;
+    openIntelResults();
+    document.querySelectorAll('[data-intel-jump]').forEach((btn) => btn.classList.toggle('active', btn.dataset.intelJump === id));
+    setTimeout(() => el.scrollIntoView({ behavior: state.motion ? 'smooth' : 'auto', block: 'start' }), 30);
   }
 
   async function preferredOrigin() {
@@ -452,36 +518,142 @@
     }
   }
 
+  function nationalReason(segment, traffic = [], flow = []) {
+    const lat = Number(segment?.lat), lon = Number(segment?.lon);
+    const near = traffic
+      .filter((ev) => Number.isFinite(Number(ev.lat)) && Number.isFinite(Number(ev.lon)) && Number.isFinite(lat) && Number.isFinite(lon))
+      .map((ev) => ({ ...ev, _d: haversineKm(lat, lon, Number(ev.lat), Number(ev.lon)) }))
+      .filter((ev) => ev._d <= 8)
+      .sort((a,b) => a._d-b._d)[0];
+    if (near) {
+      const text = `${near.title || ''} ${near.description || ''}`;
+      const type = /封閉|禁止通行/.test(text) ? '道路封閉' : /施工|工程/.test(text) ? '附近施工' : /事故|車禍|碰撞/.test(text) ? '附近事故' : '附近交通事件';
+      return { label:type, detail:(near.description || near.title || '').slice(0,54), verified:true };
+    }
+    const same = flow.filter((x) => x !== segment && x.status === 'congested' && x.road && segment.road && x.road === segment.road && haversineKm(lat, lon, Number(x.lat), Number(x.lon)) <= 18).length;
+    if (same >= 1) return { label:'連續低速回堵', detail:`同一路廊另有 ${same} 段嚴重低速`, verified:true };
+    return { label:'極端低速', detail:'目前沒有相符公開事件，原因未確認', verified:false };
+  }
+
+  function nearestCameraForHotspot(hotspot, cameras = []) {
+    if (!hotspot) return null;
+    return cameras
+      .filter((cam) => cam?.streamUrl && Number.isFinite(Number(cam.lat)) && Number.isFinite(Number(cam.lon)))
+      .map((cam) => ({ ...cam, _hotspotDistance:haversineKm(Number(hotspot.lat), Number(hotspot.lon), Number(cam.lat), Number(cam.lon)) }))
+      .filter((cam) => cam._hotspotDistance <= 12)
+      .sort((a,b) => a._hotspotDistance-b._hotspotDistance)[0] || null;
+  }
+
+  function selectNationalHotspot(hotspot, fly = true) {
+    if (!hotspot || !state.map) return;
+    if (fly) state.map.flyTo([hotspot.lat, hotspot.lon], window.innerWidth <= 920 ? 11 : 10, { duration:state.motion ? .85 : .2 });
+    const cam = nearestCameraForHotspot(hotspot, state.latestCctv);
+    $('nationalPreviewTitle').textContent = shortName(hotspot.road || hotspot.name || 'CRITICAL FLOW');
+    $('nationalPreviewMeta').textContent = `${Math.round(Number(hotspot.travelSpeed) || 0)} km/h · ${hotspot.reason?.label || 'FLOW WATCH'}${cam ? ` · CAM ${cam._hotspotDistance.toFixed(1)} km` : ' · NO CAMERA SIGNAL'}`;
+    const stage = $('nationalPreviewStage');
+    if (cam) renderCameraMedia(stage, cam);
+    else stage.innerHTML = '<div class="camera-placeholder">附近暫無可直接內嵌的公開 CCTV；流速與事件情報仍持續更新。</div>';
+    stage.classList.toggle('privacy-shield', state.privacyShield);
+    document.querySelectorAll('[data-national-hotspot]').forEach((btn) => btn.classList.toggle('active', Number(btn.dataset.nationalHotspot) === Number(hotspot._index)));
+  }
+
+  function renderNationalOverview({ flow = [], traffic = [], cctv = [] } = {}) {
+    const box = $('nationalOverview');
+    if (!box) return;
+    box.hidden = false;
+    const speeds = flow.map((x) => Number(x.travelSpeed)).filter((x) => Number.isFinite(x) && x >= 0);
+    const avg = speeds.length ? Math.round(speeds.reduce((a,b)=>a+b,0)/speeds.length) : null;
+    const allCritical = flow
+      .filter((x) => x.status === 'congested' || Number(x.travelSpeed) < 30)
+      .sort((a,b) => Number(a.travelSpeed ?? 999)-Number(b.travelSpeed ?? 999));
+    const critical = allCritical.slice(0,4).map((x,i) => ({ ...x, _index:i, reason:nationalReason(x, traffic, flow) }));
+    state.nationalHotspots = critical;
+    $('nationalCriticalCount').textContent = String(allCritical.length);
+    $('nationalEventCount').textContent = String(traffic.length);
+    $('nationalCameraCount').textContent = String(cctv.length);
+    $('nationalAvgFlow').textContent = avg == null ? 'N/A' : `${avg}`;
+    $('nationalStatusText').textContent = allCritical.length ? `${allCritical.length} CRITICAL CORRIDOR${allCritical.length>1?'S':''} DETECTED` : 'TAIWAN NETWORK NOMINAL';
+    $('nationalDataAge').textContent = new Date().toLocaleTimeString('zh-TW',{hour12:false,hour:'2-digit',minute:'2-digit'});
+    const list = $('nationalHotspotList');
+    list.innerHTML = critical.length ? critical.map((h,i) => {
+      const speed = Number.isFinite(Number(h.travelSpeed)) ? `${Math.round(Number(h.travelSpeed))} km/h` : 'LOW SPEED';
+      return `<button type="button" data-national-hotspot="${i}" class="national-hotspot-card ${i===0?'active':''}"><span><i></i>CRITICAL ${String(i+1).padStart(2,'0')}</span><b>${escapeHtml(shortName(h.road || h.name || 'FREEWAY'))}</b><strong>${escapeHtml(speed)}</strong><em>${escapeHtml(h.start || '')}${h.end ? ` → ${escapeHtml(h.end)}` : ''}</em><small>${escapeHtml(h.reason.label)} · ${escapeHtml(h.reason.detail)}</small></button>`;
+    }).join('') : '<div class="national-empty">目前公開國道流速沒有偵測到 &lt;30 km/h 的嚴重壅塞路段。</div>';
+    list.querySelectorAll('[data-national-hotspot]').forEach((btn) => btn.addEventListener('click', () => { const h=critical[Number(btn.dataset.nationalHotspot)]; if(h) selectNationalHotspot(h); }));
+
+    state.nationalHotspotLayer?.clearLayers();
+    critical.forEach((h) => {
+      const speed = Number.isFinite(Number(h.travelSpeed)) ? Math.round(Number(h.travelSpeed)) : '—';
+      const icon = L.divIcon({ className:'', html:`<div class="national-hotspot-tag"><span>CRITICAL</span><b>${speed}<small>km/h</small></b><em>${escapeHtml(shortName(h.road || h.name || 'FLOW'))}</em><i>${escapeHtml(h.reason?.label || 'FLOW WATCH')}</i></div>`, iconSize:[124,72], iconAnchor:[62,36] });
+      const marker = L.marker([h.lat,h.lon], { icon, zIndexOffset:760, interactive:true }).addTo(state.nationalHotspotLayer);
+      marker.on('click', () => selectNationalHotspot(h));
+    });
+    if (critical[0]) selectNationalHotspot(critical[0], false);
+    else {
+      $('nationalPreviewTitle').textContent = 'NETWORK NOMINAL';
+      $('nationalPreviewMeta').textContent = 'NO CRITICAL CORRIDOR';
+      $('nationalPreviewStage').innerHTML = '<div class="camera-placeholder">目前沒有需要自動接管的嚴重壅塞熱點。</div>';
+    }
+  }
+
+  function enterNationalMode() {
+    state.nationalMode = true;
+    $('app')?.classList.add('national-mode');
+    if ($('intelPanel')) $('intelPanel').hidden = true;
+    if ($('nationalOverview')) $('nationalOverview').hidden = false;
+    state.target = null;
+    state.targetMarker?.remove?.(); state.targetMarker = null;
+    state.cameraLayer?.clearLayers?.(); state.incidentLayer?.clearLayers?.(); state.speedLayer?.clearLayers?.();
+    state.airLayer?.clearLayers?.(); state.quakeLayer?.clearLayers?.(); state.sentinelLayer?.clearLayers?.(); state.threatLayer?.clearLayers?.();
+    if (state.routeLayer) { state.map?.removeLayer?.(state.routeLayer); state.routeLayer = null; }
+    if (state.routeAltLayer) { state.map?.removeLayer?.(state.routeAltLayer); state.routeAltLayer = null; }
+    if (state.map?.fitBounds) state.map.fitBounds([[21.85,119.35],[25.45,122.10]], { padding:[28,28], animate:state.motion });
+    else state.map?.setView?.([NATIONAL_CENTER.lat, NATIONAL_CENTER.lon], 7, { animate:state.motion });
+    updateMapTelemetry(NATIONAL_CENTER.lat,NATIONAL_CENTER.lon);
+    setLinkTelemetry('TAIWAN NATIONAL GRID LIVE');
+    setTheaterStandby(false);
+  }
+
+  function exitNationalMode() {
+    state.nationalMode = false;
+    if (state.nationalTimer) { clearInterval(state.nationalTimer); state.nationalTimer = null; }
+    $('app')?.classList.remove('national-mode');
+    if ($('nationalOverview')) $('nationalOverview').hidden = true;
+    if ($('intelPanel')) $('intelPanel').hidden = false;
+    state.nationalHotspotLayer?.clearLayers();
+    const stage=$('nationalPreviewStage');
+    stage?.querySelectorAll?.('video')?.forEach?.((v)=>{ try{v._eyeHls?.destroy?.();}catch(_){} });
+  }
+
+  async function refreshNationalSignals(includeCctv = false) {
+    if (!state.nationalMode) return;
+    const jobs = [
+      loadFlow(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon, false, 220),
+      loadTraffic(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon, false, 250, { draw:false }),
+    ];
+    if (includeCctv || !state.latestCctv.length) jobs.push(loadCctv(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon, false, 180, { draw:false }));
+    const results = await Promise.allSettled(jobs);
+    const flow = results[0]?.status === 'fulfilled' ? (results[0].value || []) : state.latestFlow;
+    const traffic = results[1]?.status === 'fulfilled' ? (results[1].value || []) : state.latestTraffic;
+    const cctv = jobs.length > 2 && results[2]?.status === 'fulfilled' ? (results[2].value || []) : state.latestCctv;
+    renderNationalOverview({ flow, traffic, cctv });
+  }
+
   async function bootstrapDefaultCenter() {
+    setRailActive('overview');
     state.originMode = 'taipei';
     updateOriginUi();
-    const place = { ...DEFAULT_CENTER, bootstrap: true };
-    state.target = place;
-    setTheaterStandby(false);
-    $('intelTitle').textContent = 'TAIPEI CENTER';
-    state.map?.setView?.([place.lat, place.lon], 13, { animate: false });
-    updateMapTelemetry(place.lat, place.lon);
-    const results = await Promise.allSettled([
-      loadWeather(place.lat, place.lon, false),
-      loadTraffic(place.lat, place.lon, false, 32),
-      loadFlow(place.lat, place.lon, false, 55),
-      loadCctv(place.lat, place.lon, false, 32),
-      loadSpeedCameras(place.lat, place.lon, false, 28),
-      loadNews(place.lat, place.lon, false),
-      loadFlights(place.lat, place.lon, false, 70),
-      loadEarthquakes(place.lat, place.lon, false, 250),
-    ]);
-    const value = (i, fallback) => results[i].status === 'fulfilled' ? (results[i].value ?? fallback) : fallback;
-    renderTargetBrief(place, { weather: value(0, null), traffic: value(1, []), flow: value(2, []), cctv: value(3, []), speedCameras: value(4, []) });
-    renderAutoIntel(place, { traffic: value(1, []), flow: value(2, []), cctv: value(3, []), speedCameras: value(4, []), news: value(5, []), flights: value(6, []), quakes: value(7, []) });
-    renderInlineCctvResults(value(3, []), place);
-    $('routeEmpty').textContent = '輸入目的地後，系統會自動從台北市中心建立 2–3 條候選路線；也可切換為目前位置。';
-    setLinkTelemetry('TAIPEI CENTER LIVE');
+    enterNationalMode();
+    if ($('intelTitle')) $('intelTitle').textContent = 'TAIWAN NATIONAL GRID';
+    await refreshNationalSignals(true);
+    if (state.nationalTimer) clearInterval(state.nationalTimer);
+    state.nationalTimer = setInterval(() => refreshNationalSignals(false).catch(() => {}), 60000);
+    if ($('routeEmpty')) $('routeEmpty').textContent = '搜尋目的地後，系統切換至區域戰情並自動建立 A → B 候選路線。';
   }
 
   async function loadWeather(lat, lon, announce = false) {
     try {
-      const data = await jsonFetch(`/api/weather?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}`);
+      const data = await jsonFetch(`/api/data?action=weather&lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}`);
       state.currentWeather = data;
       $('weatherTemp').textContent = `${Math.round(data.current.temperature)}°`;
       $('weatherText').textContent = data.current.summary || '即時天氣';
@@ -495,6 +667,213 @@
       if (announce) toast(`天氣：${err.message}`);
       return null;
     }
+  }
+
+
+  async function loadAirQuality(lat, lon, radius = 65) {
+    try {
+      const data = await jsonFetch(`/api/data?action=air-quality&lat=${Number(lat).toFixed(5)}&lon=${Number(lon).toFixed(5)}&radius=${Math.round(radius)}`);
+      state.latestAqi = data.nearest || null;
+      return data;
+    } catch (_) { state.latestAqi = null; return { nearest:null, items:[] }; }
+  }
+
+  async function loadParking(lat, lon, radius = 5) {
+    try {
+      const data = await jsonFetch(`/api/data?action=parking&lat=${Number(lat).toFixed(5)}&lon=${Number(lon).toFixed(5)}&radius=${Math.round(radius)}`);
+      state.latestParking = data.items || [];
+      return data;
+    } catch (_) { state.latestParking = []; return { items:[], coverage:'' }; }
+  }
+
+  async function loadConstruction(lat, lon, radius = 7) {
+    try {
+      const data = await jsonFetch(`/api/data?action=construction&lat=${Number(lat).toFixed(5)}&lon=${Number(lon).toFixed(5)}&radius=${Math.round(radius)}`);
+      state.latestConstruction = data.items || [];
+      return data;
+    } catch (_) { state.latestConstruction = []; return { items:[], coverage:'' }; }
+  }
+
+  async function loadFlood(lat, lon, radius = 70) {
+    try {
+      const data = await jsonFetch(`/api/data?action=flood&lat=${Number(lat).toFixed(5)}&lon=${Number(lon).toFixed(5)}&radius=${Math.round(radius)}`);
+      state.latestFlood = data.items || [];
+      return data;
+    } catch (_) { state.latestFlood = []; return { items:[] }; }
+  }
+
+  function parseTimeLoose(value) {
+    if (!value) return null;
+    const raw = String(value).trim().replace(/\//g,'-');
+    const t = Date.parse(raw.includes('T') ? raw : raw.replace(' ', 'T'));
+    return Number.isFinite(t) ? t : null;
+  }
+
+  function dataAge(value, cadenceMinutes = null) {
+    const t = parseTimeLoose(value);
+    if (!t) return cadenceMinutes ? `≤${cadenceMinutes}m` : 'LIVE';
+    const mins = Math.max(0, Math.round((Date.now() - t) / 60000));
+    if (mins < 1) return '<1m';
+    if (mins < 60) return `${mins}m`;
+    return `${Math.round(mins/60)}h`;
+  }
+
+  function areaThreatAssessment({ weather=null, traffic=[], construction=[], aqi=null, flood=[] }={}) {
+    const rain = Number(weather?.current?.precipitationProbability || 0);
+    const nearFlood = (flood || []).filter((x) => Number(x.distance) <= 8);
+    const impactWorks = (construction || []).filter((x) => x.impactTraffic);
+    const severeEvents = (traffic || []).filter((x) => /封閉|封路|事故|車禍|回堵|壅塞/.test(`${x.title||''} ${x.description||''}`));
+    const aqiValue = Number(aqi?.aqi);
+    let score = 0;
+    const reasons = [];
+    if (nearFlood.length) { score += 5; reasons.push(`${nearFlood.length} 筆淹水警戒訊號`); }
+    if (severeEvents.length >= 2) { score += 3; reasons.push(`${severeEvents.length} 件高關聯交通事件`); }
+    else if (severeEvents.length) { score += 2; reasons.push('附近有交通事件'); }
+    if (impactWorks.length >= 2) { score += 2; reasons.push(`${impactWorks.length} 件施工影響通行`); }
+    else if (impactWorks.length) { score += 1; reasons.push('附近施工可能影響通行'); }
+    if (rain >= 70) { score += 2; reasons.push(`降雨機率 ${Math.round(rain)}%`); }
+    if (Number.isFinite(aqiValue) && aqiValue > 150) { score += 3; reasons.push(`AQI ${Math.round(aqiValue)}`); }
+    else if (Number.isFinite(aqiValue) && aqiValue > 100) { score += 1; reasons.push(`AQI ${Math.round(aqiValue)}`); }
+    const level = score >= 6 ? 'critical' : score >= 2 ? 'watch' : 'nominal';
+    return { level, score, reasons, rain, aqiValue, nearFlood, impactWorks, severeEvents };
+  }
+
+  function drawThreatRadar(place, situation) {
+    if (!state.threatLayer || !state.map || !place) return;
+    state.threatLayer.clearLayers();
+    const color = situation.level === 'critical' ? '#d86d61' : situation.level === 'watch' ? '#d5a25b' : '#91c39e';
+    [850, 1800, 3200].forEach((radius, i) => {
+      L.circle([place.lat, place.lon], { radius, color, weight:i===0?1.4:1, opacity:.18-(i*.03), fillColor:color, fillOpacity:i===0?.025:.009, dashArray:i?'5 9':null, interactive:false }).addTo(state.threatLayer);
+    });
+  }
+
+  function sourceFreshnessHtml({weather, traffic=[], flow=[], aqi=null, construction=[], parkingMeta=null, floodMeta=null}={}) {
+    const flowTime = flow.find((x)=>x.dataCollectTime)?.dataCollectTime;
+    const trafficTime = traffic.find((x)=>x.time)?.time;
+    const workTime = construction.find((x)=>x.reportedAt)?.reportedAt;
+    const rows = [
+      ['WX', weather?.current?.time, 5, 15],
+      ['TRAFFIC', trafficTime, 1, 5],
+      ['FLOW', flowTime, 1, 5],
+      ['AQI', aqi?.publishedAt, 60, 90],
+      ['WORK', workTime, 10, 30],
+      ['PARK', parkingMeta?.generatedAt, parkingMeta?.cadenceMinutes || 5, 20],
+      ['FLOOD', floodMeta?.generatedAt, 10, 30],
+    ];
+    const chip = ([name,time,cadence,staleAfter]) => {
+      const parsed = parseTimeLoose(time);
+      const mins = parsed ? Math.max(0,(Date.now()-parsed)/60000) : Number(cadence);
+      const cls = mins > staleAfter ? 'stale' : mins > staleAfter*.55 ? 'aging' : 'live';
+      return `<em class="freshness-chip ${cls}">${name} ${escapeHtml(dataAge(time,cadence))}</em>`;
+    };
+    return `<span>DATA AGE</span>${rows.map(chip).join('')}`;
+  }
+
+  function autoSituationBrief(place, situation, {weather, traffic=[], aqi=null, flood=[], construction=[], parking=[]}={}) {
+    const rain = Math.round(Number(weather?.current?.precipitationProbability || 0));
+    const aqiText = Number.isFinite(Number(aqi?.aqi)) ? `AQI ${Math.round(Number(aqi.aqi))}` : 'AQI N/A';
+    const parkingText = parking.length ? `${parking.filter((x)=>Number.isFinite(Number(x.available)) && Number(x.available)>0).length} 個停車場有公開剩餘車位` : '停車動態無訊號';
+    const hazard = situation.reasons.length ? situation.reasons.slice(0,2).join('；') : '未見明顯區域警戒';
+    return `${shortName(place?.name||'目標區域')}：${hazard}。${traffic.length} 件交通事件、${construction.length} 件施工、${flood.length} 筆淹水警戒；${aqiText}，降雨 ${rain}%；${parkingText}。`;
+  }
+
+  function getWatchZones() {
+    try { const v=JSON.parse(localStorage.getItem('eye-watch-zones-v1')||'[]'); return Array.isArray(v)?v:[]; } catch { return []; }
+  }
+  function saveWatchZones(zones) {
+    state.watchedZones=(zones||[]).slice(0,6);
+    try { localStorage.setItem('eye-watch-zones-v1', JSON.stringify(state.watchedZones)); } catch (_) {}
+    renderWatchZones();
+  }
+  function watchKey(p={}) { return `${Number(p.lat).toFixed(3)},${Number(p.lon).toFixed(3)}`; }
+  function renderWatchZones() {
+    const box=$('watchZoneList'); if(!box) return;
+    const zones=state.watchedZones=getWatchZones();
+    box.innerHTML=zones.map((z)=>`<button class="watch-zone-chip" type="button" data-watch-key="${escapeAttr(watchKey(z))}" title="${escapeAttr(z.name||'WATCH ZONE')}">${escapeHtml(shortName(z.name||'ZONE'))}</button>`).join('');
+    box.querySelectorAll('[data-watch-key]').forEach((btn)=>btn.addEventListener('click', async()=>{ const z=zones.find((x)=>watchKey(x)===btn.dataset.watchKey); if(!z)return; await lockTarget(z); const origin=await preferredOrigin(); await planRoute(origin,z,{preference:'recommended'}); }));
+    const cur=state.target; const active=cur&&zones.some((z)=>watchKey(z)===watchKey(cur));
+    $('watchZoneBtn')?.classList.toggle('active',!!active);
+    if($('watchZoneBtn')) $('watchZoneBtn').textContent=active?'✓ WATCHING':'＋ WATCH ZONE';
+  }
+  function toggleWatchZone() {
+    const p=state.target; if(!p) return toast('請先搜尋一個地點');
+    const zones=getWatchZones(); const key=watchKey(p); const exists=zones.some((z)=>watchKey(z)===key);
+    const next=exists?zones.filter((z)=>watchKey(z)!==key):[{name:p.name||'WATCH ZONE',lat:Number(p.lat),lon:Number(p.lon),level:state.currentSituation?.level||'nominal',updatedAt:new Date().toISOString()},...zones];
+    saveWatchZones(next); toast(exists?'已移出 WATCH ZONE':'已加入 WATCH ZONE');
+  }
+
+  function renderSituationIntel(place, payload={}) {
+    const weather=payload.weather||null, traffic=payload.traffic||[], flow=payload.flow||[], parking=payload.parking?.items||[], construction=payload.construction?.items||[], aqi=payload.aqi?.nearest||null, flood=payload.flood?.items||[];
+    const sit=areaThreatAssessment({weather,traffic,construction,aqi,flood});
+    state.currentSituation=sit;
+    drawThreatRadar(place,sit);
+    const brief=$('situationBrief'); if(brief) brief.className=`situation-brief ${sit.level}`;
+    if($('situationLevel')) $('situationLevel').textContent=sit.level==='critical'?'CRITICAL':sit.level==='watch'?'WATCH':'NOMINAL';
+    if($('situationHeadline')) $('situationHeadline').textContent=sit.level==='critical'?'區域風險訊號升高':sit.level==='watch'?'區域存在需注意訊號':'區域情報未見明顯警戒';
+    if($('situationNarrative')) $('situationNarrative').textContent=autoSituationBrief(place,sit,{weather,traffic,aqi,flood,construction,parking});
+    if($('situationAqi')) $('situationAqi').textContent=Number.isFinite(Number(aqi?.aqi))?String(Math.round(Number(aqi.aqi))):'N/A';
+    if($('situationAqiMeta')) $('situationAqiMeta').textContent=aqi?`${aqi.site||'測站'} · ${aqi.status||'官方 AQI'}`:'官方測站 N/A';
+    if($('situationFlood')) $('situationFlood').textContent=String(flood.length);
+    if($('situationWork')) $('situationWork').textContent=construction.length?`${construction.filter((x)=>x.impactTraffic).length}/${construction.length}`:'0';
+    if($('situationParking')) {
+      const open=parking.filter((x)=>Number.isFinite(Number(x.available))&&Number(x.available)>0);
+      $('situationParking').textContent=parking.length?(open.length?`${open.reduce((a,b)=>a+Number(b.available||0),0)} 格`:`${parking.length} 處`):'N/A';
+    }
+    const park=$('parkingFeed');
+    if(park) park.innerHTML=`<div class="situation-feed-title"><span>PARKING INTEL</span><em>${payload.parking?.coverage||'AUTO'}</em></div>`+(parking.length?parking.slice(0,3).map((x)=>`<div class="situation-row"><b>${escapeHtml(x.name||'停車場')}</b><span>${escapeHtml(x.address||'')} · ${Number(x.distance).toFixed(1)} km</span><em>${Number.isFinite(Number(x.available))?`${Math.max(0,Math.round(Number(x.available)))} 空位`:'車位 N/A'}</em></div>`).join(''):`<div class="auto-empty">${escapeHtml(payload.parking?.message||'此區目前沒有取得即時停車資料。')}</div>`);
+    const floodBox=$('floodFeed');
+    if(floodBox) floodBox.innerHTML=`<div class="situation-feed-title"><span>FLOOD / WATER INTEL</span><em>${flood.length} SIGNALS</em></div>`+(flood.length?flood.slice(0,3).map((x)=>`<div class="situation-row ${Number(x.distance)<=8?'critical-row':''}"><b>${escapeHtml(x.name||'淹水警戒')}</b><span>${escapeHtml((x.description||'水利署公開警戒訊號').slice(0,90))}</span><em>${Number.isFinite(Number(x.distance))?`${Number(x.distance).toFixed(1)} km`:'ACTIVE'}</em></div>`).join(''):`<div class="auto-empty">${escapeHtml(payload.flood?.message||'附近目前沒有取得淹水警戒訊號。')}</div>`);
+    const work=$('constructionFeed');
+    if(work) work.innerHTML=`<div class="situation-feed-title"><span>CONSTRUCTION VISION</span><em>${construction.length} SIGNALS</em></div>`+(construction.length?construction.slice(0,3).map((x)=>`<div class="situation-row"><b>${escapeHtml(x.address||x.district||'施工通報')}</b><span>${escapeHtml(x.purpose||x.unit||'道路施工')} ${x.hours?`· ${escapeHtml(x.hours)}`:''}</span><em>${x.impactTraffic?'IMPACT':'ACTIVE'}</em></div>`).join(''):`<div class="auto-empty">${escapeHtml(payload.construction?.message||'此區目前沒有取得詳細施工通報。')}</div>`);
+    if($('freshnessFeed')) $('freshnessFeed').innerHTML=sourceFreshnessHtml({weather,traffic,flow,aqi,construction,parkingMeta:payload.parking,floodMeta:payload.flood});
+    renderWatchZones();
+  }
+
+  async function loadExtendedIntel(place) {
+    const results=await Promise.allSettled([
+      loadAirQuality(place.lat,place.lon,70), loadParking(place.lat,place.lon,5), loadConstruction(place.lat,place.lon,7), loadFlood(place.lat,place.lon,80)
+    ]);
+    const v=(i,fb)=>results[i].status==='fulfilled'?(results[i].value??fb):fb;
+    return { aqi:v(0,{nearest:null,items:[]}), parking:v(1,{items:[]}), construction:v(2,{items:[]}), flood:v(3,{items:[]}) };
+  }
+
+  const FLOW_HISTORY_KEY='eye-flow-history-v1';
+  function flowHistoryStore() { try { const v=JSON.parse(localStorage.getItem(FLOW_HISTORY_KEY)||'{}'); return v&&typeof v==='object'?v:{}; } catch { return {}; } }
+  function flowHistoryKey(place={}) { return `${Math.round(Number(place.lat)*50)/50},${Math.round(Number(place.lon)*50)/50}`; }
+  function recordFlowHistory(place, flow=[]) {
+    const speeds=flow.map((x)=>Number(x.travelSpeed)).filter((x)=>Number.isFinite(x)&&x>=0); if(!speeds.length)return [];
+    const store=flowHistoryStore(), key=flowHistoryKey(place), now=Date.now();
+    const item={t:now,avg:Math.round(speeds.reduce((a,b)=>a+b,0)/speeds.length),min:Math.min(...speeds),slow:speeds.filter((x)=>x<40).length};
+    const rows=[...(store[key]||[]).filter((x)=>now-Number(x.t)<65*60*1000),item].slice(-16); store[key]=rows;
+    try{localStorage.setItem(FLOW_HISTORY_KEY,JSON.stringify(store));}catch(_){ }
+    return rows;
+  }
+  function flowTrend(rows=[]) {
+    if(rows.length<2) return {code:'COLLECTING',label:'正在建立 60 分鐘趨勢'};
+    const first=rows[0],last=rows[rows.length-1],delta=Number(last.avg)-Number(first.avg),slowDelta=Number(last.slow)-Number(first.slow);
+    if(delta<=-10||slowDelta>=2) return {code:'EXPANDING',label:'壅塞訊號正在擴大'};
+    if(delta>=10||slowDelta<=-2) return {code:'RECOVERING',label:'車流正在恢復'};
+    return {code:'STABLE',label:'車流趨勢相對穩定'};
+  }
+  function renderFlowTimeMachine(place, flow=[]) {
+    const box=$('routeTimeMachine'),bars=$('routeFlowHistory'),trend=$('routeFlowTrend'),range=$('routeTimeRange'),value=$('routeTimeValue'); if(!box||!bars||!trend)return;
+    const rows=recordFlowHistory(place,flow); box.hidden=!flow.length;
+    const t=flowTrend(rows); trend.textContent=`${t.code} · ${t.label}`;
+    box.dataset.trend=String(t.code||'collecting').toLowerCase();
+    document.body.classList.toggle('flow-expanding',t.code==='EXPANDING');
+    document.body.classList.toggle('flow-recovering',t.code==='RECOVERING');
+    bars.innerHTML=rows.map((x,i)=>{ const cls=x.avg<30?'critical':x.avg<50?'slow':''; const h=Math.max(12,Math.min(100,Number(x.avg)/1.05)); return `<i class="flow-history-bar ${cls}" style="--h:${h}%" data-speed="${Math.round(x.avg)}" data-index="${i}"></i>`; }).join('');
+    const describe=(i)=>{ const row=rows[Math.max(0,Math.min(rows.length-1,Number(i)||0))]; if(!row)return '等待足夠歷史快照'; const time=new Date(Number(row.t)).toLocaleTimeString('zh-TW',{hour12:false,hour:'2-digit',minute:'2-digit'}); return `${time} · AVG ${Math.round(row.avg)} km/h · MIN ${Math.round(row.min)} · LOW ${row.slow}`; };
+    if(range){ range.max=String(Math.max(0,rows.length-1)); range.value=String(Math.max(0,rows.length-1)); range.disabled=rows.length<2; range.oninput=()=>{ if(value)value.textContent=describe(range.value); bars.querySelectorAll('.flow-history-bar').forEach((el,j)=>el.classList.toggle('selected',j===Number(range.value))); }; }
+    if(value) value.textContent=describe(rows.length-1);
+    bars.querySelectorAll('.flow-history-bar').forEach((el,j)=>el.classList.toggle('selected',j===rows.length-1));
+  }
+
+  function updateIntelSync(label = 'AUTO') {
+    const el = $('intelSync');
+    if (!el) return;
+    const t = new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    el.textContent = `LAST SYNC ${t} · ${String(label || 'AUTO').toUpperCase()}`;
   }
 
   function renderTargetBrief(place, { weather = null, traffic = [], flow = [], cctv = [], speedCameras = [] } = {}) {
@@ -518,7 +897,7 @@
     const speeds = flow.map((x) => Number(x.travelSpeed)).filter((x) => Number.isFinite(x) && x >= 0);
     const avg = speeds.length ? Math.round(speeds.reduce((a,b) => a+b,0) / speeds.length) : null;
     overview.innerHTML = [
-      ['EVENTS', traffic.length], ['CCTV', cctv.length], ['NEWS', news.length], ['AIR', flights.length],
+      ['事件', traffic.length], ['CCTV', cctv.length], ['新聞', news.length], ['航空', flights.length],
     ].map(([label,value]) => `<div><small>${label}</small><b>${value}</b></div>`).join('');
     trafficBox.innerHTML = `<div class="auto-feed-title"><span>交通與區域訊息</span><em>AUTO</em></div>` + (traffic.length
       ? traffic.slice(0,4).map((ev) => `<div class="auto-row ${/封閉|事故|車禍|施工|回堵/.test(`${ev.title||''} ${ev.description||''}`) ? 'warning' : ''}"><span>EVENT</span><b>${escapeHtml(ev.road || ev.title || '交通事件')}</b><em>${escapeHtml((ev.description || ev.title || '').slice(0,70))}</em></div>`).join('')
@@ -533,6 +912,7 @@
   }
 
   async function lockTarget(place, zoom = 15) {
+    exitNationalMode();
     state.target = place;
     setTheaterStandby(false);
     if (state.targetMarker) state.targetMarker.remove();
@@ -551,14 +931,17 @@
       loadFlow(place.lat, place.lon, false, 55),
       loadCctv(place.lat, place.lon, false, 35),
       loadSpeedCameras(place.lat, place.lon, false, 30),
-      loadNews(place.lat, place.lon, false),
+      loadNews(place.lat, place.lon, false, place.name),
       loadFlights(place.lat, place.lon, false, 70),
       loadEarthquakes(place.lat, place.lon, false, 250),
+      loadExtendedIntel(place),
     ]);
     const value = (i, fallback) => results[i].status === 'fulfilled' ? (results[i].value ?? fallback) : fallback;
     renderTargetBrief(place, { weather: value(0, null), traffic: value(1, []), flow: value(2, []), cctv: value(3, []), speedCameras: value(4, []) });
     renderAutoIntel(place, { traffic: value(1, []), flow: value(2, []), cctv: value(3, []), speedCameras: value(4, []), news: value(5, []), flights: value(6, []), quakes: value(7, []) });
+    renderSituationIntel(place, { weather:value(0,null), traffic:value(1,[]), flow:value(2,[]), ...(value(8,{})) });
     renderInlineCctvResults(value(3, []), place);
+    updateIntelSync('TARGET AUTO');
     if ($('abTarget')) $('abTarget').value = place.name || '';
     openIntelResults();
   }
@@ -589,7 +972,7 @@
     await lockTarget(place);
     const origin = await preferredOrigin();
     await planRoute(origin, place, { preference: 'recommended', fromVoice: Boolean(context.fromVoice) });
-    if (wantsNews) await loadNews(place.lat, place.lon, false);
+    if (wantsNews) await loadNews(place.lat, place.lon, false, place.name || stripped);
     openIntelResults();
   }
 
@@ -858,6 +1241,7 @@
     state.currentRoute.intel = candidate.intel;
     renderTravelAnswer(state.currentRoute.travelBrief, ctx.target, mins, km);
     renderRouteOptions();
+    if (ctx?.datasets?.flow) renderFlowTimeMachine({ lat:(ctx.origin.lat+ctx.target.lat)/2, lon:(ctx.origin.lon+ctx.target.lon)/2, name:'ROUTE CORRIDOR' }, ctx.datasets.flow);
     renderInlineCctvResults(candidate.intel.cctv || ctx.datasets.cctv || [], ctx.target);
     openIntelResults();
     if (candidate.threat.level === 'red') showThreatAlert(candidate.threat, candidate);
@@ -874,7 +1258,7 @@
       if (!target) throw new Error('請輸入目的地');
       toast('正在建立多路線戰情…');
       signalAcquire(true, 'MULTI-PATH DECRYPTION');
-      const data = await jsonFetch(`/api/route?from=${origin.lon},${origin.lat}&to=${target.lon},${target.lat}`);
+      const data = await jsonFetch(`/api/data?action=route&from=${origin.lon},${origin.lat}&to=${target.lon},${target.lat}`);
       const routes = (data.routes || []).filter((r) => r?.geometry && Number.isFinite(Number(r.distance)) && Number.isFinite(Number(r.duration))).slice(0,3);
       if (!routes.length) throw new Error('目前找不到可用路線');
       const allLatLng = routes.flatMap((r) => (r.geometry?.coordinates || []).map(([lon,lat]) => [lat,lon]));
@@ -890,6 +1274,7 @@
         loadSpeedCameras(center.lat, center.lng, false, Math.min(250, routeRadius)),
       ]);
       const datasets = { traffic: traffic || [], flow: flow || [], cctv: cctv || [], speedCameras: speedCameras || [] };
+      renderFlowTimeMachine({ lat:center.lat, lon:center.lng, name:'ROUTE CORRIDOR' }, datasets.flow);
       const fastestDuration = Math.min(...routes.map((r) => Number(r.duration)));
       const shortestDistance = Math.min(...routes.map((r) => Number(r.distance)));
       state.routeCandidates = routes.map((route, index) => {
@@ -1026,10 +1411,11 @@
     return `<div class="news-list">${items.slice(0, 10).map((n) => `<a class="news-item" href="${escapeAttr(n.url)}" target="_blank" rel="noopener noreferrer"><span><small>${escapeHtml(n.scope || 'REGION')} · ${escapeHtml(formatNewsTime(n.publishedAt))}</small><b>${escapeHtml(n.title)}</b></span><em>${escapeHtml(n.source || n.domain || 'NEWS')}</em></a>`).join('')}</div>`;
   }
 
-  async function loadNews(lat, lon, open = false) {
+  async function loadNews(lat, lon, open = false, query = '') {
     $('newsCount').textContent = '…';
     try {
-      const data = await jsonFetch(`/api/news?lat=${Number(lat).toFixed(5)}&lon=${Number(lon).toFixed(5)}`);
+      const q = String(query || state.target?.name || '').trim();
+      const data = await jsonFetch(`/api/data?action=news&lat=${Number(lat).toFixed(5)}&lon=${Number(lon).toFixed(5)}${q ? `&q=${encodeURIComponent(q)}` : ''}`);
       const items = data.items || [];
       state.latestNews = items;
       state.newsLocation = data.location || null;
@@ -1063,7 +1449,7 @@
       loadCctv(c.lat, c.lon, false, 25),
       loadTraffic(c.lat, c.lon, false, 25),
       loadFlow(c.lat, c.lon, false, 35),
-      loadNews(c.lat, c.lon, false),
+      loadNews(c.lat, c.lon, false, c.name),
     ]);
     const weather = weatherData?.current || state.currentWeather?.current || {};
     const avg = flow.map((x) => Number(x.travelSpeed)).filter(Number.isFinite);
@@ -1200,6 +1586,17 @@
     } catch (_) {}
   }
 
+
+  async function refreshNavigationFlow() {
+    if (!state.navigation.active || !state.currentRoute?.route) return;
+    const cur=state.currentRoute;
+    const mid={lat:(Number(cur.origin.lat)+Number(cur.target.lat))/2,lon:(Number(cur.origin.lon)+Number(cur.target.lon))/2,name:'NAV CORRIDOR'};
+    try {
+      const flow=await loadFlow(mid.lat,mid.lon,false,Math.min(160,Math.max(55,cur.km*.7+25)));
+      if(flow?.length){ cur.intel=cur.intel||{}; cur.intel.flow=flow; cur.intel.anomalies=findFlowAnomalies(flow).slice(0,8); renderFlowTimeMachine(mid,flow); }
+    } catch (_) {}
+  }
+
   async function startNavigation() {
     const cur = state.currentRoute;
     if (!cur?.route) {
@@ -1234,6 +1631,8 @@
       $('navAlert').className = 'nav-alert danger';
       $('navAlert').innerHTML = `<span>POSITION LOST</span><b>${escapeHtml(err.message || 'GPS SIGNAL LOST')}</b><em>RETRY</em>`;
     }, { enableHighAccuracy: true, maximumAge: 1500, timeout: 12000 });
+    state.navigation.flowTimer = setInterval(refreshNavigationFlow, 60000);
+    refreshNavigationFlow().catch(() => {});
     tactile(16);
     speak('導航情報模式已啟動。行車請以道路現場標誌與官方號誌為準。');
   }
@@ -1243,6 +1642,8 @@
       try { navigator.geolocation.clearWatch(state.navigation.watchId); } catch (_) {}
     }
     state.navigation.watchId = null;
+    if (state.navigation.flowTimer) clearInterval(state.navigation.flowTimer);
+    state.navigation.flowTimer = null;
     state.navigation.active = false;
     state.navigation.activeCameraId = null;
     if ($('navHud')) $('navHud').hidden = true;
@@ -1428,6 +1829,7 @@
         grid.querySelectorAll('.wall-card').forEach((el) => el.classList.remove('active'));
         btn.classList.add('active');
         renderWallCamera(cam);
+        lockMapContact({ ...cam, source:cam.source || 'PUBLIC CCTV' }, 'CCTV', { zoom:14 });
       });
       grid.appendChild(btn);
       if (index === 0) setTimeout(() => btn.click(), 0);
@@ -1461,13 +1863,14 @@
     state.speedLayer.clearLayers();
     $('speedCount').textContent = '…';
     try {
-      const data = await jsonFetch(`/api/speed-cameras?lat=${Number(lat).toFixed(5)}&lon=${Number(lon).toFixed(5)}&radius=${Math.round(radius)}`);
+      const data = await jsonFetch(`/api/data?action=speed-cameras&lat=${Number(lat).toFixed(5)}&lon=${Number(lon).toFixed(5)}&radius=${Math.round(radius)}`);
       const items = data.items || [];
       state.latestSpeedCameras = items;
       items.forEach((cam) => {
         const marker = L.marker([cam.lat, cam.lon], { icon: speedMarkerIcon(cam), zIndexOffset: 650 }).addTo(state.speedLayer);
         const limit = Number.isFinite(Number(cam.limit)) ? `${Number(cam.limit)} km/h` : '速限依現場標誌';
         marker.bindPopup(`<b>公開測速執法點</b><br>${escapeHtml(cam.address || `${cam.city || ''}${cam.region || ''}`)}<br>${escapeHtml(cam.direction || '方向未提供')} · ${escapeHtml(limit)}<br><small>來源：警政署公開資料；行車仍以現場標誌為準。</small>`);
+        marker.on('click', () => lockMapContact({ ...cam, name:'SPEED ENFORCEMENT', source:'警政署公開資料' }, 'SPEED CAMERA', { zoom:14 }));
       });
       $('speedCount').textContent = String(items.length);
       if (focus && items.length) {
@@ -1488,7 +1891,7 @@
     state.airLayer.clearLayers();
     if ($('airCount')) $('airCount').textContent = '…';
     try {
-      const data = await jsonFetch(`/api/flights?lat=${Number(lat).toFixed(5)}&lon=${Number(lon).toFixed(5)}&radius=${Math.round(radius)}`);
+      const data = await jsonFetch(`/api/data?action=flights&lat=${Number(lat).toFixed(5)}&lon=${Number(lon).toFixed(5)}&radius=${Math.round(radius)}`);
       const items = data.items || [];
       state.latestFlights = items;
       items.forEach((ac) => {
@@ -1497,8 +1900,7 @@
         const marker = L.marker([ac.lat, ac.lon], { icon, zIndexOffset: 520 }).addTo(state.airLayer);
         marker.bindPopup(`<b>${escapeHtml(ac.callsign || 'AIR CONTACT')}</b><br>${Number.isFinite(Number(ac.altitude)) ? `${Math.round(Number(ac.altitude))} ft` : 'ALT N/A'} · ${Number.isFinite(Number(ac.groundSpeed)) ? `${Math.round(Number(ac.groundSpeed))} kt` : 'SPD N/A'}<br><small>PUBLIC ADS-B SIGNAL</small>`);
         marker.on('click', () => {
-          state.map.flyTo([ac.lat, ac.lon], Math.max(state.map.getZoom(), 10), { duration: .65 });
-          showTargetLock({ name: ac.callsign || 'AIR CONTACT', lat: ac.lat, lon: ac.lon });
+          lockMapContact(ac, 'AIRCRAFT', { zoom:11 });
         });
       });
       if ($('airCount')) $('airCount').textContent = String(items.length);
@@ -1516,14 +1918,15 @@
     state.quakeLayer.clearLayers();
     if ($('quakeCount')) $('quakeCount').textContent = '…';
     try {
-      const data = await jsonFetch(`/api/earthquakes?lat=${Number(lat).toFixed(5)}&lon=${Number(lon).toFixed(5)}&radius=${Math.round(radius)}`);
+      const data = await jsonFetch(`/api/data?action=earthquakes&lat=${Number(lat).toFixed(5)}&lon=${Number(lon).toFixed(5)}&radius=${Math.round(radius)}`);
       const items = data.items || [];
       state.latestQuakes = items;
       items.forEach((q) => {
         const size = Math.max(8, Math.min(24, 7 + Math.max(0, Number(q.mag || 0))*2.5));
         const icon = L.divIcon({ className: '', html: `<div class="marker-quake" style="width:${size}px;height:${size}px"></div>`, iconSize: [size,size], iconAnchor: [size/2,size/2] });
-        L.marker([q.lat, q.lon], { icon, zIndexOffset: 500 }).addTo(state.quakeLayer)
+        const marker = L.marker([q.lat, q.lon], { icon, zIndexOffset: 500 }).addTo(state.quakeLayer)
           .bindPopup(`<b>SEISMIC CONTACT · M${Number.isFinite(Number(q.mag)) ? Number(q.mag).toFixed(1) : '?'}</b><br>${escapeHtml(q.place || '')}<br>${Number.isFinite(Number(q.depth)) ? `${Math.round(Number(q.depth))} km depth` : ''}<br><small>USGS · LAST 24H</small>`);
+        marker.on('click', () => lockMapContact({ ...q, name:`M${Number(q.mag || 0).toFixed(1)} ${q.place || 'SEISMIC CONTACT'}`, source:'USGS recent seismic feed' }, 'SEISMIC', { zoom:9 }));
       });
       if ($('quakeCount')) $('quakeCount').textContent = String(items.length);
       if (focus && items[0]) state.map.flyTo([items[0].lat, items[0].lon], Math.max(state.map.getZoom(), 8), { duration: .7 });
@@ -1561,18 +1964,19 @@
     toast('TAIWAN THEATER // SIGNALS FUSED');
   }
 
-  async function loadCctv(lat, lon, focus = false, radius = 40) {
+  async function loadCctv(lat, lon, focus = false, radius = 40, options = {}) {
     if (!state.map) return;
-    state.cameraLayer.clearLayers();
+    const draw = options.draw !== false;
+    if (draw) state.cameraLayer.clearLayers();
     $('cameraCount').textContent = '…';
     try {
-      const data = await jsonFetch(`/api/cctv?lat=${lat}&lon=${lon}&radius=${Math.round(radius)}`);
+      const data = await jsonFetch(`/api/data?action=cctv&lat=${lat}&lon=${lon}&radius=${Math.round(radius)}`);
       const items = data.items || [];
       state.latestCctv = items;
-      items.forEach((cam) => {
+      if (draw) items.forEach((cam) => {
         const marker = L.marker([cam.lat, cam.lon], { icon: markerIcon('camera', 9) }).addTo(state.cameraLayer);
         marker.bindPopup(`<b>${escapeHtml(cam.name || cam.road || '公開 CCTV')}</b><br>${escapeHtml(cam.direction || '')}<br><button class="popup-action" data-camera-id="${escapeHtml(cam.id)}">OPEN FEED</button>`);
-        marker.on('click', () => setTimeout(() => bindPopupCameraAction(cam), 0));
+        marker.on('click', () => { lockMapContact({ ...cam, source:cam.source || 'PUBLIC CCTV' }, 'CCTV', { zoom:14 }); setTimeout(() => bindPopupCameraAction(cam), 0); });
       });
       $('cameraCount').textContent = String(items.length);
       if (focus && items.length) {
@@ -1707,6 +2111,7 @@
   }
 
   function openCamera(cam) {
+    lockMapContact({ ...cam, source:cam.source || 'PUBLIC CCTV' }, 'CCTV', { zoom:14 });
     $('cameraDrawer').hidden = false;
     $('cameraTitle').textContent = shortName(cam.name || cam.road || 'CAMERA');
     const stage = $('cameraStage');
@@ -1727,6 +2132,8 @@
     if (wall) wall.classList.toggle('privacy-shield', state.privacyShield);
     const inline = $('inlineCameraStage');
     if (inline) inline.classList.toggle('privacy-shield', state.privacyShield);
+    const nationalStage = $('nationalPreviewStage');
+    if (nationalStage) nationalStage.classList.toggle('privacy-shield', state.privacyShield);
     const navThumb = $('navCameraThumb');
     if (navThumb?.classList.contains('has-image')) navThumb.classList.toggle('privacy-shield', state.privacyShield);
   }
@@ -1785,8 +2192,8 @@
     box.innerHTML = '<span class="intel-kicker">LIVE VISION ANALYTICS</span><b>融合 CCTV、VD 車道偵測器與即時路況…</b><small>不進行車牌 OCR、個別車輛識別或跨鏡頭追蹤。</small>';
     try {
       const [flowResult, laneResult] = await Promise.allSettled([
-        jsonFetch(`/api/flow?lat=${cam.lat}&lon=${cam.lon}&radius=12`),
-        jsonFetch(`/api/lane-flow?lat=${cam.lat}&lon=${cam.lon}&radius=8`),
+        jsonFetch(`/api/data?action=flow&lat=${cam.lat}&lon=${cam.lon}&radius=12`),
+        jsonFetch(`/api/data?action=lane-flow&lat=${cam.lat}&lon=${cam.lon}&radius=8`),
       ]);
       const data = flowResult.status === 'fulfilled' ? flowResult.value : { items: [] };
       const laneData = laneResult.status === 'fulfilled' ? laneResult.value : { items: [] };
@@ -1812,17 +2219,19 @@
     }
   }
 
-  async function loadTraffic(lat, lon, focus = false, radius = 60) {
-    state.incidentLayer.clearLayers();
+  async function loadTraffic(lat, lon, focus = false, radius = 60, options = {}) {
+    const draw = options.draw !== false;
+    if (draw) state.incidentLayer.clearLayers();
     $('trafficCount').textContent = '…';
     try {
-      const data = await jsonFetch(`/api/traffic?lat=${lat}&lon=${lon}&radius=${Math.round(radius)}`);
+      const data = await jsonFetch(`/api/data?action=traffic&lat=${lat}&lon=${lon}&radius=${Math.round(radius)}`);
       const items = data.items || [];
       state.latestTraffic = items;
-      items.forEach((ev) => {
+      if (draw) items.forEach((ev) => {
         if (!Number.isFinite(ev.lat) || !Number.isFinite(ev.lon)) return;
         const marker = L.marker([ev.lat, ev.lon], { icon: markerIcon('incident', 10) }).addTo(state.incidentLayer);
         marker.bindPopup(`<b>${escapeHtml(ev.title || '交通事件')}</b><br>${escapeHtml(ev.road || '')}<br>${escapeHtml(ev.description || '')}`);
+        marker.on('click', () => lockMapContact({ ...ev, name:ev.title || ev.road || 'TRAFFIC EVENT' }, 'TRAFFIC EVENT', { zoom:13 }));
       });
       $('trafficCount').textContent = String(items.length);
       if (focus && items.length) state.map.flyTo([items[0].lat, items[0].lon], Math.max(state.map.getZoom(), 12));
@@ -1855,7 +2264,7 @@
     const speed = Number(segment.travelSpeed);
     const value = Number.isFinite(speed) ? Math.max(0, Math.round(speed)) : '—';
     return L.divIcon({
-      className: '',
+      className: 'flow-speed-marker',
       html: `<div class="flow-speed-badge ${visual.className}"><b>${value}</b><span>km/h</span></div>`,
       iconSize: [43, 23],
       iconAnchor: [21, 12],
@@ -1877,7 +2286,7 @@
     state.flowLayer.clearLayers();
     $('flowStatus').textContent = '…';
     try {
-      const data = await jsonFetch(`/api/flow?lat=${lat}&lon=${lon}&radius=${Math.round(radius)}`);
+      const data = await jsonFetch(`/api/data?action=flow&lat=${lat}&lon=${lon}&radius=${Math.round(radius)}`);
       const items = data.items || [];
       state.latestFlow = items;
       let speedLabels = 0;
@@ -1885,18 +2294,23 @@
       items.forEach((segment) => {
         if (!Array.isArray(segment.geometry) || segment.geometry.length < 2) return;
         const visual = flowVisual(segment);
-        L.polyline(segment.geometry, { color: '#050606', weight: visual.className === 'critical' ? 10 : 9, opacity: .74, lineCap: 'round', lineJoin: 'round' }).addTo(state.flowLayer);
-        const line = L.polyline(segment.geometry, flowStyle(segment)).addTo(state.flowLayer);
+        const nationalScale = state.nationalMode || state.map.getZoom() <= 8;
+        L.polyline(segment.geometry, { color: '#050606', weight: nationalScale ? (visual.className === 'critical' ? 8 : 7) : (visual.className === 'critical' ? 10 : 9), opacity: .74, lineCap: 'round', lineJoin: 'round' }).addTo(state.flowLayer);
+        const style = flowStyle(segment); if (nationalScale) style.weight = visual.className === 'critical' ? 5 : 4;
+        const line = L.polyline(segment.geometry, style).addTo(state.flowLayer);
         const speedValue = Number(segment.travelSpeed);
         const speed = Number.isFinite(speedValue) ? `${Math.round(speedValue)} km/h` : '速度未提供';
         const label = segment.congestionLevel || visual.label;
         line.bindPopup(`<b>${escapeHtml(segment.road || segment.name || '國道路段')}</b><br>${escapeHtml(segment.start || '')} → ${escapeHtml(segment.end || '')}<br><span style="color:${visual.color}">● ${escapeHtml(label)}</span> · ${escapeHtml(speed)}`);
+        line.on('click', () => lockMapContact({ ...segment, name:segment.road || segment.name || 'FREEWAY FLOW', source:'高速公路局 LiveTraffic' }, 'FLOW SEGMENT', { zoom:12 }));
 
         const point = flowLabelPoint(segment);
         if (!point || !Number.isFinite(speedValue)) return;
         const priority = visual.className === 'critical' || visual.className === 'slow';
-        const farEnough = labelAnchors.every((p) => haversineKm(p[0], p[1], point[0], point[1]) > (priority ? 1.05 : 1.8));
-        if (farEnough && speedLabels < 34) {
+        if (nationalScale && !priority) return;
+        const spacing = nationalScale ? (visual.className === 'critical' ? 16 : 24) : (priority ? 1.05 : 1.8);
+        const farEnough = labelAnchors.every((p) => haversineKm(p[0], p[1], point[0], point[1]) > spacing);
+        if (farEnough && speedLabels < (nationalScale ? 14 : 34)) {
           L.marker(point, { icon: flowSpeedIcon(segment), interactive: false, zIndexOffset: visual.className === 'critical' ? 450 : 120 }).addTo(state.flowLayer);
           labelAnchors.push(point);
           speedLabels += 1;
@@ -1918,12 +2332,328 @@
   }
 
   function setSensorMode(mode = 'normal') {
-    const allowed = new Set(['normal','nvg','flir','noir','crt']);
+    const allowed = new Set(['normal','nvg','flir','noir','crt','snow']);
     const next = allowed.has(mode) ? mode : 'normal';
     state.sensorMode = next;
-    ['normal','nvg','flir','noir','crt'].forEach((m) => $('app').classList.toggle(`sensor-${m}`, m === next));
+    ['normal','nvg','flir','noir','crt','snow'].forEach((m) => $('app').classList.toggle(`sensor-${m}`, m === next));
     document.querySelectorAll('[data-sensor]').forEach((btn) => btn.classList.toggle('active', btn.dataset.sensor === next));
     toast(`SENSOR // ${next.toUpperCase()}`);
+  }
+
+  function sourceAvailability(id) {
+    if (id === 'traffic') return state.latestTraffic?.length ? 'LIVE' : 'AVAILABLE';
+    if (id === 'flow' || id === 'lane') return state.latestFlow?.length ? (id === 'lane' ? 'DERIVED' : 'LIVE') : 'AVAILABLE';
+    if (id === 'cctv') return state.latestCctv?.length ? 'LIVE' : 'AVAILABLE';
+    if (id === 'speed') return state.latestSpeedCameras?.length ? 'STATIC' : 'AVAILABLE';
+    if (id === 'aqi') return state.latestAqi ? 'OBSERVED' : 'AVAILABLE';
+    if (id === 'flood') return state.latestFlood?.length ? 'LIVE' : 'AVAILABLE';
+    if (id === 'parking') return state.latestParking?.length ? 'LIVE' : 'REGIONAL';
+    if (id === 'construction') return state.latestConstruction?.length ? 'LIVE' : 'REGIONAL';
+    if (id === 'air') return state.latestFlights?.length ? 'LIVE' : 'AVAILABLE';
+    if (id === 'quake') return state.latestQuakes?.length ? 'LIVE' : 'AVAILABLE';
+    if (id === 'news') return state.latestNews?.length ? 'LIVE' : 'AVAILABLE';
+    return null;
+  }
+
+  function renderSourceMatrix() {
+    const box = $('sourceMatrix');
+    if (!box) return;
+    if ($('sourceCount')) $('sourceCount').textContent = String(SOURCE_CATALOG.length);
+    box.innerHTML = SOURCE_CATALOG.map((row) => {
+      const runtime = sourceAvailability(row.id);
+      const mode = runtime === 'REGIONAL' ? 'STATIC' : (runtime || row.mode);
+      const cls = mode === 'LIVE' ? 'live' : mode === 'OBSERVED' ? 'observed' : mode === 'DERIVED' ? 'derived' : mode === 'MODEL' ? 'model' : mode === 'ESTIMATED' ? 'estimated' : mode === 'VISUAL' ? 'visual' : mode === 'SIMULATED' ? 'simulated' : mode === 'UNAVAILABLE' ? 'unavailable' : 'static';
+      const status = runtime === 'REGIONAL' ? 'REGIONAL' : mode;
+      return `<div class="source-row"><b>${escapeHtml(row.name)}</b><span>${escapeHtml(row.source)}<em>${escapeHtml(row.note)}</em></span><i class="source-state ${cls}">${escapeHtml(status)}</i></div>`;
+    }).join('');
+  }
+
+  function openSourceStatus() {
+    renderSourceMatrix();
+    $('sourceDrawer').hidden = false;
+  }
+
+  function addAnnotation(label = 'MARK', point = null) {
+    if (!state.annotationLayer) return;
+    const c = point || state.target || state.user || state.map?.getCenter?.();
+    const lat = Number(c?.lat), lon = Number(c?.lon ?? c?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    const text = String(label || 'MARK').trim().slice(0, 32) || 'MARK';
+    const icon = L.divIcon({ className:'annotation-marker', html:'<div class="annotation-dot"></div>', iconSize:[12,12], iconAnchor:[6,6] });
+    const marker = L.marker([lat,lon], { icon, zIndexOffset:780 }).addTo(state.annotationLayer);
+    marker.bindTooltip(`<span class="annotation-label">${escapeHtml(text)}</span>`, { permanent:true, direction:'right', offset:[8,0], className:'' });
+    state.annotations.push({ lat, lon, label:text, marker });
+    toast(`VOICE MARKUP // ${text}`);
+  }
+
+  function clearAnnotations() {
+    state.annotationLayer?.clearLayers?.();
+    state.annotations = [];
+    toast('VOICE MARKUP // CLEARED');
+  }
+
+  function updateTrackHud(contact = {}, type = 'CONTACT') {
+    if (!$('trackHud')) return;
+    $('trackHud').hidden = false;
+    $('trackName').textContent = shortName(contact.callsign || contact.name || contact.title || contact.road || 'PUBLIC CONTACT');
+    $('trackType').textContent = String(type || 'PUBLIC SIGNAL').toUpperCase();
+    const alt = Number(contact.altitude);
+    const dep = Number(contact.depth);
+    $('trackAltitude').textContent = Number.isFinite(alt) ? `${Math.round(alt)} ft` : Number.isFinite(dep) ? `${Math.round(dep)} km` : '—';
+    const speed = Number(contact.groundSpeed ?? contact.travelSpeed);
+    $('trackSpeed').textContent = Number.isFinite(speed) ? `${Math.round(speed)} ${type === 'AIRCRAFT' ? 'kt' : 'km/h'}` : '—';
+    $('trackHeading').textContent = Number.isFinite(Number(contact.heading)) ? `HDG ${Math.round(Number(contact.heading))}°` : (contact.direction || 'HDG —');
+    $('trackSource').textContent = String(contact.source || 'PUBLIC DATA').slice(0,42);
+    $('trackStatus').querySelector('b').textContent = state.cockpitActive ? 'COCKPIT FOLLOW' : 'TARGET ACQUIRED';
+    $('trackStatus').querySelector('em').textContent = type === 'AIRCRAFT' ? 'LIVE ADS-B' : 'PUBLIC DATA LOCK';
+    const details = $('trackDetails');
+    if (details) {
+      const fields = [
+        ['ID', contact.callsign || contact.id || contact.icao24 || contact.name || '—'],
+        ['POSITION', Number.isFinite(Number(contact.lat)) && Number.isFinite(Number(contact.lon)) ? `${Number(contact.lat).toFixed(4)}, ${Number(contact.lon).toFixed(4)}` : '—'],
+        ['SOURCE', contact.source || (type === 'AIRCRAFT' ? 'ADSB.lol' : 'PUBLIC DATA')],
+        ['STATE', type === 'AIRCRAFT' ? 'LIVE / REFRESH ~8S' : type.includes('FLOW') ? 'LIVE / OFFICIAL FLOW' : 'PUBLIC SIGNAL'],
+      ];
+      details.innerHTML = fields.map(([k,v]) => `<div><small>${escapeHtml(k)}</small><b>${escapeHtml(String(v).slice(0,64))}</b></div>`).join('');
+    }
+  }
+
+  function drawTrackedTrail() {
+    state.trackTrailLayer?.clearLayers?.();
+    const pts = state.trackedContact?.trail || [];
+    if (pts.length < 2) return;
+    for (let i = 1; i < pts.length; i++) {
+      const age = i / Math.max(1, pts.length - 1);
+      L.polyline([[pts[i-1].lat,pts[i-1].lon],[pts[i].lat,pts[i].lon]], { color:'#d7bd72', weight:2, opacity:.12 + age*.58, dashArray:'5 8', className:'contact-trail' }).addTo(state.trackTrailLayer);
+    }
+  }
+
+  function stopTracking(announce = true) {
+    if (state.trackedContact?.timer) clearInterval(state.trackedContact.timer);
+    state.trackedContact = null;
+    state.cockpitActive = false;
+    closeCockpit3d(false);
+    $('app')?.classList.remove('cockpit-active');
+    if ($('trackHud')) $('trackHud').hidden = true;
+    state.trackTrailLayer?.clearLayers?.();
+    if (announce) toast('CONTACT RELEASED');
+  }
+
+  async function refreshTrackedAircraft() {
+    const tracked = state.trackedContact;
+    if (!tracked || tracked.type !== 'AIRCRAFT') return;
+    try {
+      const c = tracked.entity;
+      const data = await jsonFetch(`/api/data?action=flights&lat=${Number(c.lat).toFixed(5)}&lon=${Number(c.lon).toFixed(5)}&radius=160`);
+      const next = (data.items || []).find((x) => String(x.id) === String(tracked.id));
+      if (!next) {
+        $('trackStatus').querySelector('b').textContent = 'SIGNAL TEMPORARILY LOST';
+        $('trackStatus').querySelector('em').textContent = 'ADS-B CONTACT STALE';
+        return;
+      }
+      tracked.entity = next;
+      tracked.trail.push({ lat:next.lat, lon:next.lon, t:Date.now() });
+      tracked.trail = tracked.trail.slice(-30);
+      updateTrackHud(next, 'AIRCRAFT');
+      showTargetLock({ name:next.callsign || 'AIR CONTACT', lat:next.lat, lon:next.lon });
+      drawTrackedTrail();
+      if (state.cockpitActive) {
+        state.map?.setView?.([next.lat,next.lon], Math.max(state.map.getZoom(),14), { animate:true });
+        updateCockpit3d(next);
+      }
+    } catch (_) {
+      if ($('trackStatus')) { $('trackStatus').querySelector('b').textContent = 'LINK DEGRADED'; $('trackStatus').querySelector('em').textContent = 'RETRYING'; }
+    }
+  }
+
+  function lockMapContact(entity = {}, type = 'CONTACT', options = {}) {
+    const lat = Number(entity.lat), lon = Number(entity.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    if (state.trackedContact?.timer) clearInterval(state.trackedContact.timer);
+    const tracked = { id:String(entity.id || `${type}-${lat}-${lon}`), type, entity:{...entity}, trail:[{lat,lon,t:Date.now()}], timer:null };
+    state.trackedContact = tracked;
+    showTargetLock({ name:entity.callsign || entity.name || entity.title || entity.road || type, lat, lon });
+    updateTrackHud(entity, type);
+    state.map?.flyTo?.([lat,lon], Math.max(state.map.getZoom(), options.zoom || (type === 'AIRCRAFT' ? 11 : 13)), { duration:state.motion ? .7 : .25 });
+    if (type === 'AIRCRAFT') tracked.timer = setInterval(refreshTrackedAircraft, 8000);
+  }
+
+  function loadExternalAsset(url, type = 'script') {
+    return new Promise((resolve, reject) => {
+      const attr = type === 'style' ? 'href' : 'src';
+      const existing = [...document.querySelectorAll(type === 'style' ? 'link[rel="stylesheet"]' : 'script')].find((el) => el[attr] === url);
+      if (existing) { if (type === 'script' && window.Cesium) return resolve(); existing.addEventListener('load', resolve, { once:true }); existing.addEventListener('error', reject, { once:true }); return; }
+      const el = type === 'style' ? document.createElement('link') : document.createElement('script');
+      if (type === 'style') { el.rel = 'stylesheet'; el.href = url; } else { el.src = url; el.async = true; }
+      el.addEventListener('load', resolve, { once:true }); el.addEventListener('error', () => reject(new Error('3D engine unavailable')), { once:true });
+      document.head.appendChild(el);
+    });
+  }
+
+  async function ensureCesium() {
+    if (window.Cesium) return window.Cesium;
+    if (state.cesium.loadPromise) return state.cesium.loadPromise;
+    state.cesium.loadPromise = (async () => {
+      const version = '1.124.0';
+      window.CESIUM_BASE_URL = `https://unpkg.com/cesium@${version}/Build/Cesium/`;
+      await loadExternalAsset(`https://unpkg.com/cesium@${version}/Build/Cesium/Widgets/widgets.css`, 'style');
+      await loadExternalAsset(`https://unpkg.com/cesium@${version}/Build/Cesium/Cesium.js`, 'script');
+      if (!window.Cesium) throw new Error('Cesium did not initialize');
+      return window.Cesium;
+    })().catch((err) => { state.cesium.loadPromise = null; throw err; });
+    return state.cesium.loadPromise;
+  }
+
+  function syncCockpitImagery(Cesium) {
+    const viewer = state.cesium.viewer;
+    if (!viewer || !Cesium) return;
+    if (viewer._eyeMapSource === state.mapSource && viewer.imageryLayers.length) return;
+    try { viewer.imageryLayers.removeAll(); } catch (_) {}
+    const satellite = state.mapSource === 'satellite';
+    viewer.imageryLayers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+      url: satellite
+        ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+        : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      credit: satellite ? 'Esri World Imagery' : '© OpenStreetMap contributors',
+      maximumLevel:19,
+    }));
+    viewer._eyeMapSource = state.mapSource;
+  }
+
+  async function openCockpit3d(contact = null) {
+    const ac = contact || state.trackedContact?.entity;
+    if (!ac || state.trackedContact?.type !== 'AIRCRAFT') return;
+    const stage = $('cockpit3d');
+    if (!stage) return;
+    stage.hidden = false;
+    $('cockpit3dMeta').textContent = 'LOADING ZERO-KEY 3D…';
+    try {
+      const Cesium = await ensureCesium();
+      if (!state.cesium.viewer) {
+        const viewer = new Cesium.Viewer('cesiumCockpitCanvas', {
+          animation:false, timeline:false, baseLayerPicker:false, baseLayer:false, geocoder:false,
+          homeButton:false, sceneModePicker:false, navigationHelpButton:false, fullscreenButton:false,
+          infoBox:false, selectionIndicator:false, terrainProvider:new Cesium.EllipsoidTerrainProvider(),
+          scene3DOnly:true, requestRenderMode:false,
+        });
+        viewer.scene.globe.depthTestAgainstTerrain = false;
+        state.cesium.viewer = viewer;
+        state.cesium.entity = viewer.entities.add({
+          id:'tracked-aircraft',
+          position:Cesium.Cartesian3.fromDegrees(Number(ac.lon), Number(ac.lat), Math.max(300, Number(ac.altitude || 0) * .3048)),
+          point:{ pixelSize:8, color:Cesium.Color.fromCssColorString('#e1c777'), outlineColor:Cesium.Color.BLACK, outlineWidth:2 },
+          label:{ text:String(ac.callsign || 'AIR CONTACT').trim(), font:'12px monospace', fillColor:Cesium.Color.fromCssColorString('#eadcae'), pixelOffset:new Cesium.Cartesian2(0,-18), showBackground:true, backgroundColor:Cesium.Color.fromCssColorString('#070909').withAlpha(.72) },
+        });
+      }
+      syncCockpitImagery(Cesium);
+      $('cockpit3dMeta').textContent = `${state.mapSource === 'satellite' ? 'ESRI IMAGERY' : 'OSM'} · ELLIPSOID · DERIVED VISUAL`;
+      updateCockpit3d(ac);
+    } catch (err) {
+      stage.hidden = true;
+      $('trackStatus').querySelector('em').textContent = '3D UNAVAILABLE · 2D FOLLOW ACTIVE';
+      toast('3D Cockpit 載入失敗，已保留 2D 跟隨。');
+    }
+  }
+
+  function updateCockpit3d(ac = null) {
+    const viewer = state.cesium.viewer;
+    const Cesium = window.Cesium;
+    if (!viewer || !Cesium || !ac) return;
+    const lat = Number(ac.lat), lon = Number(ac.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    const altitudeM = Math.max(300, Number(ac.altitude || 0) * .3048);
+    const headingDeg = Number.isFinite(Number(ac.heading)) ? Number(ac.heading) : 0;
+    const position = Cesium.Cartesian3.fromDegrees(lon, lat, altitudeM);
+    if (state.cesium.entity) state.cesium.entity.position = position;
+    if (state.cesium.entity?.label) state.cesium.entity.label.text = String(ac.callsign || 'AIR CONTACT').trim();
+    const transform = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+    const range = Math.max(1800, Math.min(8000, altitudeM * .32));
+    viewer.camera.lookAtTransform(transform, new Cesium.HeadingPitchRange(Cesium.Math.toRadians((headingDeg + 180) % 360), Cesium.Math.toRadians(-12), range));
+    $('cockpit3dName').textContent = String(ac.callsign || 'AIR CONTACT').trim() || 'AIR CONTACT';
+    $('cockpit3dSpeed').textContent = Number.isFinite(Number(ac.groundSpeed)) ? `SPD ${Math.round(Number(ac.groundSpeed))} kt` : 'SPD —';
+    $('cockpit3dAlt').textContent = Number.isFinite(Number(ac.altitude)) ? `ALT ${Math.round(Number(ac.altitude))} ft` : 'ALT —';
+    $('cockpit3dHeading').textContent = `HDG ${Math.round(headingDeg)}°`;
+  }
+
+  function closeCockpit3d(announce = false) {
+    const stage = $('cockpit3d');
+    if (stage) stage.hidden = true;
+    if (announce) toast('3D COCKPIT // EXIT');
+  }
+
+  async function enter3dCockpit() {
+    return openCockpit3d(state.trackedContact?.entity || null);
+  }
+
+  async function toggleCockpitMode(force = null) {
+    const tracked = state.trackedContact;
+    if (!tracked || tracked.type !== 'AIRCRAFT') return toast('請先點擊一個公開航空訊號，再啟用 COCKPIT。');
+    state.cockpitActive = force == null ? !state.cockpitActive : Boolean(force);
+    $('app')?.classList.toggle('cockpit-active', state.cockpitActive);
+    $('cockpitToggleBtn').textContent = state.cockpitActive ? 'COCKPIT ON' : 'COCKPIT 3D';
+    updateTrackHud(tracked.entity, tracked.type);
+    if (state.cockpitActive) {
+      state.map?.setView?.([tracked.entity.lat,tracked.entity.lon], Math.max(state.map.getZoom(),14), { animate:true });
+      enter3dCockpit();
+      speak(`已進入座艙追蹤，${tracked.entity.callsign || '航空目標'}。`, true);
+    } else closeCockpit3d(true);
+  }
+
+  async function addVoiceRouteAnnotation(targetText = '') {
+    const text = String(targetText || '').trim();
+    if (!text) return false;
+    const start = state.target || state.user || state.map?.getCenter?.();
+    if (!start) return false;
+    const data = await jsonFetch(`/api/data?action=geocode&q=${encodeURIComponent(text)}`);
+    const target = Array.isArray(data?.results) ? data.results[0] : (Array.isArray(data?.items) ? data.items[0] : (Array.isArray(data) ? data[0] : data));
+    const lat = Number(target?.lat), lon = Number(target?.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) { toast('VOICE MARKUP // 找不到標註目標'); return true; }
+    const slat = Number(start.lat), slon = Number(start.lon ?? start.lng);
+    L.polyline([[slat,slon],[lat,lon]], { color:'#d8bd72', weight:2, opacity:.78, dashArray:'7 8' }).addTo(state.annotationLayer);
+    addAnnotation(`VOICE ROUTE → ${shortName(target.name || text)}`, { lat, lon });
+    toast(`VOICE ROUTE // ${shortName(target.name || text)}`);
+    return true;
+  }
+
+  function addVoiceRadiusAnnotation(km = 1) {
+    const c = state.target || state.user || state.map?.getCenter?.();
+    const lat = Number(c?.lat), lon = Number(c?.lon ?? c?.lng);
+    const radiusKm = Math.max(.1, Math.min(50, Number(km) || 1));
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !state.annotationLayer) return false;
+    L.circle([lat,lon], { radius:radiusKm*1000, color:'#d8bd72', weight:1, opacity:.76, fillColor:'#c8aa58', fillOpacity:.035, dashArray:'6 8' }).addTo(state.annotationLayer);
+    addAnnotation(`${radiusKm} KM ZONE`, { lat, lon });
+    toast(`VOICE ZONE // ${radiusKm} km`);
+    return true;
+  }
+
+  async function handleVoiceMarkupCommand(transcript = '') {
+    if (!state.voiceMarkup) return false;
+    const text = String(transcript || '').trim();
+    if (!text) return false;
+    if (/^(?:清除|刪除)(?:所有)?標(?:註|記)/.test(text)) { clearAnnotations(); return true; }
+    const mark = text.match(/(?:標記這裡|在這裡標記|標註這裡)(?:為|成)?\s*(.*)$/);
+    if (mark) { addAnnotation(mark[1] || 'VOICE MARK'); return true; }
+    const routeMark = text.match(/(?:畫|標註)(?:一條)?(?:線|路線)(?:到|去)\s*(.+)$/);
+    if (routeMark) return await addVoiceRouteAnnotation(routeMark[1]);
+    const radiusMark = text.match(/(?:圈出|畫圓|標註)(?:這裡|目前位置|目標)?\s*(\d+(?:\.\d+)?)\s*(?:公里|km)/i);
+    if (radiusMark) { addVoiceRadiusAnnotation(Number(radiusMark[1])); return true; }
+    if (/切換?(?:到)?夜視|開啟夜視/.test(text)) { setSensorMode('nvg'); return true; }
+    if (/熱成像|熱影像|flir/i.test(text)) { setSensorMode('flir'); return true; }
+    if (/crt|映像管/i.test(text)) { setSensorMode('crt'); return true; }
+    if (/黑白|noir/i.test(text)) { setSensorMode('noir'); return true; }
+    if (/雪地|snow/i.test(text)) { setSensorMode('snow'); return true; }
+    if (/恢復正常|正常視角|關閉濾鏡/.test(text)) { setSensorMode('normal'); return true; }
+    if (/停止追蹤|解除鎖定/.test(text)) { stopTracking(true); return true; }
+    if (/追蹤最近(?:航班|飛機)|最近(?:航班|飛機)/.test(text)) {
+      const c = state.target || state.user || state.map?.getCenter?.();
+      if (!c) return true;
+      const items = await loadFlights(c.lat, c.lon ?? c.lng, false, 160);
+      if (items?.[0]) lockMapContact(items[0], 'AIRCRAFT'); else toast('附近目前沒有取得公開 ADS-B 航空訊號。');
+      return true;
+    }
+    if (/座艙|cockpit/i.test(text) && /開|進入|追蹤/.test(text)) { toggleCockpitMode(true); return true; }
+    if (/全台(?:總覽|戰情)|回到台灣/.test(text)) { await bootstrapDefaultCenter(); return true; }
+    return false;
   }
 
   async function shareCurrentView() {
@@ -1977,7 +2707,7 @@
       $('voiceTranscript').textContent = transcript;
       $('queryInput').value = transcript;
       const last = event.results[event.results.length - 1];
-      if (last.isFinal) handleSearch(transcript, { fromVoice: true }).catch((err) => toast(err.message));
+      if (last.isFinal) handleVoiceMarkupCommand(transcript).then((handled) => { if (!handled) return handleSearch(transcript, { fromVoice: true }); }).catch((err) => toast(err.message));
     };
     recognition.onerror = () => toast('語音辨識中斷，請再試一次。');
     recognition.onend = () => $('voiceBtn').classList.remove('listening');
@@ -1999,6 +2729,10 @@
     $('originChip')?.addEventListener('click', () => toggleOriginMode());
     $('planRouteBtn').addEventListener('click', () => planRoute());
     $('startNavBtn').addEventListener('click', () => startNavigation());
+    $('watchZoneBtn')?.addEventListener('click', toggleWatchZone);
+    $('nationalResetBtn')?.addEventListener('click', () => bootstrapDefaultCenter().catch((err)=>toast(err.message,4200)));
+    $('brandHome')?.addEventListener('click', () => bootstrapDefaultCenter().catch((err)=>toast(err.message,4200)));
+    $('brandHome')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bootstrapDefaultCenter().catch((err)=>toast(err.message,4200)); } });
     $('stopNavBtn').addEventListener('click', () => stopNavigation(true));
     $('openSettings').addEventListener('click', () => { tactile(8); $('settingsPanel').hidden = false; });
     $('abRouteBtn')?.addEventListener('click', async () => {
@@ -2024,6 +2758,17 @@
     document.querySelectorAll('[data-sensor]').forEach((btn) => btn.addEventListener('click', () => setSensorMode(btn.dataset.sensor)));
     document.querySelectorAll('[data-map-source]').forEach((btn) => btn.addEventListener('click', () => setMapSource(btn.dataset.mapSource))); 
     document.querySelectorAll('[data-close]').forEach((btn) => btn.addEventListener('click', () => $(btn.dataset.close).hidden = true));
+    document.querySelectorAll('[data-intel-jump]').forEach((btn) => btn.addEventListener('click', () => { tactile(6); jumpIntelCard(btn.dataset.intelJump); }));
+    document.querySelectorAll('.ops-rail [data-rail]').forEach((btn) => btn.addEventListener('click', async () => {
+      tactile(8);
+      const key = btn.dataset.rail;
+      setRailActive(key);
+      if (key === 'overview') return bootstrapDefaultCenter().catch((err) => toast(err.message, 4200));
+      if (key === 'environment') return jumpIntelCard('situationCard');
+      if (key === 'tools') { $('settingsPanel').hidden = false; return; }
+    }));
+    document.querySelectorAll('.ops-rail [data-command]').forEach((btn) => btn.addEventListener('click', () => setRailActive(btn.dataset.command)));
+    document.querySelectorAll('.ops-rail [data-mission]').forEach((btn) => btn.addEventListener('click', () => setRailActive(btn.dataset.mission)));
     document.querySelectorAll('[data-command]').forEach((btn) => btn.addEventListener('click', () => { tactile(8); runCommand(btn.dataset.command); }));
     document.querySelectorAll('[data-mission]').forEach((btn) => btn.addEventListener('click', () => { tactile(10); runMissionMode(btn.dataset.mission); }));
     $('intelCollapse').addEventListener('click', toggleIntel);
@@ -2035,7 +2780,9 @@
     $('flowSignal').addEventListener('click', () => runCommand('traffic'));
     $('airSignal')?.addEventListener('click', () => { const c = getOpsCenter(); loadFlights(c.lat, c.lon, true, 160); });
     $('quakeSignal')?.addEventListener('click', () => { const c = getOpsCenter(); loadEarthquakes(c.lat, c.lon, true, 420); });
-    $('sourceSignal').addEventListener('click', () => toast('ZERO-KEY：OSM / Open-Meteo / OSRM / 高速公路局 / 警廣 / 警政署 / ADSB.lol / USGS / 公開新聞來源')); 
+    $('sourceSignal').addEventListener('click', openSourceStatus);
+    $('exitCockpit3d')?.addEventListener('click', () => toggleCockpitMode(false)); 
+    $('provenanceRibbon')?.addEventListener('click', openSourceStatus);
     bindToggle('motionToggle', (active) => { state.motion = active; $('app').classList.toggle('motion-off', !active); toast(active ? '動態情報介面已啟用' : '動態情報介面已關閉'); });
     bindToggle('mapFxToggle', (active) => { state.mapFx = active; $('map').classList.toggle('map-fx', active); });
     bindToggle('weatherAutoToggle', (active) => { state.weatherAuto = active; });
@@ -2045,10 +2792,16 @@
     bindToggle('cameraHandoffToggle', (active) => { state.cameraHandoff = active; if (!active) $('navCameraHandoff').hidden = true; toast(active ? 'CCTV 自動接管已啟用' : 'CCTV 自動接管已關閉'); });
     bindToggle('transferFxToggle', (active) => { state.transferFx = active; toast(active ? '戰術地點轉場已啟用' : '戰術地點轉場已關閉'); });
     bindToggle('privacyShieldToggle', (active) => { state.privacyShield = active; applyPrivacyShield(); toast(active ? 'CCTV 隱私遮罩已啟用' : 'CCTV 隱私遮罩已關閉；仍不進行車牌辨識'); });
+    bindToggle('detectionToggle', (active) => { state.detectionOverlay = active; $('app').classList.toggle('detection-on', active); toast(active ? 'DETECTION OVERLAY // ON' : 'DETECTION OVERLAY // OFF'); });
+    bindToggle('voiceMarkupToggle', (active) => { state.voiceMarkup = active; toast(active ? 'VOICE MARKUP // ON' : 'VOICE MARKUP // OFF'); });
+    $('cockpitToggleBtn')?.addEventListener('click', () => toggleCockpitMode());
+    $('stopTrackBtn')?.addEventListener('click', () => stopTracking(true));
+    $('exitCockpit3d')?.addEventListener('click', () => toggleCockpitMode(false));
+    document.addEventListener('keydown', (e) => { if (/INPUT|TEXTAREA/.test(e.target?.tagName || '')) return; const map={1:'normal',2:'crt',3:'nvg',4:'flir',5:'noir',6:'snow'}; if(map[e.key]) setSensorMode(map[e.key]); else if(e.key.toLowerCase()==='d'){ const b=$('detectionToggle'); b?.click(); } else if(e.key.toLowerCase()==='c') toggleCockpitMode(); else if(e.key==='Escape' && state.trackedContact) stopTracking(false); });
     window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); state.deferredInstall = e; $('installBtn').hidden = false; });
     $('installBtn').addEventListener('click', async () => { if (!state.deferredInstall) return; state.deferredInstall.prompt(); await state.deferredInstall.userChoice; state.deferredInstall = null; $('installBtn').hidden = true; });
     window.addEventListener('online', updateNetworkState); window.addEventListener('offline', updateNetworkState);
-    window.addEventListener('pagehide', () => { if (state.navigation.active) stopNavigation(false); });
+    window.addEventListener('pagehide', () => { if (state.navigation.active) stopNavigation(false); if (state.trackedContact) stopTracking(false); });
   }
 
   function bindToggle(id, onChange) {
@@ -2074,7 +2827,7 @@
       if (command === 'weather') { const c = state.target || state.user || state.map.getCenter(); return await loadWeather(c.lat, c.lon ?? c.lng, true); }
       if (command === 'cctv') { const c = state.target || state.user || state.map.getCenter(); return await loadCctv(c.lat, c.lon ?? c.lng, true); }
       if (command === 'speed') { const c = state.target || state.user || state.map.getCenter(); return await loadSpeedCameras(c.lat, c.lon ?? c.lng, true); }
-      if (command === 'news') { const c = state.target || state.user || state.map.getCenter(); return await loadNews(c.lat, c.lon ?? c.lng, true); }
+      if (command === 'news') { const c = state.target || state.user || state.map.getCenter(); return await loadNews(c.lat, c.lon ?? c.lng, true, c.name || ''); }
       if (command === 'traffic') { const c = state.target || state.user || state.map.getCenter(); return await Promise.allSettled([loadTraffic(c.lat, c.lon ?? c.lng, true), loadFlow(c.lat, c.lon ?? c.lng, true)]); }
     } catch (err) { toast(err.message, 4200); }
   }
@@ -2100,7 +2853,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    runBootSequence(); initMap(); bindUi(); bootPwa(); updateClock(); setInterval(updateClock, 1000); updateNetworkState(); updateOriginUi();
+    runBootSequence(); initMap(); bindUi(); bootPwa(); updateClock(); setInterval(updateClock, 1000); updateNetworkState(); updateOriginUi(); renderWatchZones();
     const shared = new URLSearchParams(location.search).has('lat');
     setTheaterStandby(!shared); restoreSharedView();
     if (!shared) setTimeout(() => bootstrapDefaultCenter().catch(() => {}), 260);

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 let source = fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
-source = source.replace(/\}\)\(\);\s*$/, `globalThis.__OPS_TEST__ = { findFlowAnomalies, routePosition, parseTravelIntent, selectRoute, umbrellaAdvice, forecastForArrival, speedAlertEarlyKm, localPoiMatches, assessRouteThreat, tunnelLaneContext, routeOperationalScore };\n})();`);
+source = source.replace(/\}\)\(\);\s*$/, `globalThis.__OPS_TEST__ = { findFlowAnomalies, routePosition, parseTravelIntent, selectRoute, umbrellaAdvice, forecastForArrival, speedAlertEarlyKm, localPoiMatches, assessRouteThreat, tunnelLaneContext, routeOperationalScore, areaThreatAssessment, flowTrend };\n})();`);
 const sandbox = {
   globalThis: null,
   window: { matchMedia() { return { matches:false }; } },
@@ -14,8 +14,8 @@ const sandbox = {
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(source, sandbox, { filename: 'app.js' });
-const { findFlowAnomalies, routePosition, parseTravelIntent, selectRoute, umbrellaAdvice, forecastForArrival, speedAlertEarlyKm, localPoiMatches, assessRouteThreat, tunnelLaneContext, routeOperationalScore } = sandbox.__OPS_TEST__ || {};
-if (!findFlowAnomalies || !routePosition || !parseTravelIntent || !selectRoute || !umbrellaAdvice || !forecastForArrival || !speedAlertEarlyKm || !localPoiMatches || !assessRouteThreat || !tunnelLaneContext || !routeOperationalScore) throw new Error('Ops test hooks unavailable');
+const { findFlowAnomalies, routePosition, parseTravelIntent, selectRoute, umbrellaAdvice, forecastForArrival, speedAlertEarlyKm, localPoiMatches, assessRouteThreat, tunnelLaneContext, routeOperationalScore, areaThreatAssessment, flowTrend } = sandbox.__OPS_TEST__ || {};
+if (!findFlowAnomalies || !routePosition || !parseTravelIntent || !selectRoute || !umbrellaAdvice || !forecastForArrival || !speedAlertEarlyKm || !localPoiMatches || !assessRouteThreat || !tunnelLaneContext || !routeOperationalScore || !areaThreatAssessment || !flowTrend) throw new Error('Ops test hooks unavailable');
 
 const flow = [
   { road: 'N5', travelSpeed: 18, speedLimit: 90 },
@@ -69,4 +69,8 @@ if (!tunnel.active || !/蘭潭/.test(tunnel.name)) throw new Error(`Generic tunn
 const cleanScore = routeOperationalScore({ duration:2400, intel:{ traffic:[], anomalies:[], avgSpeed:80 } });
 const riskScore = routeOperationalScore({ duration:2300, intel:{ traffic:[{}], anomalies:[{severity:'HIGH'}], avgSpeed:30 } });
 if (!(riskScore > cleanScore)) throw new Error('Operational route scoring failed');
+const area = areaThreatAssessment({weather:{current:{precipitationProbability:80}},traffic:[{title:'事故'}],construction:[{impactTraffic:true}],aqi:{aqi:130},flood:[]});
+if(area.level==='nominal') throw new Error('Area threat assessment failed');
+if(flowTrend([{avg:80,slow:0},{avg:42,slow:3}]).code!=='EXPANDING') throw new Error('Flow trend expansion failed');
+if(flowTrend([{avg:35,slow:4},{avg:62,slow:1}]).code!=='RECOVERING') throw new Error('Flow trend recovery failed');
 console.log('OPS LOGIC PASS');

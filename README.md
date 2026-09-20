@@ -1,55 +1,149 @@
-# EYE // TAIWAN — Auto Intel v0.15.0
+# EYE // TAIWAN — Cinematic Command v0.21.0
 
-Zero-Key Taiwan situational-intelligence dashboard for Vercel. The primary experience is a MI6/007-inspired black-gold command room: search or speak a destination, then EYE automatically reveals live public CCTV, traffic incidents, freeway flow, weather, speed-enforcement points, related news and public signals. A → B routing and NAV OPS remain secondary tools.
+Zero-Key Taiwan situational-intelligence dashboard for Vercel. The primary experience is a MI6/007-inspired black-gold command room: search or speak a place once, then EYE automatically assembles the relevant public intelligence in one result view. A → B routing and NAV OPS remain secondary tools.
 
-## v0.14 highlights
 
-### Freeway live-speed map
-Freeway Bureau `LiveTraffic.xml + SectionShape.xml` data is rendered directly on the map as colored freeway segments. The map also places decluttered `km/h` badges along the visible corridor.
+## v0.21 Cinematic Command
 
-Visualization guide used by the UI:
+- Desktop UI rebuilt around the approved black-gold intelligence-control-room concept: left operations rail, full-Taiwan tactical map, source-state strip, quick Sensor Look rack, and a denser right-side intelligence board.
+- Mobile remains map-first: larger 16px search type, larger intelligence typography, clear A → B row, bottom intelligence drawer, and reduced overlays so the map remains visible.
+- Operations rail buttons are wired to real functions (overview, traffic, CCTV, weather, environment, news, Global Context, settings).
+- Right-panel tabs jump to live overview / CCTV / traffic / weather / situation cards rather than acting as decorative UI.
+- Existing v0.20 parity features remain: cockpit/follow, click-to-track, voice markup, detection overlay, sensor looks, Global Context, source provenance, Zero-Key data gateway, and 2/12 Vercel Hobby functions.
+
+## v0.20 Original Parity
+
+This release restores the key interaction grammar that made the upstream God's Eye View distinctive while keeping the Taiwan build Zero-Key and Vercel Hobby friendly.
+
+### Original-interaction parity
+
+- **Click-to-track:** aircraft, CCTV, traffic events, speed-enforcement points, seismic contacts and freeway-flow segments enter one unified TARGET LOCK HUD with metadata.
+- **Aircraft follow:** tracked ADS-B contacts refresh roughly every 8 seconds and leave a fading tactical trail.
+- **3D Cockpit:** selecting an aircraft can lazy-load CesiumJS and follow the live public ADS-B contact on an OSM/WGS84 ellipsoid globe. This is intentionally labeled as a derived visualization, not Google Photorealistic 3D Tiles.
+- **Voice markup:** Zero-Key browser speech commands support local annotations and sensor/track commands such as `標記這裡集合點`, `畫路線到台北101`, `圈出這裡3公里`, `清除標註`, `切換夜視`, `追蹤最近航班`, `進入座艙追蹤`.
+- **Sensor looks:** NORMAL / NVG / FLIR / NOIR / CRT / SNOW affect the tactical map, in-page CCTV media and 3D cockpit canvas. They are visual filters only and do not change the underlying data.
+- **Detection overlay:** optional screen-space ID framing for map contacts only. It does not perform computer vision on CCTV, plate OCR, face ID or person tracking.
+- **Source transparency:** a persistent provenance ribbon shows `FLOW LIVE · CCTV LIVE · ETA MODEL · ALERT DERIVED`. The SOURCE STATUS drawer lists each layer source and whether it is LIVE, OBSERVED, MODEL, DERIVED, ESTIMATED, STATIC, VISUAL, SIMULATED or UNAVAILABLE.
+- **Global Context / Share:** Taiwan Theater and shareable view state remain available.
+
+### Data truthfulness
+
+The upstream project distinguishes live, delayed, simulated and estimated layers. This build follows the same rule. Official freeway flow is labeled LIVE; official AQI is OBSERVED; OSRM ETA and Open-Meteo context are MODEL; lane-flow probabilities and traffic threat fusion are DERIVED; 3D cockpit camera framing is ESTIMATED; speed-camera locations are STATIC public records; NVG/FLIR/CRT/NOIR/SNOW are VISUAL only. Unsupported or unavailable sources are shown as unavailable rather than replaced with fake data. The Taiwan build currently does not ship a rocket-trajectory layer, so it does not fabricate a reconstructed launch estimate.
+
+## v0.19 National Watch
+
+This release makes Taiwan-wide monitoring the default command-room state while preserving the search-once local intelligence workflow.
+
+### TAIWAN NATIONAL GRID
+
+The default landing state is now the whole Taiwan command view rather than Taipei city center. EYE loads Taiwan-wide freeway flow, nationwide traffic events and the available public CCTV registry, then keeps the flow/event picture refreshed every 60 seconds while this view is active.
+
+Only the most severe freeway corridors are promoted to tactical `CRITICAL` callouts, so the national map remains readable. The hotspot panel shows:
+
+- current corridor speed
+- road / section
+- the nearest matching public traffic event when one is available
+- otherwise a transparent `reason unconfirmed` / continuous-low-speed explanation
+- the nearest embeddable public CCTV within the hotspot area when available
+
+The worst hotspot is automatically handed to the small in-page CCTV preview. Camera registry data remains cache-friendly and is not re-fetched every minute. Clicking the EYE logo or the `TAIWAN` control returns to the national view.
+
+
+### AREA THREAT RADAR
+After a target is acquired, EYE automatically fuses currently available public signals into an area status:
+
+- official Taiwan AQI observations
+- flood-warning signals
+- traffic incidents / closures
+- construction affecting traffic
+- rain / arrival weather
+
+The result is presented as `NOMINAL`, `WATCH`, or `CRITICAL`, with the contributing reasons shown. This is an information-fusion display, not an emergency authority warning system.
+
+### PARKING INTEL
+For Taipei coverage, EYE automatically finds nearby public parking facilities and current available-space data when the source provides it. The closest useful options are shown directly in the target-intelligence result.
+
+Outside supported detailed-availability coverage, the parking card degrades gracefully instead of inventing capacity.
+
+### CONSTRUCTION INTEL
+Taipei's current-roadwork open data is shown automatically near the searched target, including whether the source marks the work as affecting traffic. Elsewhere, construction-like road events can still appear through the existing nationwide traffic-event feed when available.
+
+### OFFICIAL AQI
+The previous model-only air-quality context is supplemented by Taiwan environmental open-data observations. The target result shows the nearby observation, AQI/status, and data age when available.
+
+### DATA AGE / INTEL CONFIDENCE
+Important cards expose source age and classify it visually as `LIVE`, `AGING`, or `STALE` using source-appropriate freshness windows rather than presenting all data as equally current.
+
+### FLOW TIME MACHINE
+A → B / NAV OPS can keep rolling freeway-flow snapshots locally in the browser for roughly the latest hour. Once enough samples exist, EYE classifies the observed corridor as:
+
+- `EXPANDING` — congestion / slowdown appears to be worsening
+- `RECOVERING` — speeds are improving
+- `STABLE` — no strong directional change
+- `COLLECTING` — not enough local history yet
+
+A scrubber lets the user inspect the locally accumulated snapshots (time, corridor average, minimum speed and low-speed segment count). This history is collected on the user's device from repeated lookups / navigation refreshes. It does **not** pretend to have historical telemetry on the first launch.
+
+### WATCH ZONES
+The user can bookmark up to six target areas locally. This is a quick-access status list, not background monitoring or push notifications.
+
+## Main workflow
+
+1. Open: map starts with the full Taiwan national grid and live freeway-flow corridors.
+2. Severe nationwide congestion is automatically promoted into small tactical hotspot notes, with a nearby public CCTV preview when available.
+3. Search or speak one destination; local aliases cover common Taiwan malls, campuses, stations, hotels and landmarks.
+4. EYE automatically reveals target weather, area status, AQI, flood/roadwork signals, parking where supported, traffic events, freeway flow, inline CCTV, speed-enforcement points, related news, airspace and seismic signals.
+5. Use A → B only when route comparison is needed.
+6. Start NAV OPS only when continuous position tracking / route-flow anomaly monitoring is wanted.
+
+Point-to-point can also be entered directly, for example `北車 → 101` or spoken naturally.
+
+## Freeway live-speed map
+
+Freeway Bureau live-traffic + section-geometry data is rendered directly on the map with de-cluttered `km/h` labels:
+
 - light green: 70+ km/h — clear
 - yellow-green: 50–69 km/h — moderate
 - orange: 30–49 km/h — slow
 - red: under 30 km/h — congested
 
-Official congestion status is still respected: a segment reported as slow/congested by the source remains elevated even when a raw speed threshold alone would place it in a lighter band. These colors are an EYE visualization aid, not a replacement for official road signs or control-center messages.
-
-The flow layer loads automatically for the default Taipei command-center view and refreshes whenever a destination is acquired. Dark road casing is drawn underneath the colored line so the status remains legible on both Tactical and Satellite basemaps.
-
-## Main workflow
-
-1. Open: map starts at Taipei city center.
-2. Search or speak a destination; local aliases cover common Taiwan malls, campuses, stations, hotels and landmarks.
-3. EYE automatically assembles target-area intelligence, weather, incidents, freeway speeds, CCTV, speed-enforcement information, related news, airspace and seismic signals.
-4. Choose a route only when alternatives actually exist.
-5. Start NAV OPS only when the user wants continuous position tracking.
-
-Point-to-point can also be entered in one query, for example `北車 → 101` or spoken naturally.
+These are EYE visualization bands for rapid situational awareness, not legal speed limits or official congestion definitions.
 
 ## CCTV
 
-CCTV is shown inside EYE instead of opening a separate site. `/api/cctv-feed` provides same-origin handling for compatible public HTTP/HLS media. Unsupported or unavailable signals remain in-page and show signal unavailable.
+CCTV remains in-page. `/api/cctv-feed` provides same-origin handling for compatible public HTTP/HLS media. Unsupported or unavailable signals stay inside the result card and show signal unavailable.
 
 No plate OCR, face recognition or cross-camera person/vehicle tracking is implemented.
 
-## Zero-Key sources
+## Mobile visibility
 
-The runtime does not require user API keys. It uses public/open sources and free public endpoints with caching and graceful degradation. Public endpoints are best-effort and can change or become temporarily unavailable.
+- search and A → B controls are compressed into two compact rows
+- the intelligence sheet is capped so the map remains the primary mobile visual surface
+- key text, ETA, traffic/news rows, CCTV metadata and freeway speed labels are enlarged
+- tactical-map brightness/contrast is increased and heavy vignette/scanline effects are reduced
+
+## Zero-Key / Hobby architecture
+
+No environment variables are required for the base experience.
+
+This build uses only **2 Vercel Serverless Functions**:
+
+- `/api/data` — one gateway for geocode, weather, route, CCTV registry, traffic, freeway flow, lane flow, news, speed enforcement, aircraft, earthquakes, official AQI, parking, construction, flood-warning data and health checks.
+- `/api/cctv-feed` — dedicated same-origin CCTV/HLS media proxy.
+
+Actual source adapters live under `/server/`, keeping the project below the Vercel Hobby Serverless Function limit.
+
+## Coverage notes
+
+- Official AQI and flood-warning layers are designed for Taiwan-wide public datasets.
+- Detailed real-time parking availability in this build currently uses Taipei open data; do not interpret the absence of results elsewhere as “no parking”.
+- Detailed current roadwork in this build currently uses Taipei open data; nationwide traffic/incident feeds can still surface construction-like events elsewhere.
+- Public endpoints and CCTV streams are best-effort and can change independently of this codebase.
 
 ## Deploy to Vercel
 
 Deploy this folder as a Vercel project. No environment variables are required for the base experience.
 
-## Important
+## Driving / safety note
 
-Traffic colors, route scores, lane-flow estimates and ETA are informational. Driving decisions must follow actual signs, lane-control signals, police/road-authority instructions and conditions on the road.
-
-
-## v0.15 AUTO INTEL
-
-- 搜尋任一地點後，自動一次載入：天氣、交通事件、國道即時流速、公開 CCTV、測速點、相關新聞、周邊 ADS-B 航空訊號與 24 小時地震訊號。
-- 主畫面改為直覺 A → B 點到點欄位；單純搜尋會自動把目的地同步到 B 點。
-- CCTV 仍直接內嵌在結果區，不需要另開來源頁。
-- 低速「異常」只用於 A → B 路線風險判斷與 NAV OPS；一般地點查詢只顯示客觀即時流速，不額外打擾。
-- 地圖濾鏡減暗、字體與結果卡放大，提高桌機與手機可讀性。
+Traffic colors, route scores, lane-flow estimates, congestion-trend labels and ETA are informational. Driving decisions must follow actual signs, lane-control signals, police/road-authority instructions and current road conditions.

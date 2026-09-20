@@ -1,7 +1,7 @@
 const { json } = require('./_utils');
 module.exports = async (req, res) => json(res, 200, {
   ok: true,
-  build: '0.14.0-live-flow-map-zero-key',
+  build: '0.17.0-mobile-visibility-zero-key',
   zeroKey: true,
   environmentSecretsRequired: false,
   sources: [

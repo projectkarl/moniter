@@ -1,47 +1,144 @@
-# Test report — v0.15.0 Auto Intel Zero-Key
+# Test report — v0.21.0 Cinematic Command Zero-Key
 
-## Passed
+## Core regression — PASS
 
 - Frontend JavaScript syntax: PASS
-- All Vercel function JavaScript syntax: PASS
+- All Vercel function and server-module JavaScript syntax: PASS
 - Static smoke test / required assets: PASS
 - Manifest and Vercel JSON parse: PASS
 - Operations logic test: PASS
-- Mock API contracts: PASS for weather, route, CCTV, traffic, freeway flow, news, speed enforcement, lane-level VD, flights and earthquakes
-- In-page CCTV feed proxy test: PASS
-- Zero-key runtime architecture retained: PASS
-- Build label: `0.15.0 AUTO INTEL`
+- Mock API contracts: PASS
+- In-page CCTV feed proxy regression: PASS
+- Zero-Key runtime architecture retained: PASS
+- Build label: `0.21.0 CINEMATIC COMMAND`
 
-## v0.14 flow-layer checks
 
-- Freeway segments are rendered with a dark tactical road casing plus a colored speed line: PASS
-- Light green clear-flow class: PASS
-- Yellow-green moderate-flow class: PASS
-- Orange slow-flow class: PASS
-- Red congested-flow class: PASS
-- `km/h` badges are rendered directly on freeway geometry: PASS
-- Badge de-cluttering / spacing logic is present: PASS
-- High-priority slow/congested segments are favored for labels: PASS
-- Default Taipei bootstrap already loads freeway flow automatically: PASS
-- Flow legend is present on desktop and responsive on mobile: PASS
 
-## Visualization bands
 
-The UI visualization currently uses 70+, 50–69, 30–49 and under-30 km/h bands, while also respecting the upstream slow/congested status. These are display bands for rapid situational awareness and should not be interpreted as legal speed limits or official congestion definitions.
+## v0.21 Cinematic Command UI checks — PASS
+
+- Desktop viewport layout check: **1440×900**, document width **1440 / 1440**, no horizontal overflow.
+- Desktop geometry: operations rail `96px`, search console `650px`, intelligence board `400px`, national monitor `510px`; all stay inside the viewport.
+- Mobile viewport layout check: **390×844**, document width **390 / 390**, no horizontal overflow.
+- Mobile search after hardening: query field **242px** + visible **58px** search action; no clipped action button.
+- Map-first mobile layout retained: operations rail and sensor rack collapse away, intelligence stays a bottom drawer, and the national monitor remains above the mobile dock.
+- Left operations rail actions are wired to live functions; right intel tabs scroll to real cards; Sensor Look quick controls reuse the existing sensor implementation.
+- PWA icon assets verified at **192×192** and **512×512**.
+- Visual screenshots were rendered from the real HTML/CSS with network-dependent map tiles disabled for layout QA; live map/data rendering still requires the deployed environment.
+
+## v0.20 Original Parity checks — PASS
+
+- Unified TARGET LOCK HUD and metadata detail DOM: PASS
+- Click-to-track wiring for aircraft, CCTV, traffic events, speed cameras, earthquakes and freeway-flow segments: PASS
+- ADS-B follow refresh + fading trail logic: PASS
+- Lazy 3D Cockpit loader / CesiumJS integration path: PASS (static/runtime wiring; external CDN availability still requires deployed-network QA)
+- 3D cockpit explicitly labels OSM/WGS84 ellipsoid visualization rather than photoreal terrain: PASS
+- Voice markup local command parser (mark / route line / radius zone / clear / sensor / track): PASS
+- Annotation add / clear logic: PASS
+- NORMAL / NVG / FLIR / NOIR / CRT / SNOW controls: PASS
+- Sensor styles cover map, CCTV media and 3D cockpit canvas: PASS
+- Detection overlay is restricted to map contacts and does not add CCTV CV/plate/face analysis: PASS
+- Persistent provenance ribbon: PASS
+- SOURCE STATUS layer matrix with LIVE / OBSERVED / MODEL / DERIVED / ESTIMATED / STATIC / VISUAL / SIMULATED / UNAVAILABLE taxonomy: PASS
+- Source matrix explicitly distinguishes baseline ETA/modelled context from official live observations: PASS
+- DOM reference audit: 0 missing referenced IDs
+- Vercel Hobby functions: 2 / 12
+- `scripts/original-parity-test.mjs`: PASS
+
+## v0.19 National Watch checks — PASS
+
+- Default boot uses a Taiwan-wide map view instead of Taipei-only focus: PASS
+- Taiwan-wide freeway flow boot radius is active: PASS
+- National traffic/CCTV data can be loaded without drawing hundreds of default markers: PASS
+- National hotspot panel and map callout DOM are present: PASS
+- Severe flow corridors are promoted to a maximum of four readable tactical callouts: PASS
+- Total severe-corridor count is kept separately from the top-four display list: PASS
+- Hotspot reason logic prefers nearby public accident / closure / construction events and otherwise reports low-speed / unconfirmed cause without inventing a cause: PASS
+- Nearest public CCTV selection is capped to a hotspot-area distance and remains in-page: PASS
+- Initial hotspot CCTV preview does not zoom the national map away from the Taiwan-wide view: PASS
+- Selecting a hotspot zooms to the corridor and updates the small CCTV monitor: PASS
+- National flow + traffic refresh loop runs every 60 seconds while national mode is active: PASS
+- CCTV registry is reused between minute refreshes instead of being re-fetched each minute: PASS
+- EYE brand and TAIWAN control can return from a local target to the national grid: PASS
+- National mode clears stale local route / incident / camera overlays: PASS
+- Service-worker shell cache advanced to v19: PASS
+
+## API contract coverage — PASS
+
+Mocked contract tests pass for:
+
+- weather
+- route
+- CCTV registry
+- traffic incidents
+- freeway flow
+- related news
+- speed enforcement
+- lane-level VD / FLOW EDGE
+- flights
+- earthquakes
+- official AQI
+- parking
+- construction
+- flood warning
+
+## v0.18 Situation Awareness checks — PASS
+
+- Search-once flow can populate the new situation card without opening a separate feature page: PASS
+- AREA THREAT assessment supports NOMINAL / WATCH / CRITICAL: PASS
+- Threat reasons can include rain, traffic events, roadwork, AQI and flood-warning signals: PASS
+- General place lookup does not use freeway-flow anomaly as a threat reason; flow anomaly remains in A → B / NAV context: PASS
+- Official AQI adapter parses site position, AQI/status and observation time: PASS
+- Taipei parking adapter merges facility metadata with current available-space data: PASS
+- Taipei construction adapter parses coordinates, work time and traffic-impact field: PASS
+- Flood-warning KML adapter returns warning records without inventing flood extent: PASS
+- DATA AGE helpers classify LIVE / AGING / STALE with source-specific freshness windows rather than labeling every source LIVE: PASS
+- Visible situation card includes official AQI, flood/water, parking, construction and freshness feeds: PASS
+- Parking / construction / AQI / flood sources load in parallel through `/api/data`: PASS
+- Threat radar map layer is separated from route-flow anomaly UI: PASS
+- Watch zones persist locally and are capped at six: PASS
+
+## FLOW TIME MACHINE / congestion trend — PASS
+
+- Local rolling flow history is stored by coarse target grid: PASS
+- History is bounded to roughly the latest 65 minutes / limited samples: PASS
+- First-use state reports `COLLECTING`: PASS
+- Worsening mocked speed series reports `EXPANDING`: PASS
+- Improving mocked speed series reports `RECOVERING`: PASS
+- Neutral mocked series reports `STABLE`: PASS
+- FLOW TIME MACHINE scrubber exposes locally accumulated timestamp / average / minimum / low-speed snapshot values: PASS
+- EXPANDING / RECOVERING states have distinct tactical visual treatment: PASS
+- NAV OPS schedules 60-second flow refresh and clears timer on stop: PASS
+
+The time machine only accumulates while the user performs lookups or NAV refreshes on that device. It does not claim pre-existing history on first launch.
+
+## Freeway flow-map regression — PASS
+
+- Dark tactical road casing + colored speed line: PASS
+- Light green / yellow-green / orange / red visualization bands: PASS
+- `km/h` labels on freeway geometry: PASS
+- label de-cluttering logic: PASS
+- default Taiwan national bootstrap loads freeway flow: PASS
+
+## Search / route / mobile regressions — PASS
+
+- Local Taiwan alias layer remains present: PASS
+- A → B fields remain visible and direct: PASS
+- Destination search syncs into B point: PASS
+- Multiple route scoring remains active when distinct alternatives are returned: PASS
+- Larger typography / mobile intelligence-sheet CSS remains present: PASS
+- mobile map visibility rules remain present: PASS
+
+A fresh live browser screenshot was not used as a pass criterion in the current execution environment. Final visual QA should still be checked after Vercel deployment, especially iOS Safari map tiles, inline CCTV formats and real external-feed latency.
+
+## Vercel Hobby Serverless limit — PASS
+
+- `/api` JavaScript entrypoints: **2** (`data.js`, `cctv-feed.js`)
+- Deployment threshold: <= 12
+- Result: PASS
+- JSON/data sources are dispatched through `/api/data?action=...`
+- CCTV/HLS streaming remains a dedicated function
 
 ## Live-source limitation
 
-The code and mocked API contracts were tested in the development runtime. A final deployment check on Vercel is still necessary for current external government feeds, map tiles and individual CCTV stream formats because availability can change independently of this codebase.
-
-
-## v0.15 checks
-
-- One-query AUTO INTEL card renders traffic/news/signal summaries without opening drawers: PASS
-- A → B fields are visible and route action works directly: PASS
-- Search result syncs into B point: PASS
-- General target brief does not classify flow anomalies; anomaly logic remains in route/NAV processing: PASS
-- Default Taipei center loads weather, traffic, flow, CCTV, speed cameras, news, airspace and seismic signals: PASS
-- Larger typography and brighter tactical map do not cause horizontal overflow on 390 px mobile: PASS (Playwright layout width 390/390)
-
-- Desktop layout check at 1440×900: PASS (no horizontal overflow; command 650 px, intel 390 px).
-- Mobile layout check at 390×844: PASS (no horizontal overflow; command and intel leave a visible map corridor).
+Code paths and mocked API contracts passed. External government feeds, map tiles and individual CCTV streams can change or be temporarily unavailable independently of the application. A final live deployment smoke test remains necessary for current source availability.

@@ -1,19 +1,24 @@
 const handlers = {
-  weather: require('../api/weather'),
-  route: require('../api/route'),
-  cctv: require('../api/cctv'),
-  traffic: require('../api/traffic'),
-  flow: require('../api/flow'),
-  news: require('../api/news'),
-  speed: require('../api/speed-cameras'),
-  lane: require('../api/lane-flow'),
-  flights: require('../api/flights'),
-  quakes: require('../api/earthquakes'),
+  weather: require('../server/weather'),
+  route: require('../server/route'),
+  cctv: require('../server/cctv'),
+  traffic: require('../server/traffic'),
+  flow: require('../server/flow'),
+  news: require('../server/news'),
+  speed: require('../server/speed-cameras'),
+  lane: require('../server/lane-flow'),
+  flights: require('../server/flights'),
+  quakes: require('../server/earthquakes'),
+  aqi: require('../server/air-quality'),
+  parking: require('../server/parking'),
+  construction: require('../server/construction'),
+  flood: require('../server/flood'),
 };
 const xmlCctv = `<Root><CCTV><CCTVID>C1</CCTVID><VideoStreamURL>https://example.com/cam.jpg</VideoStreamURL><PositionLon>121.55</PositionLon><PositionLat>25.03</PositionLat><RoadName>N5</RoadName><RoadDirection>S</RoadDirection></CCTV></Root>`;
 const xmlLive = `<Root><LiveTraffic><SectionID>S1</SectionID><TravelTime>90</TravelTime><TravelSpeed>22</TravelSpeed><CongestionLevelID>4</CongestionLevelID><CongestionLevel>壅塞</CongestionLevel></LiveTraffic></Root>`;
 const xmlSection = `<Root><Section><SectionID>S1</SectionID><SectionName>A-B</SectionName><RoadName>N5</RoadName><Start>A</Start><End>B</End><SpeedLimit>90</SpeedLimit></Section></Root>`;
 const rssNews = `<?xml version="1.0"?><rss><channel><item><title>宜蘭市交通改善工程啟動</title><description>宜蘭市重要道路進行改善。</description><link>https://www.cna.com.tw/news/aloc/123.aspx</link><pubDate>Sun, 20 Sep 2026 04:00:00 GMT</pubDate></item></channel></rss>`;
+const floodKml = `<?xml version="1.0"?><kml><Document><Placemark><name>臺北淹水警戒</name><description>測試警戒</description><Point><coordinates>121.52,25.05,0</coordinates></Point></Placemark></Document></kml>`;
 const speedCsv = `CityName,RegionName,Address,DeptNm,BranchNm,Longitude,Latitude,direct,limit\n臺北市,南港區,經貿二路,測試警局,測試分局,121.615,25.057,東向,50`;
 
 const xmlVD = `<Root><VD><VDID>VD1</VDID><PositionLon>121.55</PositionLon><PositionLat>25.03</PositionLat><RoadName>國道5號</RoadName><RoadDirection>S</RoadDirection><LaneNum>2</LaneNum><LocationType>Tunnel</LocationType></VD></Root>`;
@@ -37,6 +42,11 @@ global.fetch = async (url) => {
   if(url.endsWith('/VD.xml')) return response(xmlVD,false);
   if(url.includes('api.adsb.lol')) return response({ac:[{hex:'abc123',flight:'TEST123',lat:25.05,lon:121.57,alt_baro:12000,gs:280,track:90}]});
   if(url.includes('earthquake.usgs.gov')) return response({features:[{id:'q1',geometry:{coordinates:[121.6,25.1,12]},properties:{mag:4.2,place:'Taiwan test',time:Date.now()}}]});
+  if(url.includes('aqx_p_432')) return response([{sitename:'中山',county:'臺北市',aqi:'48',status:'良好',pollutant:'',longitude:'121.526',latitude:'25.062',publishtime:'2026/09/20 16:00:00','pm2.5':'12',pm10:'20'}]);
+  if(url.includes('TCMSV_alldesc.json')) return response({data:[{id:'P1',name:'測試停車場',address:'台北市中正區',Xcod:'121.518',Ycod:'25.047',totalcar:'100'}]});
+  if(url.includes('TCMSV_allavailable.json')) return response({data:[{id:'P1',availablecar:'42'}]});
+  if(url.includes('Todaywork.json')) return response({data:[{sno:'W1',X:'121.52',Y:'25.05',Addr:'忠孝西路',NPurp:'道路維護',IsBlock:'1',AppTime:'2026-09-20 16:10:00'}]});
+  if(url.includes('5982FloodWarning')) return response(floodKml,false);
   throw new Error('Unexpected URL '+url);
 };
 function run(handler, query){
@@ -58,6 +68,10 @@ function run(handler, query){
     ['lane',{lat:'25.03',lon:'121.55',radius:'20'}],
     ['flights',{lat:'25.03',lon:'121.55',radius:'120'}],
     ['quakes',{lat:'25.03',lon:'121.55',radius:'300'}],
+    ['aqi',{lat:'25.05',lon:'121.52',radius:'20'}],
+    ['parking',{lat:'25.047',lon:'121.518',radius:'5'}],
+    ['construction',{lat:'25.05',lon:'121.52',radius:'5'}],
+    ['flood',{lat:'25.05',lon:'121.52',radius:'20'}],
   ];
   for (const [name,query] of cases){
     const r=await run(handlers[name],query);
@@ -72,6 +86,10 @@ function run(handler, query){
     if(name==='lane' && (!r.body.items?.length || r.body.items[0].lanes?.length!==2 || !r.body.items[0].lanes.some((x)=>x.probability>50))) throw new Error('lane-flow parse failed');
     if(name==='flights' && !r.body.items?.length) throw new Error('flights parse failed');
     if(name==='quakes' && !r.body.items?.length) throw new Error('quakes parse failed');
+    if(name==='aqi' && r.body.nearest?.aqi!==48) throw new Error('aqi parse failed');
+    if(name==='parking' && (r.body.items?.[0]?.available!==42)) throw new Error('parking parse failed');
+    if(name==='construction' && (!r.body.items?.length || !r.body.items[0].impactTraffic)) throw new Error('construction parse failed');
+    if(name==='flood' && !r.body.items?.length) throw new Error('flood parse failed');
     console.log('API PASS',name);
   }
 })().catch((e)=>{console.error(e);process.exit(1);});

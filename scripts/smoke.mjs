@@ -3,7 +3,7 @@ import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const required = [
   'index.html','styles.css','app.js','manifest.webmanifest','sw.js','vercel.json',
-  'api/_utils.js','api/geocode.js','api/weather.js','api/route.js','api/cctv.js','api/cctv-feed.js','api/traffic.js','api/flow.js','api/lane-flow.js','api/news.js','api/speed-cameras.js','api/flights.js','api/earthquakes.js','api/health.js'
+  'api/data.js','api/cctv-feed.js','server/_utils.js','server/geocode.js','server/weather.js','server/route.js','server/cctv.js','server/traffic.js','server/flow.js','server/lane-flow.js','server/news.js','server/speed-cameras.js','server/flights.js','server/earthquakes.js','server/health.js','server/air-quality.js','server/parking.js','server/construction.js','server/flood.js'
 ];
 let failed = false;
 for (const file of required) {
@@ -16,14 +16,14 @@ for (const file of ['manifest.webmanifest','vercel.json']) {
   catch (e) { console.error('JSON FAIL',file,e.message); failed = true; }
 }
 const html = fs.readFileSync(path.join(root,'index.html'),'utf8');
-for (const id of ['map','queryInput','voiceBtn','intelPanel','routeDrawer','cameraDrawer','settingsPanel','flowStatus','flowSignal','sweepFx','opsDrawer','opsBody','wallDrawer','wallGrid','wallMain','newsSignal','newsCount','bootSequence','bootStatus','signalTrace','targetLock','targetLockName','targetLockCoord','gridTelemetry','linkTelemetry','motionToggle','theaterStandby','navHud','navSpeed','navHeading','navRemaining','navEta','navAlert','navCameraHandoff','navCameraThumb','navLimitBadge','routeMode','routeOptions','threatAlert','threatReasons','targetBrief','poiSuggestions','airSignal','quakeSignal','originChip','originLabel','inlineCameraCard','inlineCameraStage','inlineCameraChoices','routeRecommendation','abOrigin','abTarget','abSwap','abRouteBtn','autoIntelCard','autoIntelOverview','autoTrafficFeed','autoNewsFeed','autoSignalFeed']) {
+for (const id of ['map','queryInput','voiceBtn','intelPanel','routeDrawer','cameraDrawer','settingsPanel','flowStatus','flowSignal','sweepFx','opsDrawer','opsBody','wallDrawer','wallGrid','wallMain','newsSignal','newsCount','bootSequence','bootStatus','signalTrace','targetLock','targetLockName','targetLockCoord','gridTelemetry','linkTelemetry','motionToggle','theaterStandby','navHud','navSpeed','navHeading','navRemaining','navEta','navAlert','navCameraHandoff','navCameraThumb','navLimitBadge','routeMode','routeOptions','threatAlert','threatReasons','targetBrief','poiSuggestions','airSignal','quakeSignal','originChip','originLabel','inlineCameraCard','inlineCameraStage','inlineCameraChoices','routeRecommendation','abOrigin','abTarget','abSwap','abRouteBtn','autoIntelCard','autoIntelOverview','autoTrafficFeed','autoNewsFeed','autoSignalFeed','situationCard','situationBrief','situationAqi','situationFlood','situationWork','situationParking','floodFeed','parkingFeed','constructionFeed','freshnessFeed','watchZoneBtn','watchZoneList','routeTimeMachine','routeFlowTrend','routeFlowHistory','routeTimeRange','routeTimeValue','nationalOverview','nationalCriticalCount','nationalEventCount','nationalCameraCount','nationalAvgFlow','nationalHotspotList','nationalPreviewStage','nationalPreviewTitle','nationalStatusText','nationalResetBtn']) {
   if (!html.includes(`id="${id}"`)) { console.error('DOM ID MISSING',id); failed = true; }
 }
 const source = required.filter((x) => x.endsWith('.js')).map((x) => fs.readFileSync(path.join(root,x),'utf8')).join('\n');
 for (const forbidden of ['TDX_CLIENT_ID','TDX_CLIENT_SECRET','CWA_KEY','OPENAI_KEY']) {
   if (source.includes(forbidden)) { console.error('ZERO-KEY FAIL', forbidden); failed = true; }
 }
-if (!html.includes('0.15.0 AUTO INTEL')) { console.error('BUILD LABEL MISSING'); failed = true; }
+if (!html.includes('0.21.0 CINEMATIC COMMAND')) { console.error('BUILD LABEL MISSING'); failed = true; }
 for (const id of ['vehicleIntelToggle','privacyShieldToggle','cameraIntel']) {
   if (!html.includes(`id=\"${id}\"`)) { console.error('PRIVACY DOM MISSING', id); failed = true; }
 }
@@ -32,7 +32,7 @@ for (const mission of ['sweep','watch','theater']) {
   if (!html.includes(`data-mission=\"${mission}\"`)) { console.error('MISSION ENTRY MISSING', mission); failed = true; }
 }
 const app = fs.readFileSync(path.join(root,'app.js'),'utf8');
-for (const fn of ['runAreaSweep','runSentinel','openCctvWall','buildMissionRouteBrief','runMissionMode','loadNews','newsListHtml','runBootSequence','signalAcquire','showTargetLock','flashSignal','updateMapTelemetry','setTheaterStandby','parseTravelIntent','selectRoute','forecastForArrival','umbrellaAdvice','missionVoiceBrief','speedAlertEarlyKm','announceSpeedCamera','assessRouteThreat','renderRouteOptions','runTheaterMode','setMapSource','localPoiMatches','tunnelLaneContext','renderInlineCctvResults','bootstrapDefaultCenter','preferredOrigin','renderAutoIntel']) {
+for (const fn of ['runAreaSweep','runSentinel','openCctvWall','buildMissionRouteBrief','runMissionMode','loadNews','newsListHtml','runBootSequence','signalAcquire','showTargetLock','flashSignal','updateMapTelemetry','setTheaterStandby','parseTravelIntent','selectRoute','forecastForArrival','umbrellaAdvice','missionVoiceBrief','speedAlertEarlyKm','announceSpeedCamera','assessRouteThreat','renderRouteOptions','runTheaterMode','setMapSource','localPoiMatches','tunnelLaneContext','renderInlineCctvResults','bootstrapDefaultCenter','preferredOrigin','renderAutoIntel','renderSituationIntel','loadExtendedIntel','areaThreatAssessment','renderFlowTimeMachine','toggleWatchZone','renderNationalOverview','selectNationalHotspot','enterNationalMode','exitNationalMode','nationalReason','refreshNationalSignals']) {
   if (!app.includes(`function ${fn}`) && !app.includes(`async function ${fn}`)) { console.error('MISSION LOGIC MISSING', fn); failed = true; }
 }
 if (!app.includes("command === 'news'")) { console.error('LOCAL NEWS COMMAND MISSING'); failed = true; }
@@ -48,6 +48,12 @@ for (const snippet of ['CRITICAL TRAFFIC ALERT','CONGESTION CASCADE','data-map-s
 for (const shorthand of ["'101'","'a11'","'台大'","'宜大'","'北科大'","'北車'","'南科'","'晶華'"]) {
   if (!app.includes(shorthand)) { console.error('SHORTHAND MISSING', shorthand); failed = true; }
 }
+
+
+if (!app.includes("const NATIONAL_CENTER") || !app.includes("setView([NATIONAL_CENTER.lat, NATIONAL_CENTER.lon]")) { console.error('NATIONAL DEFAULT VIEW MISSING'); failed = true; }
+if (!app.includes("loadFlow(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon, false, 220)")) { console.error('NATIONAL FLOW BOOTSTRAP MISSING'); failed = true; }
+if (!app.includes("{ draw:false }")) { console.error('NATIONAL DECLUTTER MISSING'); failed = true; }
+if (!html.includes('TAIWAN NATIONAL GRID')) { console.error('NATIONAL WATCH UI MISSING'); failed = true; }
 
 if (failed) process.exit(1);
 console.log('SMOKE PASS');

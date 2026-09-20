@@ -1,14 +1,25 @@
 # Third-party notices
 
-EYE // TAIWAN 本身不重新授權第三方資料、地圖圖磚或串流內容。
+EYE // TAIWAN does not relicense third-party data, map tiles, video streams or imagery.
 
-- OpenStreetMap contributors / Nominatim — ODbL 與各服務使用政策
-- OSRM — open-source routing engine；公共 demo 為 best-effort service
-- Open-Meteo — 依其公開 API 使用條款
-- 交通部高速公路局、公路局、警廣、警政署與其他政府開放資料 — 依各資料集授權與公告
-- Esri World Imagery — 僅作可選衛星底圖，依 Esri 使用條款
-- ADSB.lol、USGS、公開新聞來源 — 依來源條款
+- OpenStreetMap contributors / Nominatim — ODbL and applicable public-service usage policies
+- OSRM — open-source routing engine; public demo service is best-effort
+- Open-Meteo — public API subject to its terms and fair-use limits
+- 交通部高速公路局、公路局、警廣、警政署及其他政府開放資料 — subject to each dataset's license and notices
+- 環境部空氣品質開放資料 — used for official AQI observation context; subject to the government dataset license and service terms
+- 經濟部水利署防災／淹水警戒開放資料 — used as public warning signals; subject to dataset license and notices
+- 臺北市停車管理工程處公開停車資訊 — used for supported parking facility / availability context; subject to Taipei open-data terms
+- 臺北市工務局道路施工公開資料 — used for supported current-roadwork context; subject to Taipei open-data terms
+- Esri World Imagery — optional satellite basemap; subject to Esri terms
+- ADSB.lol / public ADS-B source, public seismic sources and public news sources — subject to each source's terms
 - Leaflet — BSD-2-Clause
-- hls.js — Apache-2.0；僅在需要解碼 HLS 且瀏覽器無原生 HLS 支援時按需從 CDN 載入
+- hls.js — Apache-2.0; loaded on demand only when the browser needs HLS decoding support
 
-CCTV 影像透過來源公開 URL 或同源轉送顯示。轉送僅為解決 HTTPS／串流播放相容性，不改變影像內容的來源授權，也不建立影像資料庫。
+CCTV media is shown from a public source URL or through same-origin proxying for HTTPS/stream compatibility. Proxying does not change the source's content license and does not create a video archive.
+
+The area-status / threat display is a visualization derived from public signals. It is not an official emergency-warning service and must not replace notices from competent authorities.
+
+
+## CesiumJS (lazy 3D cockpit)
+
+The optional 3D cockpit path lazy-loads CesiumJS from a public CDN only when requested. CesiumJS is an open-source geospatial visualization library; its own license and notices apply. The Taiwan build uses OSM imagery over a WGS84 ellipsoid and does not claim Google Photorealistic 3D Tiles or Cesium World Terrain.

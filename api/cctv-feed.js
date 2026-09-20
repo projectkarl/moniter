@@ -1,5 +1,5 @@
 const { Readable } = require('node:stream');
-const { fetchText, tag, xmlBlocks } = require('./_utils');
+const { fetchText, tag, xmlBlocks } = require('../server/_utils');
 
 const registryCache = new Map();
 
