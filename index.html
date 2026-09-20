@@ -129,12 +129,12 @@
         <button type="button" data-layer-toggle="flow" class="active" aria-pressed="true" title="高速公路即時流速">FLOW</button>
         <button type="button" data-layer-toggle="cctv" class="active" aria-pressed="true" title="公開 CCTV">CAM</button>
         <button type="button" data-layer-toggle="event" class="active" aria-pressed="true" title="交通事件">EVT</button>
-        <button type="button" data-layer-toggle="speed" class="active" aria-pressed="true" title="公開測速點">SPD</button>
+        <button type="button" data-layer-toggle="speed" class="nav-only-layer" aria-pressed="false" title="導航中顯示公開測速點" hidden>SPD</button>
       </nav>
 
       <section id="nationalOverview" class="national-overview hud-panel" aria-label="全台即時戰情">
         <div class="national-head">
-          <div><span>TAIWAN NATIONAL GRID</span><b>全台即時戰情</b></div>
+          <div><span>TAIWAN NATIONAL GRID · CONGESTION + CCTV</span><b>全台即時戰情</b></div>
           <div class="national-head-actions"><button type="button" id="nationalCompactBtn" aria-label="收合全台戰情摘要">−</button><button type="button" id="nationalResetBtn" aria-label="回到台灣全圖">TAIWAN</button></div>
         </div>
         <div class="national-metrics">
@@ -182,7 +182,9 @@
             <div class="mission-deck" aria-label="進階監控模式">
               <button data-mission="sweep"><span>01</span><b>SWEEP</b><small>區域掃描</small></button>
               <button data-mission="watch"><span>02</span><b>WATCH</b><small>CCTV 情報牆</small></button>
-              <button data-mission="theater"><span>03</span><b>THEATER</b><small>全域訊號</small></button>
+              <button data-mission="mission"><span>03</span><b>MISSION</b><small>目前路線簡報</small></button>
+              <button data-mission="sentinel"><span>04</span><b>SENTINEL</b><small>低速異常監測</small></button>
+              <button data-mission="theater"><span>05</span><b>THEATER</b><small>全域訊號</small></button>
             </div>
           </details>
         </div>
@@ -284,10 +286,17 @@
             </div>
           </article>
           <article class="intel-card inline-camera-card" id="inlineCameraCard" hidden>
-            <div class="card-label">LIVE CCTV // 即時監控</div>
+            <div class="card-label camera-card-label"><span>LIVE CCTV // 即時監控</span><div class="camera-card-actions"><button type="button" id="cameraAnalyzeBtn" title="以瀏覽器端免費模型分析目前單一影格">VISION LAB</button><button type="button" id="inlineCameraExpand" aria-pressed="false" title="放大 CCTV">⛶ 放大</button></div></div>
             <div class="inline-camera-head"><b id="inlineCameraTitle">PUBLIC CCTV</b><span id="inlineCameraSignal">AUTO SELECT</span></div>
             <div id="inlineCameraStage" class="inline-camera-stage"><div class="camera-placeholder">正在等待公開 CCTV 訊號…</div></div>
             <div id="inlineCameraMeta" class="inline-camera-meta"></div>
+            <div id="inlineCameraSensor" class="camera-intel inline-camera-sensor" hidden></div>
+            <section id="cameraVisionLab" class="camera-vision-lab" hidden aria-label="CCTV 影格分析">
+              <div class="vision-lab-head"><div><span>ON-DEVICE VISION LAB</span><b id="visionLabStatus">READY</b></div><button type="button" id="visionLabClose">收合分析</button></div>
+              <canvas id="cameraAnalysisCanvas" width="640" height="360" aria-label="CCTV 單幀物件分析"></canvas>
+              <div id="cameraAnalysisMetrics" class="vision-lab-metrics"><div><small>PERSON</small><b>—</b></div><div><small>VEHICLE</small><b>—</b></div><div><small>CROWD</small><b>—</b></div><div><small>TRAFFIC</small><b>—</b></div></div>
+              <div id="cameraAnalysisTypes" class="vision-type-list">按 VISION LAB 後，以免費瀏覽器模型分析目前單一影格。辨識人、汽車、公車、卡車、機車與自行車等類別；不做人臉、車牌、身份或跨鏡頭追蹤。</div>
+            </section>
             <div id="inlineCameraChoices" class="inline-camera-choices"></div>
           </article>
           <article class="intel-card route-card" id="routeCard">
@@ -398,10 +407,10 @@
         <div class="setting-row"><div><b>戰術地點轉場</b><small>跨區移動時使用衛星鎖定、訊號切換與座標轉移動畫</small></div><button id="transferFxToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-stack"><div><b>MAP SOURCE</b><small>預設使用原專案 Zero-Key 思路的 Esri 衛星影像＋地名/道路標註；可一鍵切換清楚街圖</small></div><div class="map-modes" id="mapModes"><button data-map-source="satellite" class="active" aria-pressed="true">SATELLITE</button><button data-map-source="tactical" aria-pressed="false">STREET</button></div></div>
         <div class="setting-stack"><div><b>SENSOR LOOK</b><small>沿用 God's Eye View 的感測器視覺概念；NORMAL / NVG / FLIR / NOIR / CRT / SNOW 只改視覺，不改資料內容</small></div><div class="sensor-modes" id="sensorModes"><button data-sensor="normal" class="active">NORMAL</button><button data-sensor="nvg">NVG</button><button data-sensor="flir">FLIR</button><button data-sensor="noir">NOIR</button><button data-sensor="crt">CRT</button><button data-sensor="snow">SNOW</button></div></div>
-        <div class="setting-row"><div><b>DETECTION OVERLAY</b><small>在可見公開訊號標記加上識別框與 ID；只標示地圖資料實體，不對 CCTV 影像做人臉／車牌辨識</small></div><button id="detectionToggle" class="toggle" aria-pressed="false"><span></span></button></div>
+        <div class="setting-row"><div><b>DETECTION OVERLAY</b><small>在可見公開訊號標記加上識別框與 ID；CCTV 的 VISION LAB 僅在使用者按下分析時做單幀物件分類，不做人臉／車牌辨識</small></div><button id="detectionToggle" class="toggle" aria-pressed="false"><span></span></button></div>
         <div class="setting-row"><div><b>VOICE MARKUP</b><small>Zero-Key 本地語音指令：例如「標記這裡集合點」、「清除標註」、「切換夜視」、「追蹤最近航班」</small></div><button id="voiceMarkupToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-row"><div><b>CCTV 局部隱私遮罩</b><small>預設關閉。開啟時只遮罩畫面下緣近距離區域，保留大部分道路與車流可視；這是輕量 ROI 遮罩，不宣稱自動辨識人臉或車牌</small></div><button id="privacyShieldToggle" class="toggle" aria-pressed="false"><span></span></button></div>
-        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.28.0 TARGET CCTV + NATIONAL FLOW</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
+        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.30.0 CLEAN NAV + VISION LAB</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
       </section>
 
       <section id="threatAlert" class="threat-alert" aria-live="assertive" hidden>

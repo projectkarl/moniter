@@ -55,5 +55,5 @@ function res(){
   if(r.code!==200) throw new Error('nearby lookup status failed');
   if(!r.body.discovery?.nearbyUrl?.includes('twipcam.com/nearby?lat=25.041000&lon=121.565000')) throw new Error('twipcam coordinate discovery missing');
   if(r.body.items?.some((x)=>!x.streamUrl)) throw new Error('nearby contains position-only CCTV');
-  console.log('CCTV V28 API SEARCH PASS');
+  console.log('CCTV V29 API SEARCH PASS');
 })().catch((e)=>{console.error(e);process.exit(1);});

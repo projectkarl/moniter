@@ -1,0 +1,20 @@
+const fs = require('fs');
+const assert = require('assert');
+const html = fs.readFileSync('index.html','utf8');
+const css = fs.readFileSync('styles.css','utf8');
+const app = fs.readFileSync('app.js','utf8');
+function ok(cond, name){ console.log(cond?'PASS':'FAIL',name); assert.ok(cond,name); }
+ok(html.includes('0.30.0 CLEAN NAV + VISION LAB'),'v0.30 build label');
+ok(app.includes('clearRoutePresentation') && app.includes("const leavingNav = state.searchMode === 'nav' && next === 'monitor'"),'monitor switch clears route/nav presentation');
+ok(app.includes("setOverlayVisibility('speed', false, false)") && html.includes('data-layer-toggle="speed" class="nav-only-layer"'),'speed labels navigation-only');
+ok(html.includes('id="inlineCameraExpand"') && app.includes('toggleInlineCameraExpand'),'CCTV in-page enlarge');
+ok(html.includes('id="cameraAnalyzeBtn"') && app.includes('runCameraFrameAnalysis') && app.includes('@tensorflow-models/coco-ssd'),'free browser vision lab');
+ok(app.includes("new Set(['person','car','bus','truck','motorcycle','bicycle'])"),'non-identifying object classes');
+ok(app.includes('不提供品牌／精確車型、人臉、車牌或身份辨識'),'vision privacy/reliability guardrail');
+ok(html.includes('id="inlineCameraSensor"') && app.includes("$('inlineCameraSensor')"),'sensor fusion mirrored into inline CCTV');
+ok(app.includes('data-news-more') && css.includes('.auto-news-row.news-extra'),'news expands in place');
+ok(css.includes('Top-layout consolidation') && css.includes('@media(min-width:921px) and (max-width:1240px)'),'top layout responsive consolidation');
+ok((html.match(/id="weatherTemp"/g)||[]).length===1,'duplicate weather DOM removed');
+ok((html.match(/id="opsEyebrow"/g)||[]).length===1,'duplicate ops header DOM removed');
+ok(fs.readFileSync('sw.js','utf8').includes('shell-v30'),'service worker cache v30');
+console.log('V0.30 UX REGRESSION PASS');

@@ -1929,4 +1929,188 @@ body{font-size:17px;}
 .external-cctv-link.secondary{border-color:rgba(140,170,175,.25);color:#b8d4d6;background:rgba(116,156,161,.07)}
 .command.search-nav .mode-tabs{margin-bottom:8px}
 @media(max-width:620px){.cctv-discovery-links{display:grid;grid-template-columns:1fr}.external-cctv-link{justify-content:center}}
-.map-cctv-link{display:inline-flex;margin-top:5px;padding:5px 7px;border:1px solid rgba(180,145,55,.28);border-radius:5px;color:#8a6917!important;background:#fff9e8;text-decoration:none;font-weight:700;font-size:11px}
+.map-cctv-link{display:inline-flex;margin-top:5px;padding:5px 7px;border:1px solid rgba(180,145,55,.28);border-radius:5px;color:#8a6917!important;background:#fff9e8;text-decoration:none;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
+
+/* =========================================================
+   v0.29.0 FULL OPS + INLINE CCTV
+   Restore national congestion dashboard + direct CCTV preview
+   ========================================================= */
+.national-mode .national-overview{
+  display:block!important;
+  overflow:hidden!important;
+}
+@media (min-width:921px){
+  .national-overview{
+    left:82px!important;
+    bottom:14px!important;
+    width:min(620px,calc(100vw - 520px))!important;
+    max-height:330px!important;
+    padding:12px 13px!important;
+  }
+  .national-body{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) 220px!important;
+    gap:10px!important;
+    align-items:stretch!important;
+  }
+  .national-hotspot-list{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:6px!important;
+    max-height:170px!important;
+    overflow:auto!important;
+    padding-right:2px!important;
+  }
+  .national-hotspot-card,
+  .national-hotspot-card:nth-child(n){
+    display:block!important;
+    min-height:74px!important;
+    padding:8px 9px!important;
+  }
+  .national-hotspot-card strong{font-size:13px!important;}
+  .national-hotspot-card small{display:block!important;font-size:9px!important;}
+  .national-preview{
+    display:block!important;
+    min-width:0!important;
+  }
+  .national-preview-stage{
+    display:block!important;
+    min-height:128px!important;
+    height:128px!important;
+    overflow:hidden!important;
+    border-radius:7px!important;
+  }
+  .national-preview-stage video,
+  .national-preview-stage img,
+  .national-preview-stage iframe{width:100%!important;height:100%!important;object-fit:cover!important;border:0!important;}
+  .national-foot{display:flex!important;}
+  .national-overview.compact{max-height:54px!important;width:330px!important;}
+  .national-overview.compact .national-preview{display:none!important;}
+}
+.national-hotspot-card.watch{border-color:rgba(216,164,84,.36)!important;}
+.national-hotspot-card.danger{border-color:rgba(218,83,73,.52)!important;}
+.national-hotspot-tag.watch{background:rgba(39,26,8,.94)!important;border-color:rgba(216,164,84,.72)!important;}
+.national-hotspot-tag.watch span{color:#e9bf67!important;}
+.national-hotspot-tag.watch b{color:#ffe3a2!important;}
+
+.marker-camera.live.indexed{box-shadow:0 0 0 2px rgba(241,201,106,.18),0 0 14px rgba(241,201,106,.42)!important;}
+.inline-camera-choices button.indexed span{color:#f1c96a!important;}
+
+@media (max-width:920px){
+  .national-overview{
+    left:8px!important;right:8px!important;
+    bottom:calc(72px + var(--safe-bottom))!important;
+    width:auto!important;
+    max-height:210px!important;
+    padding:9px 10px!important;
+  }
+  .national-body{
+    display:grid!important;
+    grid-template-columns:minmax(0,1.15fr) minmax(118px,.85fr)!important;
+    gap:7px!important;
+  }
+  .national-hotspot-list{display:block!important;max-height:92px!important;overflow:auto!important;}
+  .national-hotspot-card,.national-hotspot-card:nth-child(n){display:block!important;min-height:54px!important;margin-bottom:5px!important;}
+  .national-hotspot-card:nth-child(n+4){display:none!important;}
+  .national-hotspot-card em{display:none!important;}
+  .national-hotspot-card small{display:block!important;font-size:8px!important;}
+  .national-preview{display:block!important;}
+  .national-preview-stage{min-height:92px!important;height:92px!important;overflow:hidden!important;}
+  .national-preview-stage video,.national-preview-stage img,.national-preview-stage iframe{width:100%!important;height:100%!important;object-fit:cover!important;border:0!important;}
+  .national-preview-meta{font-size:7px!important;}
+  .national-overview.compact{max-height:46px!important;width:260px!important;right:auto!important;}
+  .national-overview.compact .national-preview{display:none!important;}
+}
+@media (min-width:921px){
+  .mission-deck{grid-template-columns:repeat(5,minmax(0,1fr))!important;}
+}
+@media (max-width:920px){
+  .mission-deck{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+}
+.camera-index-frame{display:block;width:100%;height:100%;min-height:210px;border:0;background:#080a0b;}
+.camera-index-badge{position:absolute;left:8px;bottom:8px;z-index:8;padding:4px 6px;border:1px solid rgba(241,201,106,.28);background:rgba(6,8,9,.86);font-size:8px;letter-spacing:.1em;color:#e5c878;pointer-events:none;}
+
+/* =========================================================
+   v0.30.0 CLEAN NAV + FULL CCTV + VISION LAB + UX PASS
+   ========================================================= */
+
+/* Navigation-only speed enforcement: never clutter monitor/national maps. */
+[data-layer-toggle="speed"].nav-only-layer[hidden]{display:none!important;}
+#app.nav-driving [data-layer-toggle="speed"].nav-only-layer{display:inline-flex!important;}
+
+/* Camera actions and true in-app enlargement. */
+.camera-card-label{display:flex!important;align-items:center;justify-content:space-between;gap:10px;}
+.camera-card-label>span{min-width:0;}
+.camera-card-actions{display:flex;align-items:center;gap:6px;}
+.camera-card-actions button,.vision-lab-head button,.news-more-toggle{border:1px solid rgba(224,199,127,.26);background:rgba(224,199,127,.055);color:#e1ca82;border-radius:5px;cursor:pointer;font:700 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:7px 8px;letter-spacing:.04em;}
+.camera-card-actions button:hover,.vision-lab-head button:hover,.news-more-toggle:hover{background:rgba(224,199,127,.12);border-color:rgba(224,199,127,.48);}
+body.camera-expanded-open{overflow:hidden!important;}
+.inline-camera-card.camera-expanded{position:fixed!important;z-index:1800!important;inset:10px!important;width:auto!important;max-width:none!important;height:calc(100dvh - 20px)!important;max-height:none!important;margin:0!important;padding:14px!important;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(280px,360px)!important;grid-template-rows:auto auto minmax(0,1fr) auto auto!important;gap:9px 12px!important;background:linear-gradient(180deg,rgba(8,10,11,.985),rgba(3,5,6,.99))!important;border:1px solid rgba(224,199,127,.34)!important;box-shadow:0 30px 90px rgba(0,0,0,.72)!important;overflow:hidden!important;}
+.inline-camera-card.camera-expanded .card-label,.inline-camera-card.camera-expanded .inline-camera-head{grid-column:1/-1;}
+.inline-camera-card.camera-expanded .inline-camera-stage{grid-column:1;grid-row:3/5;min-height:0!important;height:100%!important;max-height:none!important;aspect-ratio:auto!important;}
+.inline-camera-card.camera-expanded .inline-camera-meta{grid-column:1;grid-row:5;}
+.inline-camera-card.camera-expanded .inline-camera-sensor{grid-column:2;grid-row:3;margin:0!important;overflow:auto;min-height:0;}
+.inline-camera-card.camera-expanded .camera-vision-lab{grid-column:2;grid-row:4;max-height:42vh;overflow:auto;background:rgba(8,10,11,.96);}
+.inline-camera-card.camera-expanded .inline-camera-sensor:not([hidden]) + .camera-vision-lab:not([hidden]){margin-top:8px;}
+.inline-camera-card.camera-expanded .inline-camera-choices{grid-column:2;grid-row:5;max-height:105px;overflow:auto;}
+.inline-camera-card.camera-expanded .inline-camera-stage video,.inline-camera-card.camera-expanded .inline-camera-stage img,.inline-camera-card.camera-expanded .inline-camera-stage iframe{width:100%!important;height:100%!important;object-fit:contain!important;}
+
+/* Sensor fusion should be visible in the actual inline CCTV experience. */
+.inline-camera-sensor{margin:9px 0 0!important;padding:9px!important;background:rgba(255,255,255,.018)!important;}
+.inline-camera-sensor .intel-grid.four{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:5px!important;}
+.inline-camera-sensor .intel-grid.four>div{padding:7px 6px!important;}
+.inline-camera-sensor .intel-grid.four small{font-size:7px!important;}
+.inline-camera-sensor .intel-grid.four b{font-size:10px!important;overflow-wrap:anywhere;}
+
+/* Browser-only single-frame object analysis. */
+.camera-vision-lab{margin-top:9px;padding:9px;border:1px solid rgba(139,189,162,.18);background:rgba(7,12,10,.52);}
+.vision-lab-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px;}
+.vision-lab-head span,.vision-lab-head b{display:block;font:700 8px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;}
+.vision-lab-head span{color:#7eb28f}.vision-lab-head b{margin-top:3px;color:#d5e5d9;}
+#cameraAnalysisCanvas{display:block;width:100%;height:auto;max-height:330px;object-fit:contain;background:#030404;border:1px solid rgba(255,255,255,.055);}
+.vision-lab-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:7px;}
+.vision-lab-metrics>div{min-width:0;padding:7px 6px;border:1px solid rgba(255,255,255,.055);background:rgba(255,255,255,.018);}
+.vision-lab-metrics small{display:block;color:#6f7772;font:7px ui-monospace,SFMono-Regular,Menlo,monospace;}
+.vision-lab-metrics b{display:block;margin-top:3px;color:#d8ded9;font-size:10px;line-height:1.25;overflow-wrap:anywhere}.vision-lab-metrics em{color:#8bbda2;font:normal 8px ui-monospace,SFMono-Regular,Menlo,monospace;}
+.vision-type-list{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
+.vision-type-list>span{display:flex;align-items:center;gap:7px;padding:5px 7px;border:1px solid rgba(224,199,127,.14);background:rgba(224,199,127,.025);}
+.vision-type-list>span b{font:700 8px ui-monospace,SFMono-Regular,Menlo,monospace;color:#bfae78}.vision-type-list>span em{font:normal 9px ui-monospace,SFMono-Regular,Menlo,monospace;color:#eee7d2}.vision-type-list>small{width:100%;color:#737873;font-size:8px;line-height:1.55;}
+
+/* News starts concise and expands in-place. */
+.auto-news-row.news-extra,.news-list .news-item.news-extra{display:none!important;}
+#autoNewsFeed.expanded .auto-news-row.news-extra,.news-list.expanded .news-item.news-extra{display:grid!important;}
+.news-more-toggle{width:100%;margin-top:7px;padding:9px!important;text-align:center;}
+
+/* Top-layout consolidation: prevent legacy generations from fighting each other. */
+.topbar{min-width:0!important;overflow:hidden!important;}
+.brand{flex:0 0 auto;min-width:0;}
+.topbar-center{min-width:0!important;overflow:hidden;}
+.topbar-tagline{max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.status-strip{flex:0 0 auto;min-width:0;white-space:nowrap;}
+@media(min-width:921px){
+  .command{left:calc(var(--v24-rail-w) + 14px)!important;top:84px!important;width:min(620px,calc(100vw - var(--v24-rail-w) - var(--v24-side-w) - 56px))!important;min-width:340px!important;max-width:620px!important;}
+  .map-layer-dock{top:84px!important;}
+  .flow-legend{top:128px!important;}
+  .intel,.route-drawer,.camera-drawer,.ops-drawer,.wall-drawer,.source-drawer,.settings{top:168px!important;max-height:calc(100dvh - 182px)!important;}
+  .national-overview{top:auto!important;}
+}
+@media(min-width:921px) and (max-width:1240px){
+  .topbar-center{display:none!important;}
+  .status-strip{margin-left:auto;}
+  .command{min-width:300px!important;}
+}
+@media(max-width:920px){
+  .topbar{overflow:visible!important;}
+  .status-strip{gap:4px!important;}
+  #networkState,#shareBtn{display:none!important;}
+  .inline-camera-card.camera-expanded{inset:6px!important;height:calc(100dvh - 12px)!important;grid-template-columns:1fr!important;grid-template-rows:auto auto minmax(210px,1fr) auto auto auto!important;overflow:auto!important;padding:10px!important;}
+  .inline-camera-card.camera-expanded .card-label,.inline-camera-card.camera-expanded .inline-camera-head,.inline-camera-card.camera-expanded .inline-camera-stage,.inline-camera-card.camera-expanded .inline-camera-meta,.inline-camera-card.camera-expanded .inline-camera-sensor,.inline-camera-card.camera-expanded .camera-vision-lab,.inline-camera-card.camera-expanded .inline-camera-choices{grid-column:1!important;grid-row:auto!important;}
+  .inline-camera-card.camera-expanded .inline-camera-stage{min-height:44dvh!important;height:44dvh!important;}
+  .vision-lab-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .camera-card-label{align-items:flex-start;}
+  .camera-card-actions{flex-wrap:wrap;justify-content:flex-end;}
+}
+@media(max-width:520px){
+  .camera-card-actions button{font-size:8px;padding:6px 7px;}
+  .inline-camera-sensor .intel-grid.four{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+}

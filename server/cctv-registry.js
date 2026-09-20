@@ -406,11 +406,24 @@ function searchRegistry(items, query, limit = 120) {
 }
 
 async function resolveCamera(id) {
-  const prefix = String(id || '').split(':')[0];
+  const rawId = String(id || '');
+  const prefix = rawId.split(':')[0];
+  if (prefix === 'twipcam') {
+    const slug = rawId.slice('twipcam:'.length).trim();
+    if (!/^[A-Za-z0-9._-]{2,120}$/.test(slug)) throw new Error('Invalid twipcam camera id');
+    return {
+      id: rawId,
+      streamUrl: `https://www.twipcam.com/cam/${encodeURIComponent(slug)}`,
+      source: 'twipcam public camera index',
+      access: 'live',
+      road: slug,
+      region: 'Taiwan',
+    };
+  }
   const source = SOURCES.find((item) => item.id === prefix);
   if (!source) throw new Error('Unknown CCTV source');
   const items = await fetchSource(source);
-  const camera = items.find((x) => String(x.id) === String(id));
+  const camera = items.find((x) => String(x.id) === rawId);
   if (!camera) throw new Error('CCTV not found');
   return camera;
 }

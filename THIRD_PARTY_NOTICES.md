@@ -28,7 +28,15 @@ The optional 3D cockpit path lazy-loads CesiumJS from a public CDN only when req
 - 嘉義縣政府即時路況 CCTV open dataset: official location / stream metadata published as ODS; used under the source's government open-data terms.
 - The app does not redistribute private CCTV, perform face/plate recognition, or infer identities.
 
-## Public CCTV discovery links (v0.28)
-- `twipcam.com/nearby` is used as a coordinate-based **external discovery link** for public nearby cameras. EYE does not scrape, copy, cache, proxy, or relicense twipcam-owned pages/media through this integration.
-- `tw.live/nearby/` is exposed as an external all-Taiwan nearby-camera discovery entry. EYE does not ingest its private site data or rehost its media.
-- Location-only local-government CCTV datasets remain useful for source auditing but are no longer returned to the visible map when no reusable public stream is available.
+## Public CCTV indexing / aggregation (v0.29)
+
+- EYE prefers direct government/open CCTV feeds in its own registry. Those feeds remain subject to each original publisher's license, terms and uptime.
+- `twipcam.com/nearby` and public `twipcam.com/cam/...` pages are used as a best-effort nearby public-camera **index** for local target searches. EYE does not claim ownership of those pages or underlying media. Where a browser-compatible public media URL can be resolved, it is displayed through EYE's existing camera compatibility layer; otherwise the public camera page may be shown inside the EYE camera panel.
+- `tw.live` is used as a public coverage/reference cross-check, not bulk-ingested or re-licensed. Its FAQ states that embedding, redistribution or commercial reuse of camera imagery requires checking the original image source's authorization/terms.
+- Location-only local-government datasets can still be useful for auditing coverage, but they are intentionally excluded from the visible CCTV map when no viewable public image is available.
+- Third-party public pages and upstream camera formats may change without notice; EYE treats these integrations as best-effort and does not fabricate an image when resolution fails.
+
+## Optional browser vision analysis (v0.30)
+- TensorFlow.js — Apache-2.0 — loaded on demand from jsDelivr only after the user presses VISION LAB.
+- TensorFlow Models / COCO-SSD — Apache-2.0 — loaded on demand from jsDelivr for broad object-class detection.
+- These libraries are not required for normal map, routing, CCTV playback or official VD/flow sensor fusion.

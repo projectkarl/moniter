@@ -1,7 +1,64 @@
-# EYE // TAIWAN — Target CCTV + National Flow v0.28.0
+# EYE // TAIWAN — Clean Navigation + CCTV Vision Lab v0.30.0
 
 Zero-Key / Vercel Hobby friendly Taiwan situation-awareness interface.
 
+## v0.30 Clean Navigation + CCTV Vision Lab
+
+This release keeps the full v0.29 operations surface and focuses on navigation state cleanup, CCTV usability, optional non-identifying frame analytics, news expansion and layout stability.
+
+- Leaving NAV for 地點監控 now removes route lines, alternate route choices and navigation-only state instead of leaving stale routing information on screen.
+- Speed-enforcement markers are navigation-only: normal Taiwan/target maps stay uncluttered; alerts and labels appear after active navigation starts.
+- CCTV can be enlarged inside EYE. Existing freeway VD / flow Sensor Fusion is now visible directly under the main inline CCTV view.
+- `VISION LAB` is an optional, zero-key, browser-side single-frame analyzer. It classifies only broad objects (person / car / bus / truck / motorcycle / bicycle) and derives visual crowd/traffic density indices. It does **not** perform face recognition, plate OCR, identity tracking, vehicle brand recognition or precise vehicle-model recognition.
+- News shows a concise initial set and expands in place with `看更多`.
+- Desktop and mobile top layout were consolidated to prevent topbar/search/layer controls from crowding or exposing awkward map gaps. Duplicate Weather/Ops DOM blocks were removed.
+- TensorFlow.js / COCO-SSD load only after the user explicitly presses VISION LAB, so normal map/CCTV startup remains lightweight.
+- Vercel footprint remains **2 Serverless Functions** and no API key is required.
+
+
+## v0.29 Full Ops + Inline CCTV
+
+This release restores the full original operations surface while making the Taiwan-wide startup view useful immediately instead of hiding key national intelligence.
+
+### Original-project function parity
+
+The original interaction set remains in the same project rather than being replaced by a simplified traffic-only build:
+
+- Click-to-track for aircraft, CCTV, traffic events, speed cameras, seismic events and freeway-flow segments.
+- 3D cockpit / follow mode and the original Sensor Look set: NORMAL, NVG, FLIR, NOIR, CRT and SNOW.
+- Voice markup / local voice command parser, source provenance matrix, annotations and detection overlay.
+- SWEEP, WATCH, **MISSION**, **SENTINEL** and THEATER are all exposed in Advanced Ops and connected to real handlers.
+- Weather, AQI, flood/water, parking, construction, news, traffic, freeway flow, lane-flow, flights, earthquakes and speed-enforcement layers remain available.
+- A → B routing, route alternatives, live GPS navigation, reroute, speed-camera warning, FREE 3D navigation and CCTV handoff remain intact.
+
+### Taiwan-wide startup
+
+- The boot animation always resolves to a full-island Taiwan view unless the URL is an explicit shared local view.
+- The national map immediately requests freeway live flow, important traffic events and the public CCTV registry.
+- Freeway segments use a dark road casing with green / yellow-green / orange / red live-speed coloring. `SectionStart` / `SectionEnd` geometry is retained as a fallback when the normal SectionShape feed is unavailable.
+- The national dashboard now always ranks the slowest useful corridors. It does not disappear merely because no segment is below 30 km/h.
+- `HOTSPOT CCTV` is visible again. Each slow/congested corridor selects the nearest playable public CCTV and previews it **inside EYE**. If the national registry has no nearby camera, EYE performs a second coordinate-based nearby-camera lookup and keeps the result in the same interface.
+
+### CCTV map/search behavior
+
+- National mode no longer geographically samples cameras on either the server or client. All successfully loaded, currently viewable cameras from the configured direct-live public sources are returned up to the 8,000-record safety ceiling and rendered with a Leaflet Canvas renderer for large marker sets.
+- Position-only camera datasets are excluded from the visible map. EYE does not show a camera as LIVE when it has no viewable public image.
+- Searching a target such as `101`, `A11` or an intersection switches to local intelligence and enriches the nearby set from the public twipcam nearby index.
+- twipcam-indexed cameras become normal EYE camera records: they appear in the same CCTV choices/map flow and are opened through the existing in-app CCTV panel. EYE first attempts to resolve browser-compatible public media; if that cannot be resolved, the public camera page is used as an in-panel fallback rather than navigating the operator away from EYE.
+- `tw.live` is used as a coverage/reference cross-check only. Its own FAQ states that embedding/reuse requires checking the original source's licensing; EYE therefore does not bulk-copy its catalog or treat tw.live as a stream-licensing authority.
+- Public upstream endpoints can be temporarily offline or change format. “All CCTV” therefore means all cameras successfully obtainable from the configured public sources at runtime; EYE does not fabricate missing cameras.
+
+### Search/navigation behavior retained
+
+- `A11`, `新光A11`, `信義A11`, `新光三越A11` and the full branch name resolve directly to 新光三越台北信義新天地 A11 / 松壽路 11 號.
+- Switching to NAV leaves only A → B planning controls. If a monitor target was already searched, it is copied into B automatically.
+- Ending navigation clears the navigation state and returns to the Taiwan-wide national analysis view.
+
+### Deployment footprint
+
+- Zero API keys in the frontend.
+- **2 Vercel Serverless Functions**: `/api/data` and `/api/cctv-feed`.
+- No extra npm runtime dependency was added for the CCTV expansion.
 
 ## v0.28 Target CCTV + National Flow
 

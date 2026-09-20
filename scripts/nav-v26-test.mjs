@@ -14,7 +14,7 @@ const checks = [
   ['navigation right-panel layout', css.includes('#app.nav-driving #intelBody>:not(#navHud)')],
   ['free immersive DOM', ['navViewBtn','navImmersive','immersiveHeading','immersiveArrow','immersiveCctv'].every(x=>html.includes(`id="${x}"`))],
   ['free immersive follow logic', app.includes('setNavigationViewMode') && app.includes('renderImmersiveNavigation') && app.includes("setNavigationViewMode('immersive')")],
-  ['end navigation returns national', app.includes('bootstrapDefaultCenter().then') && app.includes('返回台灣全域')],
+  ['end navigation returns national', app.includes('bootstrapDefaultCenter().then') && app.includes('返回地點查詢') && app.includes('bootstrapDefaultCenter().then')],
 ];
 let failed=false;
 for(const [name,ok] of checks){ console.log(ok?'PASS':'FAIL',name); if(!ok) failed=true; }
