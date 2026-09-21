@@ -53,11 +53,13 @@ module.exports = async (req, res) => {
   try {
     // v0.40: national mode only needs national road cameras; local mode returns partial
     // source results quickly instead of waiting for every municipal endpoint.
-    const sourceIds = national ? ['freeway','highway'] : (hasCoords ? localSourceIds(lat, lon) : null);
+    const localIds = hasCoords ? localSourceIds(lat, lon) : null;
+    const fastLocalIds = Array.isArray(localIds) ? localIds.filter((id) => !['freeway','highway'].includes(id)) : null;
+    const sourceIds = national ? ['freeway','highway'] : (fast && fastLocalIds?.length ? fastLocalIds : localIds);
     const registryPromise = loadRegistry({
       liveOnly:national,
       sourceIds,
-      timeoutCap:national ? 3600 : (fast ? 2400 : 4200),
+      timeoutCap:national ? 4200 : (fast ? 3600 : 9000),
     });
     // Scenic discovery is intentionally decoupled from the fast nearby-road request.
     const scenicPromise = !fast && hasCoords && q && !national && shouldSearchScenic(q)

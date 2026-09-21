@@ -412,11 +412,17 @@ async function fetchSource(source, { force = false, timeoutCap = null } = {}) {
   if (!force && cached && cached.expiresAt > now) return cached.items;
   const normalTimeout = source.kind === 'ods-generic' ? (source.timeout || 22000) : (source.timeout || 16000);
   const timeout = Number.isFinite(Number(timeoutCap)) ? Math.max(1800, Math.min(normalTimeout, Number(timeoutCap))) : normalTimeout;
-  const items = source.kind === 'ods-generic'
-    ? parseOdsGeneric(await fetchBuffer(source.url, {}, timeout, 16 * 1024 * 1024), source)
-    : parseSourceText(await fetchText(source.url, {}, timeout), source);
-  registryCache.set(source.id, { items, expiresAt: now + CACHE_MS });
-  return items;
+  try {
+    const items = source.kind === 'ods-generic'
+      ? parseOdsGeneric(await fetchBuffer(source.url, {}, timeout, 16 * 1024 * 1024), source)
+      : parseSourceText(await fetchText(source.url, {}, timeout), source);
+    registryCache.set(source.id, { items, expiresAt: now + CACHE_MS });
+    return items;
+  } catch (err) {
+    // Keep the last known official registry usable during a temporary upstream timeout.
+    if (cached?.items?.length) return cached.items;
+    throw err;
+  }
 }
 
 async function loadRegistry(options = {}) {

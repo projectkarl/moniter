@@ -2389,3 +2389,9 @@ body.camera-expanded-open{overflow:auto!important;}
   #app.freeway-mode .national-network-summary{margin-top:5px!important}
   #app.freeway-mode .national-network-summary>span{min-width:84px;padding:5px 6px}
 }
+
+/* v0.40.1 — CCTV visibility first: official point cards remain visible while streams resolve. */
+.map-live-cctv-card.point-only{border-style:dashed;border-color:rgba(124,185,205,.62);background:rgba(5,11,14,.94)}
+.map-live-cctv-card.point-only .map-live-cctv-head span{color:#a7e5f2}
+.map-live-cctv-card.point-only .map-live-cctv-stage .camera-placeholder{color:#a9c6cf;background:linear-gradient(135deg,rgba(9,27,34,.96),rgba(4,12,16,.96));font-size:7px!important}
+@media(max-width:420px){.leaflet-cctvPreviewPane-pane .leaflet-marker-icon:nth-child(n+3){display:block!important}}

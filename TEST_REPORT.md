@@ -20,3 +20,11 @@ All repository scripts pass, including API contracts, CCTV registry and feed pro
 
 ## Runtime note
 Public government feeds can still be temporarily offline, rate-limited or changed upstream. v0.40 is designed to show independent sources progressively and preserve the last usable flow display rather than blanking the whole experience when one source degrades.
+
+## v0.40.1 CCTV Visible First — PASS
+- Official point-only CCTV is eligible for on-map preview cards.
+- Playable CCTV still attempts direct media playback; point-only cards remain visible instead of disappearing.
+- Fast local CCTV source scope is separated from slower national-road enrichment.
+- Background road-camera enrichment uses a longer timeout without blocking the search result.
+- Warm-instance official registry stale fallback remains available during upstream refresh timeouts.
+- FLOW implementation from v0.40 is unchanged.

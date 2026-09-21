@@ -1345,9 +1345,9 @@
     const lat = Number(place?.lat), lon = Number(place?.lon ?? place?.lng);
     const seen = new Set();
     return (items || [])
-      .filter((cam) => cam?.streamUrl && Number.isFinite(Number(cam.lat)) && Number.isFinite(Number(cam.lon)))
+      .filter((cam) => Number.isFinite(Number(cam?.lat)) && Number.isFinite(Number(cam?.lon)))
       .map((cam) => ({ ...cam, _targetDistance: Number.isFinite(lat) && Number.isFinite(lon) ? haversineKm(lat, lon, Number(cam.lat), Number(cam.lon)) : Number(cam.distance || 999) }))
-      .sort((a,b) => Number(Boolean(b.scenic))-Number(Boolean(a.scenic)) || a._targetDistance-b._targetDistance)
+      .sort((a,b) => Number(Boolean(b.scenic))-Number(Boolean(a.scenic)) || Number(Boolean(b.streamUrl))-Number(Boolean(a.streamUrl)) || a._targetDistance-b._targetDistance)
       .filter((cam) => {
         const key = cam.id || `${Number(cam.lat).toFixed(5)},${Number(cam.lon).toFixed(5)}`;
         if (seen.has(key)) return false;
@@ -1393,6 +1393,7 @@
 
   function openMapCctvPreview(cam) {
     if (!cam) return;
+    if (!cam.streamUrl) { openCctvPosition(cam); return; }
     state.activeCamera = cam;
     state.inlineCamera = cam;
     openCctvPopup();
@@ -1411,9 +1412,10 @@
       const title = shortName(cam.road || cam.name || 'PUBLIC CCTV');
       const distance = Number.isFinite(Number(cam._targetDistance)) ? `${Math.max(0,Number(cam._targetDistance)).toFixed(1)} km` : 'NEARBY';
       const region = cam.region && !/^(?:臺灣|Taiwan|全台)/i.test(String(cam.region)) ? shortName(cam.region) : '';
+      const hasStream = Boolean(cam.streamUrl);
       const icon = L.divIcon({
         className:'',
-        html:`<div class="map-live-cctv-card ${cam.scenic?'scenic':cam.indexed?'indexed':''}" style="--cctv-dx:12px;--cctv-dy:-112px"><div class="map-live-cctv-head"><span>${cam.scenic?'SCENIC':cam.indexed?'PUBLIC':'LIVE'}</span><b>${escapeHtml(title)}</b><em>${escapeHtml(region || distance)}</em></div><div class="map-live-cctv-stage" id="${escapeAttr(stageId)}"><div class="map-live-cctv-loading">LIVE…</div></div></div>`,
+        html:`<div class="map-live-cctv-card ${cam.scenic?'scenic':cam.indexed?'indexed':''} ${hasStream?'':'point-only'}" style="--cctv-dx:12px;--cctv-dy:-112px"><div class="map-live-cctv-head"><span>${cam.scenic?'SCENIC':hasStream?(cam.indexed?'PUBLIC':'LIVE'):'POINT'}</span><b>${escapeHtml(title)}</b><em>${escapeHtml(region || distance)}</em></div><div class="map-live-cctv-stage" id="${escapeAttr(stageId)}"><div class="map-live-cctv-loading">${hasStream?'LIVE…':'OFFICIAL CCTV'}</div></div></div>`,
         iconSize: mobile ? [116,82] : [154,108],
         iconAnchor: [0,0],
       });
@@ -1424,7 +1426,8 @@
         layoutTargetCctvPreviews();
         const stage = $(stageId);
         if (!stage || !state.cctvPreviewLayer?.hasLayer?.(marker)) return;
-        renderCameraMedia(stage, cam, { fast:true, preview:true }).catch?.(() => {});
+        if (cam.streamUrl) renderCameraMedia(stage, cam, { fast:true, preview:true }).catch?.(() => {});
+        else renderOriginalSourceUnavailable(stage, cam);
       }, index * 45);
     });
     setTimeout(layoutTargetCctvPreviews, 0);
@@ -1481,7 +1484,9 @@
     cctvPromise.then((items) => {
       if (requestSeq !== state.targetRequestSeq || state.target !== place) return;
       renderTargetCctvPreviews(place, items || []);
-      // Scenic/live-tourism cameras enrich in the background and never block nearby road CCTV.
+      // Fast local CCTV appears first. Slower official road registries enrich in the background.
+      enrichTargetRoadCctv(place, requestSeq).catch(() => {});
+      // Scenic/live-tourism cameras enrich separately and never block nearby road CCTV.
       enrichTargetScenic(place, requestSeq).catch(() => {});
     }).catch(() => {});
     const results = await Promise.allSettled([
@@ -1524,6 +1529,27 @@
       if (!map.has(key)) map.set(key, cam);
     });
     return [...map.values()];
+  }
+
+  async function enrichTargetRoadCctv(place, requestSeq = state.targetRequestSeq) {
+    if (!place || !Number.isFinite(Number(place.lat)) || !Number.isFinite(Number(place.lon ?? place.lng))) return [];
+    try {
+      const data = await jsonFetch(`/api/data?action=cctv&lat=${Number(place.lat).toFixed(6)}&lon=${Number(place.lon ?? place.lng).toFixed(6)}&radius=35&limit=180`);
+      const incoming = Array.isArray(data?.items) ? data.items : [];
+      if (requestSeq !== state.targetRequestSeq || state.target !== place) return incoming;
+      const merged = mergeCctvItems(state.latestCctv || [], incoming);
+      merged.forEach((cam) => {
+        if (!Number.isFinite(Number(cam.distance)) && Number.isFinite(Number(cam.lat)) && Number.isFinite(Number(cam.lon))) {
+          cam.distance = haversineKm(Number(place.lat), Number(place.lon ?? place.lng), Number(cam.lat), Number(cam.lon));
+        }
+      });
+      state.latestCctv = merged;
+      renderCctvMapMarkers(merged);
+      renderTargetCctvPreviews(place, merged);
+      renderInlineCctvResults(merged, place, state.latestCityFlow || []);
+      if ($('cameraCount')) $('cameraCount').textContent = String(merged.length);
+      return incoming;
+    } catch (_) { return []; }
   }
 
   async function enrichTargetScenic(place, requestSeq = state.targetRequestSeq) {
