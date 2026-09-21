@@ -1,20 +1,22 @@
-# EYE // TAIWAN — Clean Navigation + CCTV Vision Lab v0.30.0
+# EYE // TAIWAN — Mobile + Live CCTV v0.31.1
 
 Zero-Key / Vercel Hobby friendly Taiwan situation-awareness interface.
 
-## v0.30 Clean Navigation + CCTV Vision Lab
+## v0.31.1 Mobile Usability + Search Recovery
 
-This release keeps the full v0.29 operations surface and focuses on navigation state cleanup, CCTV usability, optional non-identifying frame analytics, news expansion and layout stability.
+- Mobile map-first layout removes overlapping provenance/flow HUDs and compresses the national summary on narrow screens.
+- CCTV enlarge opens a dedicated centered floating window that can be dragged and closed without expanding the entire intelligence card.
+- `LIVE ANALYSIS` runs against the currently displayed CCTV and draws broad person/vehicle boxes directly over the video/image view on a 4–5 second loop.
+- Browser vision remains non-identifying: no face recognition, plate OCR, identity tracking, vehicle brand or precise model recognition.
+- Search supports stronger partial local POI matches plus normalized 臺/台, MRT/station and intersection forms, with Nominatim + Photon zero-key fallback.
+- If precise location is unavailable, the fallback reference is **Taipei 101** rather than a vague Taipei city-center coordinate.
+- The full existing navigation, national traffic, CCTV, sensor, Advanced Ops and public-data feature set is retained.
 
-- Leaving NAV for 地點監控 now removes route lines, alternate route choices and navigation-only state instead of leaving stale routing information on screen.
-- Speed-enforcement markers are navigation-only: normal Taiwan/target maps stay uncluttered; alerts and labels appear after active navigation starts.
-- CCTV can be enlarged inside EYE. Existing freeway VD / flow Sensor Fusion is now visible directly under the main inline CCTV view.
-- `VISION LAB` is an optional, zero-key, browser-side single-frame analyzer. It classifies only broad objects (person / car / bus / truck / motorcycle / bicycle) and derives visual crowd/traffic density indices. It does **not** perform face recognition, plate OCR, identity tracking, vehicle brand recognition or precise vehicle-model recognition.
-- News shows a concise initial set and expands in place with `看更多`.
-- Desktop and mobile top layout were consolidated to prevent topbar/search/layer controls from crowding or exposing awkward map gaps. Duplicate Weather/Ops DOM blocks were removed.
-- TensorFlow.js / COCO-SSD load only after the user explicitly presses VISION LAB, so normal map/CCTV startup remains lightweight.
-- Vercel footprint remains **2 Serverless Functions** and no API key is required.
+## v0.31.0 Mobile Recovery + Live CCTV
 
+- Replaced full-card CCTV enlargement with a dedicated draggable popup.
+- Replaced the old separate still-analysis presentation with live overlays on the active CCTV.
+- Added mobile overlay coordination and Taipei 101 fallback.
 
 ## v0.29 Full Ops + Inline CCTV
 

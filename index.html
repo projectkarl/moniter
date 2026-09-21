@@ -170,8 +170,8 @@
         <div id="poiSuggestions" class="poi-suggestions" role="listbox" aria-label="地點建議" hidden></div>
         <div class="command-context">
           <div class="ab-route" id="abRoutePanel" aria-label="A 到 B 點到點設定" hidden>
-            <label class="ab-point"><span>A</span><input id="abOrigin" value="台北市中心" aria-label="A 點起點" /></label>
-            <button type="button" id="originChip" class="origin-chip ab-locate" aria-label="切換台北市中心與目前 GPS 位置"><span>◎</span><b id="originLabel">台北市中心</b><em>GPS</em><small>LOC</small></button>
+            <label class="ab-point"><span>A</span><input id="abOrigin" value="台北 101" aria-label="A 點起點" /></label>
+            <button type="button" id="originChip" class="origin-chip ab-locate" aria-label="切換台北 101 與目前 GPS 位置"><span>◎</span><b id="originLabel">台北 101</b><em>GPS</em><small>LOC</small></button>
             <button type="button" id="abSwap" class="ab-swap" aria-label="交換起點與目的地">⇄</button>
             <label class="ab-point"><span>B</span><input id="abTarget" placeholder="目的地（搜尋後自動帶入）" aria-label="B 點目的地" /></label>
             <button type="button" id="abRouteBtn" class="ab-route-btn">路線</button>
@@ -286,16 +286,16 @@
             </div>
           </article>
           <article class="intel-card inline-camera-card" id="inlineCameraCard" hidden>
-            <div class="card-label camera-card-label"><span>LIVE CCTV // 即時監控</span><div class="camera-card-actions"><button type="button" id="cameraAnalyzeBtn" title="以瀏覽器端免費模型分析目前單一影格">VISION LAB</button><button type="button" id="inlineCameraExpand" aria-pressed="false" title="放大 CCTV">⛶ 放大</button></div></div>
+            <div class="card-label camera-card-label"><span>LIVE CCTV // 即時監控</span><div class="camera-card-actions"><button type="button" id="cameraAnalyzeBtn" aria-pressed="false" title="在目前 CCTV 畫面上持續進行瀏覽器端人／車類別分析">LIVE ANALYSIS</button><button type="button" id="inlineCameraExpand" aria-pressed="false" title="放大 CCTV">⛶ 放大</button></div></div>
             <div class="inline-camera-head"><b id="inlineCameraTitle">PUBLIC CCTV</b><span id="inlineCameraSignal">AUTO SELECT</span></div>
             <div id="inlineCameraStage" class="inline-camera-stage"><div class="camera-placeholder">正在等待公開 CCTV 訊號…</div></div>
             <div id="inlineCameraMeta" class="inline-camera-meta"></div>
             <div id="inlineCameraSensor" class="camera-intel inline-camera-sensor" hidden></div>
             <section id="cameraVisionLab" class="camera-vision-lab" hidden aria-label="CCTV 影格分析">
-              <div class="vision-lab-head"><div><span>ON-DEVICE VISION LAB</span><b id="visionLabStatus">READY</b></div><button type="button" id="visionLabClose">收合分析</button></div>
-              <canvas id="cameraAnalysisCanvas" width="640" height="360" aria-label="CCTV 單幀物件分析"></canvas>
+              <div class="vision-lab-head"><div><span>ON-DEVICE LIVE VISION</span><b id="visionLabStatus">READY</b></div><button type="button" id="visionLabClose">停止分析</button></div>
+              <canvas id="cameraAnalysisCanvas" width="640" height="360" aria-hidden="true"></canvas>
               <div id="cameraAnalysisMetrics" class="vision-lab-metrics"><div><small>PERSON</small><b>—</b></div><div><small>VEHICLE</small><b>—</b></div><div><small>CROWD</small><b>—</b></div><div><small>TRAFFIC</small><b>—</b></div></div>
-              <div id="cameraAnalysisTypes" class="vision-type-list">按 VISION LAB 後，以免費瀏覽器模型分析目前單一影格。辨識人、汽車、公車、卡車、機車與自行車等類別；不做人臉、車牌、身份或跨鏡頭追蹤。</div>
+              <div id="cameraAnalysisTypes" class="vision-type-list">按 LIVE ANALYSIS 後，分析框會直接疊在目前 CCTV 畫面並定期更新。辨識人、汽車、公車、卡車、機車與自行車等類別；不做人臉、車牌、身份或跨鏡頭追蹤。</div>
             </section>
             <div id="inlineCameraChoices" class="inline-camera-choices"></div>
           </article>
@@ -407,10 +407,21 @@
         <div class="setting-row"><div><b>戰術地點轉場</b><small>跨區移動時使用衛星鎖定、訊號切換與座標轉移動畫</small></div><button id="transferFxToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-stack"><div><b>MAP SOURCE</b><small>預設使用原專案 Zero-Key 思路的 Esri 衛星影像＋地名/道路標註；可一鍵切換清楚街圖</small></div><div class="map-modes" id="mapModes"><button data-map-source="satellite" class="active" aria-pressed="true">SATELLITE</button><button data-map-source="tactical" aria-pressed="false">STREET</button></div></div>
         <div class="setting-stack"><div><b>SENSOR LOOK</b><small>沿用 God's Eye View 的感測器視覺概念；NORMAL / NVG / FLIR / NOIR / CRT / SNOW 只改視覺，不改資料內容</small></div><div class="sensor-modes" id="sensorModes"><button data-sensor="normal" class="active">NORMAL</button><button data-sensor="nvg">NVG</button><button data-sensor="flir">FLIR</button><button data-sensor="noir">NOIR</button><button data-sensor="crt">CRT</button><button data-sensor="snow">SNOW</button></div></div>
-        <div class="setting-row"><div><b>DETECTION OVERLAY</b><small>在可見公開訊號標記加上識別框與 ID；CCTV 的 VISION LAB 僅在使用者按下分析時做單幀物件分類，不做人臉／車牌辨識</small></div><button id="detectionToggle" class="toggle" aria-pressed="false"><span></span></button></div>
+        <div class="setting-row"><div><b>DETECTION OVERLAY</b><small>在可見公開訊號標記加上識別框與 ID；CCTV 的 LIVE ANALYSIS 會將人／車類別框直接疊在目前影像並定期更新；不做人臉／車牌辨識</small></div><button id="detectionToggle" class="toggle" aria-pressed="false"><span></span></button></div>
         <div class="setting-row"><div><b>VOICE MARKUP</b><small>Zero-Key 本地語音指令：例如「標記這裡集合點」、「清除標註」、「切換夜視」、「追蹤最近航班」</small></div><button id="voiceMarkupToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-row"><div><b>CCTV 局部隱私遮罩</b><small>預設關閉。開啟時只遮罩畫面下緣近距離區域，保留大部分道路與車流可視；這是輕量 ROI 遮罩，不宣稱自動辨識人臉或車牌</small></div><button id="privacyShieldToggle" class="toggle" aria-pressed="false"><span></span></button></div>
-        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.30.0 CLEAN NAV + VISION LAB</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
+        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.31.1 MOBILE + LIVE CCTV</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
+      </section>
+
+
+      <section id="cctvPopup" class="cctv-popup" aria-label="放大 CCTV 浮動視窗" hidden>
+        <div id="cctvPopupHandle" class="cctv-popup-head" role="toolbar" aria-label="拖曳 CCTV 視窗">
+          <div><span>LIVE CCTV // FLOATING VIEW</span><b id="cctvPopupTitle">PUBLIC CCTV</b></div>
+          <div class="cctv-popup-actions"><button type="button" id="cctvPopupAnalyze" aria-pressed="false">LIVE ANALYSIS</button><button type="button" id="cctvPopupClose" aria-label="關閉放大 CCTV">×</button></div>
+        </div>
+        <div id="cctvPopupStage" class="cctv-popup-stage"><div class="camera-placeholder">等待 CCTV 訊號…</div></div>
+        <div id="cctvPopupMeta" class="cctv-popup-meta">PUBLIC LIVE SOURCE</div>
+        <div id="cctvPopupSensor" class="camera-intel cctv-popup-sensor" hidden></div>
       </section>
 
       <section id="threatAlert" class="threat-alert" aria-live="assertive" hidden>

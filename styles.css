@@ -2114,3 +2114,116 @@ body.camera-expanded-open{overflow:hidden!important;}
   .camera-card-actions button{font-size:8px;padding:6px 7px;}
   .inline-camera-sensor .intel-grid.four{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
 }
+
+/* =========================================================
+   v0.31.1 MOBILE RECOVERY + FLOATING CCTV + LIVE VISION
+   ========================================================= */
+
+/* Dedicated floating CCTV popup: independent from the intel bottom sheet. */
+.cctv-popup{
+  position:fixed;z-index:3200;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(900px,calc(100vw - 34px));height:min(680px,78dvh);min-width:320px;min-height:300px;
+  display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;gap:8px;padding:10px;
+  box-sizing:border-box;border:1px solid rgba(224,199,127,.42);border-radius:10px;
+  background:linear-gradient(180deg,rgba(7,9,10,.985),rgba(3,5,6,.99));
+  box-shadow:0 26px 80px rgba(0,0,0,.72),0 0 0 1px rgba(255,255,255,.025) inset;
+  backdrop-filter:blur(16px);overflow:hidden;
+}
+.cctv-popup[hidden]{display:none!important;}
+.cctv-popup-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:43px;padding:3px 3px 5px;border-bottom:1px solid rgba(224,199,127,.14);cursor:move;touch-action:none;user-select:none;}
+.cctv-popup-head>div:first-child{min-width:0}.cctv-popup-head span{display:block;color:#8f9b94;font:700 8px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em}.cctv-popup-head b{display:block;margin-top:3px;color:#f1ead5;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cctv-popup-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}.cctv-popup-actions button{height:32px;padding:0 9px;border:1px solid rgba(224,199,127,.28);border-radius:5px;background:rgba(224,199,127,.055);color:#e1ca82;font:700 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;cursor:pointer}.cctv-popup-actions button.active{border-color:rgba(139,189,162,.58);color:#b9ddc4;background:rgba(90,140,108,.13)}#cctvPopupClose{width:34px;padding:0;font-size:18px!important;}
+.cctv-popup-stage{position:relative;isolation:isolate;min-height:0;overflow:hidden;background:#050708;border:1px solid rgba(255,255,255,.065);border-radius:6px;}
+.cctv-popup-stage>img,.cctv-popup-stage>video,.cctv-popup-stage>iframe{width:100%;height:100%;display:block;object-fit:contain;border:0;background:#030405;}
+.cctv-popup-meta{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#838a86;font:8px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.05em;}
+.cctv-popup-sensor{max-height:132px;overflow:auto;margin:0!important;padding:8px!important;background:rgba(255,255,255,.018)!important;}
+
+/* Live browser vision is drawn over the actual CCTV, not as a separate still image. */
+#cameraAnalysisCanvas{display:none!important;}
+.inline-camera-stage,.cctv-popup-stage{position:relative;isolation:isolate;}
+.inline-camera-stage.live-analysis-active>img,.inline-camera-stage.live-analysis-active>video,.cctv-popup-stage.live-analysis-active>img,.cctv-popup-stage.live-analysis-active>video{object-fit:contain!important;background:#030405;}
+.live-vision-layer{position:absolute;z-index:35;inset:0;pointer-events:none;overflow:hidden;}
+.live-vision-box{position:absolute;min-width:16px;min-height:14px;border:1.5px solid rgba(139,189,162,.92);box-shadow:0 0 0 1px rgba(0,0,0,.42),0 0 13px rgba(139,189,162,.18) inset;}
+.live-vision-box.person{border-color:rgba(224,199,127,.96);box-shadow:0 0 0 1px rgba(0,0,0,.42),0 0 13px rgba(224,199,127,.16) inset;}
+.live-vision-box span{position:absolute;left:-1px;top:-18px;max-width:150px;padding:3px 4px;background:rgba(3,6,7,.88);border:1px solid currentColor;color:#cfe4d6;font:700 7px/1 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;}
+.live-vision-box.person span{color:#ead694;}
+.live-vision-stamp{position:absolute;right:7px;top:7px;padding:4px 6px;border:1px solid rgba(139,189,162,.28);background:rgba(3,6,7,.80);color:#9dc7aa;font:700 7px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;}
+.camera-card-actions button.active{border-color:rgba(139,189,162,.55)!important;color:#b9ddc4!important;background:rgba(90,140,108,.12)!important;}
+
+/* Retire the old full-card enlargement behavior. */
+.inline-camera-card.camera-expanded{position:static!important;inset:auto!important;width:auto!important;height:auto!important;max-height:none!important;display:block!important;overflow:visible!important;}
+body.camera-expanded-open{overflow:auto!important;}
+
+/* Mobile: map-first layout. Avoid stacking national summary, search, layers and intel over the whole map. */
+@media(max-width:920px){
+  .topbar{left:6px!important;right:6px!important;top:calc(5px + var(--safe-top))!important;height:54px!important;padding:0 9px!important;}
+  .brand-mark{width:30px!important;height:30px!important}.brand-copy strong{font-size:12px!important}.brand-copy span{font-size:7px!important;}
+  .status-strip{gap:3px!important}.status-strip>*{font-size:8px!important;}
+  .command{left:6px!important;right:6px!important;top:calc(64px + var(--safe-top))!important;width:auto!important;max-height:185px!important;overflow:visible!important;padding:8px 9px!important;border-radius:9px!important;}
+  .command-headline{gap:6px!important}.command-kicker{font-size:8px!important}.search-mode-tabs button{min-height:28px!important;padding:0 7px!important;font-size:8px!important;}
+  .voice-btn,.search-box{height:42px!important}.search-box input{font-size:16px!important}.go-btn{min-width:54px!important;}
+  .command-context{margin-top:5px!important}.command-hint{display:none!important}.advanced-ops{display:none!important;}
+  .map-layer-dock{top:auto!important;left:6px!important;right:6px!important;bottom:calc(69px + var(--safe-bottom))!important;width:auto!important;max-width:none!important;height:42px!important;padding:4px!important;justify-content:flex-start!important;background:rgba(7,9,10,.88)!important;}
+  .map-layer-dock button{height:32px!important;min-width:42px!important;padding:0 7px!important;font-size:9px!important;}
+  .national-overview{left:6px!important;right:6px!important;bottom:calc(116px + var(--safe-bottom))!important;width:auto!important;max-height:128px!important;padding:7px 8px!important;border-radius:9px!important;}
+  .national-head{margin-bottom:4px!important}.national-head b{font-size:11px!important}.national-metrics{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:3px!important;margin-bottom:4px!important}.national-metrics div{padding:4px!important}.national-metrics b{font-size:12px!important}.national-metrics small{font-size:6px!important;}
+  .national-body{display:block!important}.national-hotspot-list{max-height:43px!important;overflow:auto!important}.national-hotspot-card,.national-hotspot-card:nth-child(n){display:none!important}.national-hotspot-card:first-child{display:block!important;min-height:40px!important;margin:0!important;padding:4px 6px!important}.national-hotspot-card small,.national-hotspot-card em{display:none!important}.national-hotspot-card strong{font-size:10px!important}.national-preview{display:none!important}.national-foot{display:none!important;}
+  .intel{left:6px!important;right:6px!important;bottom:calc(116px + var(--safe-bottom))!important;top:auto!important;width:auto!important;max-height:46dvh!important;padding:9px 9px 10px!important;border-radius:11px!important;transform:translateY(calc(100% - 52px))!important;box-sizing:border-box!important;}
+  .intel.open{transform:translateY(0)!important}.intel .panel-head{min-height:42px!important}.panel-head h2{font-size:16px!important}.intel-body{overflow:auto!important;overscroll-behavior:contain;}
+  #app.intel-results-open .national-overview{display:none!important;}
+  #app.intel-results-open .map-layer-dock{opacity:.25!important;pointer-events:none!important;}
+  #app.intel-results-open .command{max-height:118px!important;}
+  #app.intel-results-open .command-context,#app.intel-results-open .advanced-ops{display:none!important;}
+  .mobile-dock{left:6px!important;right:6px!important;bottom:calc(5px + var(--safe-bottom))!important;height:56px!important;z-index:1700!important;}
+  .inline-camera-stage{min-height:176px!important;max-height:38dvh!important;}
+  .camera-card-label{gap:6px!important}.camera-card-actions{gap:4px!important;flex-wrap:nowrap!important}.camera-card-actions button{font-size:7px!important;padding:6px!important;white-space:nowrap;}
+  .camera-vision-lab{padding:7px!important}.vision-lab-metrics{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:3px!important}.vision-lab-metrics>div{padding:5px 4px!important}.vision-type-list>small{font-size:7px!important;}
+  .cctv-popup{width:calc(100vw - 12px);height:min(70dvh,560px);min-width:0;min-height:300px;padding:7px;gap:6px;border-radius:9px;}
+  .cctv-popup-head{min-height:39px;gap:6px}.cctv-popup-head span{font-size:7px}.cctv-popup-head b{font-size:12px}.cctv-popup-actions button{height:30px;padding:0 7px;font-size:7px}.cctv-popup-sensor{max-height:110px;}
+}
+
+@media(max-width:620px){
+  .status-strip .source-pills,.topbar-center{display:none!important;}
+  .command{top:calc(62px + var(--safe-top))!important;}
+  .search-mode-tabs{flex:0 0 auto}.search-mode-tabs button{padding:0 6px!important;}
+  .map-layer-dock{overflow-x:auto!important;scrollbar-width:none}.map-layer-dock::-webkit-scrollbar{display:none}.map-layer-source{display:none!important;}
+  .national-overview{max-height:112px!important}.national-metrics div:nth-child(n+4){display:none!important}.national-metrics{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
+  .intel{max-height:44dvh!important;}
+  .cctv-popup{height:min(68dvh,510px);}
+  .cctv-popup-meta{font-size:7px}.cctv-popup-sensor{display:none!important;}
+}
+
+@media(max-width:420px){
+  .command-kicker{display:none!important}.command-headline{justify-content:flex-end!important}.search-mode-tabs{width:100%;display:grid!important;grid-template-columns:1fr 1fr!important;}
+  .national-overview{bottom:calc(114px + var(--safe-bottom))!important;max-height:104px!important;}
+  .intel{bottom:calc(114px + var(--safe-bottom))!important;max-height:43dvh!important;}
+  .camera-card-actions button{font-size:6.5px!important;padding:5px!important;}
+  .cctv-popup{width:calc(100vw - 8px);height:min(66dvh,480px);padding:6px;}
+}
+
+
+/* v0.31.1 mobile declutter: preserve an actually usable map viewport. */
+@media(max-width:920px){
+  .provenance-ribbon,.stage>.flow-legend{display:none!important;}
+  .theater-standby{top:47%!important;max-width:72vw!important;padding:7px 10px!important;opacity:.68!important;pointer-events:none!important;}
+  .theater-standby small,.theater-auth{display:none!important;}
+  #app.intel-results-open .theater-standby{display:none!important;}
+  .app-shell.cockpit-active .national-overview{display:none!important;}
+  .app-shell.cockpit-active .track-hud{left:6px!important;right:6px!important;top:auto!important;bottom:calc(116px + var(--safe-bottom))!important;transform:none!important;width:auto!important;max-height:31dvh!important;overflow:auto!important;}
+  .cctv-popup{width:min(92vw,620px)!important;height:min(66dvh,520px)!important;}
+  .cctv-popup-head{touch-action:none!important;}
+  #cctvPopupClose{min-width:36px!important;min-height:34px!important;}
+}
+@media(max-width:620px){
+  .status-strip #clock{display:none!important;}
+  .national-overview{max-height:92px!important;}
+  .national-hotspot-list{max-height:36px!important;}
+  .cctv-popup{width:92vw!important;height:min(64dvh,480px)!important;min-height:280px!important;}
+}
+@media(max-width:420px){
+  .national-overview{max-height:76px!important;padding:6px 7px!important;}
+  .national-overview .national-metrics{display:none!important;}
+  .national-hotspot-list{max-height:34px!important;}
+  .national-hotspot-card:first-child{min-height:32px!important;padding:3px 5px!important;}
+  .cctv-popup{width:91vw!important;height:min(62dvh,450px)!important;min-height:260px!important;}
+}

@@ -31,5 +31,5 @@ ok(app.includes('enrichNationalHotspotCamera') && app.includes('SEARCHING NEARBY
 ok(flow.includes("tag(block, 'SectionStart') || tag(block, 'Start')") && flow.includes('geometryFallback'),'freeway geometry fallback');
 ok(app.includes("pane:'flowPane'") && app.includes("color: '#050606'"),'freeway flow color casing emphasized');
 ok(html.includes('TAIWAN NATIONAL GRID · CONGESTION + CCTV'),'national header communicates congestion + CCTV');
-ok(html.includes('0.30.0 CLEAN NAV + VISION LAB'),'v0.30 successor build label');
+ok(html.includes('0.31.1 MOBILE + LIVE CCTV'),'v0.30 successor build label');
 console.log('V0.29 BASELINE REGRESSION PASS ON V0.30');

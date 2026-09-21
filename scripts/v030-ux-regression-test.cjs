@@ -4,7 +4,7 @@ const html = fs.readFileSync('index.html','utf8');
 const css = fs.readFileSync('styles.css','utf8');
 const app = fs.readFileSync('app.js','utf8');
 function ok(cond, name){ console.log(cond?'PASS':'FAIL',name); assert.ok(cond,name); }
-ok(html.includes('0.30.0 CLEAN NAV + VISION LAB'),'v0.30 build label');
+ok(html.includes('0.31.1 MOBILE + LIVE CCTV'),'v0.30 build label');
 ok(app.includes('clearRoutePresentation') && app.includes("const leavingNav = state.searchMode === 'nav' && next === 'monitor'"),'monitor switch clears route/nav presentation');
 ok(app.includes("setOverlayVisibility('speed', false, false)") && html.includes('data-layer-toggle="speed" class="nav-only-layer"'),'speed labels navigation-only');
 ok(html.includes('id="inlineCameraExpand"') && app.includes('toggleInlineCameraExpand'),'CCTV in-page enlarge');
@@ -16,5 +16,5 @@ ok(app.includes('data-news-more') && css.includes('.auto-news-row.news-extra'),'
 ok(css.includes('Top-layout consolidation') && css.includes('@media(min-width:921px) and (max-width:1240px)'),'top layout responsive consolidation');
 ok((html.match(/id="weatherTemp"/g)||[]).length===1,'duplicate weather DOM removed');
 ok((html.match(/id="opsEyebrow"/g)||[]).length===1,'duplicate ops header DOM removed');
-ok(fs.readFileSync('sw.js','utf8').includes('shell-v30'),'service worker cache v30');
+ok(fs.readFileSync('sw.js','utf8').includes('shell-v311'),'service worker cache v30');
 console.log('V0.30 UX REGRESSION PASS');

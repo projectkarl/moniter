@@ -2,7 +2,7 @@
   'use strict';
 
   const $ = (id) => document.getElementById(id);
-  const DEFAULT_CENTER = Object.freeze({ lat: 25.0478, lon: 121.5170, name: '台北市中心' });
+  const DEFAULT_CENTER = Object.freeze({ lat: 25.033968, lon: 121.564468, name: '台北 101' });
   const NATIONAL_CENTER = Object.freeze({ lat: 23.72, lon: 120.97, name: '台灣全域' });
   const state = {
     map: null,
@@ -57,6 +57,9 @@
     visionModel: null,
     visionModelPromise: null,
     visionAnalysis: null,
+    visionRunning: false,
+    visionBusy: false,
+    visionLoopTimer: null,
     privacyShield: false,
     speedAlerts: true,
     cameraHandoff: true,
@@ -99,6 +102,14 @@
     '台北101': { name: '台北 101', lat: 25.033968, lon: 121.564468 },
     '101': { name: '台北 101', lat: 25.033968, lon: 121.564468 },
     '信義101': { name: '台北 101', lat: 25.033968, lon: 121.564468 },
+    '台北一零一': { name: '台北 101', lat: 25.033968, lon: 121.564468 },
+    '世貿101': { name: '台北 101/世貿站', lat: 25.032971, lon: 121.563772 },
+    '台北101世貿': { name: '台北 101/世貿站', lat: 25.032971, lon: 121.563772 },
+    '台北101世貿站': { name: '台北 101/世貿站', lat: 25.032971, lon: 121.563772 },
+    '市政府站': { name: '捷運市政府站', lat: 25.040850, lon: 121.567904 },
+    '捷運市政府': { name: '捷運市政府站', lat: 25.040850, lon: 121.567904 },
+    '象山站': { name: '捷運象山站', lat: 25.032766, lon: 121.570132 },
+    '捷運象山': { name: '捷運象山站', lat: 25.032766, lon: 121.570132 },
     'a11': { name:'新光三越 台北信義新天地 A11', lat:25.03661, lon:121.56725, address:'110台北市信義區松壽路11號' }, '新光a11': { name:'新光三越 台北信義新天地 A11', lat:25.03661, lon:121.56725, address:'110台北市信義區松壽路11號' }, '信義a11': { name:'新光三越 台北信義新天地 A11', lat:25.03661, lon:121.56725, address:'110台北市信義區松壽路11號' }, '新光三越a11': { name:'新光三越 台北信義新天地 A11', lat:25.03661, lon:121.56725, address:'110台北市信義區松壽路11號' }, '新光三越信義a11': { name:'新光三越 台北信義新天地 A11', lat:25.03661, lon:121.56725, address:'110台北市信義區松壽路11號' }, '新光三越台北信義新天地a11': { name:'新光三越 台北信義新天地 A11', lat:25.03661, lon:121.56725, address:'110台北市信義區松壽路11號' },
     'a8': '新光三越 台北信義新天地 A8', '新光a8': '新光三越 台北信義新天地 A8',
     'a9': '新光三越 台北信義新天地 A9', '新光a9': '新光三越 台北信義新天地 A9',
@@ -466,14 +477,17 @@
       throw new Error(`「${clean}」有多個常見分店，請從搜尋框下方選擇目標。`);
     }
     if (alias && typeof alias === 'object') return { ...alias, aliasFrom: clean };
-    const lookup = typeof alias === 'string' ? alias : clean;
+    const localMatches = !alias ? localPoiMatches(clean) : [];
+    const localTop = localMatches[0];
+    const strongLocal = localTop && localTop.score >= 82 && (!localMatches[1] || localTop.score - localMatches[1].score >= 12);
+    const lookup = typeof alias === 'string' ? alias : (strongLocal ? localTop.query : clean);
     const bias = state.user || state.target || (state.nationalMode ? null : state.map?.getCenter?.());
     const biasQuery = bias && Number.isFinite(Number(bias.lat)) && Number.isFinite(Number(bias.lon ?? bias.lng))
       ? `&lat=${Number(bias.lat).toFixed(5)}&lon=${Number(bias.lon ?? bias.lng).toFixed(5)}` : '';
     const data = await jsonFetch(`/api/data?action=geocode&q=${encodeURIComponent(lookup)}${biasQuery}`);
     if (!data.results?.length) throw new Error('找不到這個地點');
     const first = data.results[0];
-    if (alias && typeof alias === 'string') first.aliasFrom = clean;
+    if ((alias && typeof alias === 'string') || strongLocal) first.aliasFrom = clean;
     return first;
   }
 
@@ -513,7 +527,7 @@
     label.textContent = usingUser ? (state.user?.name || '我的位置') : DEFAULT_CENTER.name;
     if ($('abOrigin')) $('abOrigin').value = usingUser ? '我的位置' : DEFAULT_CENTER.name;
     const hint = chip.querySelector('em');
-    if (hint) hint.textContent = usingUser ? '點一下改回台北市中心' : '點一下改用目前位置';
+    if (hint) hint.textContent = usingUser ? '點一下改回台北 101' : '點一下改用目前位置';
     chip.classList.toggle('using-user', usingUser);
   }
 
@@ -571,6 +585,7 @@
 
   function openIntelResults() {
     state.intelOpen = true;
+    $('app')?.classList.add('intel-results-open');
     if ($('nationalOverview')) $('nationalOverview').hidden = true;
     if ($('intelPanel')) $('intelPanel').hidden = false;
     $('intelPanel')?.classList.add('open');
@@ -599,7 +614,7 @@
     catch (_) {
       state.originMode = 'taipei';
       updateOriginUi();
-      toast('目前位置無法取得，起點暫用台北市中心。', 3800);
+      toast('目前位置無法取得，起點暫用台北 101。', 3800);
       return { ...DEFAULT_CENTER };
     }
   }
@@ -608,7 +623,7 @@
     if (state.originMode === 'user') {
       state.originMode = 'taipei';
       updateOriginUi();
-      toast('起點已切換：台北市中心');
+      toast('起點已切換：台北 101');
     } else {
       try {
         await locateUser({ center: false });
@@ -618,7 +633,7 @@
       } catch (err) {
         state.originMode = 'taipei';
         updateOriginUi();
-        toast(`定位失敗，維持台北市中心：${err.message}`, 4200);
+        toast(`定位失敗，維持台北 101：${err.message}`, 4200);
       }
     }
     if (state.target && !state.target.bootstrap) {
@@ -826,6 +841,7 @@
     state.originMode = 'taipei';
     updateOriginUi();
     enterNationalMode();
+    $('app')?.classList.remove('intel-results-open');
     if ($('intelTitle')) $('intelTitle').textContent = 'TAIWAN NATIONAL GRID';
     await refreshNationalSignals(true);
     if (state.nationalTimer) clearInterval(state.nationalTimer);
@@ -2796,30 +2812,74 @@
   }
 
   function cameraMediaElement() {
-    const stage = $('inlineCameraStage');
-    return stage?.querySelector('video, img, canvas') || null;
+    const popup = $('cctvPopup');
+    const stage = popup && !popup.hidden ? $('cctvPopupStage') : $('inlineCameraStage');
+    return stage?.querySelector('video, img') || null;
+  }
+
+  function analysisStages() {
+    const stages = [];
+    if ($('inlineCameraStage')) stages.push($('inlineCameraStage'));
+    if ($('cctvPopup') && !$('cctvPopup').hidden && $('cctvPopupStage')) stages.push($('cctvPopupStage'));
+    return stages;
+  }
+
+  function clearLiveVisionBoxes() {
+    analysisStages().forEach((stage) => stage.querySelectorAll('.live-vision-layer').forEach((node) => node.remove()));
+  }
+
+  function renderLiveVisionBoxes(predictions = [], srcW = 1, srcH = 1) {
+    clearLiveVisionBoxes();
+    const allowed = new Set(['person','car','bus','truck','motorcycle','bicycle']);
+    const found = predictions.filter((x) => allowed.has(x.class));
+    analysisStages().forEach((stage) => {
+      const layer = document.createElement('div');
+      layer.className = 'live-vision-layer';
+      const stageW = Math.max(1, stage.clientWidth || stage.getBoundingClientRect().width || srcW);
+      const stageH = Math.max(1, stage.clientHeight || stage.getBoundingClientRect().height || srcH);
+      const fitScale = Math.min(stageW / Math.max(1,srcW), stageH / Math.max(1,srcH));
+      const drawW = srcW * fitScale, drawH = srcH * fitScale;
+      const offsetX = (stageW - drawW) / 2, offsetY = (stageH - drawH) / 2;
+      found.forEach((p) => {
+        const [x,y,w,h] = p.bbox || [0,0,0,0];
+        const box = document.createElement('div');
+        box.className = `live-vision-box ${p.class === 'person' ? 'person' : 'vehicle'}`;
+        box.style.left = `${Math.max(0, offsetX + x * fitScale)}px`;
+        box.style.top = `${Math.max(0, offsetY + y * fitScale)}px`;
+        box.style.width = `${Math.max(12, w * fitScale)}px`;
+        box.style.height = `${Math.max(12, h * fitScale)}px`;
+        box.innerHTML = `<span>${escapeHtml(String(p.class || '').toUpperCase())} ${Math.round(Number(p.score || 0)*100)}%</span>`;
+        layer.appendChild(box);
+      });
+      const stamp = document.createElement('div');
+      stamp.className = 'live-vision-stamp';
+      stamp.textContent = `LIVE ANALYSIS · ${new Date().toLocaleTimeString('zh-TW',{hour12:false})}`;
+      layer.appendChild(stamp);
+      stage.appendChild(layer);
+    });
   }
 
   async function runCameraFrameAnalysis() {
+    if (state.visionBusy) return;
     const cam = state.inlineCamera || state.activeCamera;
     const media = cameraMediaElement();
     const lab = $('cameraVisionLab'), status = $('visionLabStatus'), metrics = $('cameraAnalysisMetrics'), types = $('cameraAnalysisTypes'), canvas = $('cameraAnalysisCanvas');
     if (!lab || !status || !metrics || !types || !canvas) return;
     lab.hidden = false;
     if (!cam || !media) { status.textContent = 'NO FRAME'; types.textContent = '請先選擇一支可播放的 CCTV。'; return; }
-    status.textContent = 'LOADING FREE MODEL…';
+    state.visionBusy = true;
     try {
-      if (media.tagName === 'VIDEO' && media.readyState < 2) throw new Error('影像尚未就緒，請稍後再分析');
+      if (media.tagName === 'VIDEO' && media.readyState < 2) throw new Error('影像尚未就緒，稍後會自動重試');
       if (media.tagName === 'IMG' && !media.complete) await media.decode?.();
       const model = await getVisionModel();
-      status.textContent = 'ANALYZING ONE FRAME…';
+      status.textContent = state.visionRunning ? 'LIVE ANALYSIS…' : 'ANALYZING…';
       const srcW = media.videoWidth || media.naturalWidth || media.width || 640;
       const srcH = media.videoHeight || media.naturalHeight || media.height || 360;
-      const maxW = 960;
+      const maxW = 720;
       const scale = Math.min(1, maxW / Math.max(1, srcW));
       canvas.width = Math.max(320, Math.round(srcW * scale));
       canvas.height = Math.max(180, Math.round(srcH * scale));
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently:true });
       ctx.clearRect(0,0,canvas.width,canvas.height);
       ctx.drawImage(media, 0, 0, canvas.width, canvas.height);
       const predictions = await model.detect(canvas, 30, 0.35);
@@ -2827,17 +2887,10 @@
       const found = predictions.filter((x) => allowed.has(x.class));
       const counts = {}; let personArea = 0, vehicleArea = 0;
       const vehicleClasses = new Set(['car','bus','truck','motorcycle','bicycle']);
-      ctx.lineWidth = Math.max(2, canvas.width / 360); ctx.font = `${Math.max(12,Math.round(canvas.width/52))}px ui-monospace,monospace`;
       found.forEach((p) => {
         counts[p.class] = (counts[p.class] || 0) + 1;
         const [x,y,w,h] = p.bbox; const area = Math.max(0,w*h) / Math.max(1,canvas.width*canvas.height);
         if (p.class === 'person') personArea += area; else if (vehicleClasses.has(p.class)) vehicleArea += area;
-        ctx.strokeStyle = p.class === 'person' ? '#e0c77f' : '#8bbda2';
-        ctx.fillStyle = 'rgba(3,5,6,.78)';
-        ctx.strokeRect(x,y,w,h);
-        const label = `${p.class.toUpperCase()} ${Math.round(p.score*100)}%`;
-        const tw = ctx.measureText(label).width + 8; const th = Math.max(17,canvas.width/38);
-        ctx.fillRect(x, Math.max(0,y-th), tw, th); ctx.fillStyle = '#f2eee1'; ctx.fillText(label, x+4, Math.max(13,y-4));
       });
       const persons = counts.person || 0;
       const vehicles = [...vehicleClasses].reduce((n,k)=>n+(counts[k]||0),0);
@@ -2846,24 +2899,114 @@
       metrics.innerHTML = `<div><small>PERSON</small><b>${persons}</b></div><div><small>VEHICLE</small><b>${vehicles}</b></div><div><small>CROWD</small><b>${densityLabel(crowdScore)} <em>${crowdScore}</em></b></div><div><small>TRAFFIC</small><b>${densityLabel(trafficScore)} <em>${trafficScore}</em></b></div>`;
       const typeOrder = ['car','bus','truck','motorcycle','bicycle','person'];
       const chips = typeOrder.filter((k)=>counts[k]).map((k)=>`<span><b>${k.toUpperCase()}</b><em>${counts[k]}</em></span>`).join('');
-      types.innerHTML = `${chips || '<span><b>NO TARGET CLASS</b><em>0</em></span>'}<small>單一影格推估：遮擋、鏡頭角度、夜間與低畫質會影響結果。CROWD/TRAFFIC 是畫面密度指數，不是實際場館人數。只做物件類別；不提供品牌／精確車型、人臉、車牌或身份辨識。</small>`;
+      types.innerHTML = `${chips || '<span><b>NO TARGET CLASS</b><em>0</em></span>'}<small>分析框直接疊在目前 CCTV，約每 4–5 秒更新一次。受遮擋、角度、夜間與低畫質影響；密度為畫面估計，不是實際人數。不提供品牌／精確車型、人臉、車牌或身份辨識；NO TRACKING。</small>`;
+      const scaleX = srcW / Math.max(1,canvas.width), scaleY = srcH / Math.max(1,canvas.height);
+      renderLiveVisionBoxes(found.map((p)=>({ ...p, bbox:[p.bbox[0]*scaleX,p.bbox[1]*scaleY,p.bbox[2]*scaleX,p.bbox[3]*scaleY] })), srcW, srcH);
       state.visionAnalysis = { cameraId:cam.id, at:Date.now(), counts, crowdScore, trafficScore };
-      status.textContent = `FRAME ANALYZED · ${found.length} OBJECTS`;
+      status.textContent = `LIVE · ${found.length} OBJECTS · ${new Date().toLocaleTimeString('zh-TW',{hour12:false})}`;
     } catch (err) {
-      status.textContent = 'ANALYSIS UNAVAILABLE';
-      types.innerHTML = `<small>${escapeHtml(err.message || '此 CCTV 目前無法進行瀏覽器單幀分析。')}。即時影像仍可正常觀看；VD / FLOW 感測融合不受影響。</small>`;
+      status.textContent = 'ANALYSIS RETRY';
+      types.innerHTML = `<small>${escapeHtml(err.message || '此 CCTV 暫時無法分析')}。若影像來源禁止瀏覽器讀取畫素，仍可正常觀看 CCTV 與 VD / FLOW 感測融合。</small>`;
+    } finally {
+      state.visionBusy = false;
     }
   }
 
+  function setVisionButtons(active) {
+    [$('cameraAnalyzeBtn'), $('cctvPopupAnalyze')].filter(Boolean).forEach((btn) => {
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', String(active));
+      btn.textContent = active ? '■ STOP ANALYSIS' : 'LIVE ANALYSIS';
+    });
+  }
+
+  function stopCameraLiveAnalysis({ collapse = false } = {}) {
+    state.visionRunning = false;
+    clearTimeout(state.visionLoopTimer); state.visionLoopTimer = null;
+    clearLiveVisionBoxes();
+    analysisStages().forEach((stage)=>stage.classList.remove('live-analysis-active'));
+    setVisionButtons(false);
+    if ($('visionLabStatus')) $('visionLabStatus').textContent = 'READY';
+    if (collapse && $('cameraVisionLab')) $('cameraVisionLab').hidden = true;
+  }
+
+  function startCameraLiveAnalysis() {
+    if (!(state.inlineCamera || state.activeCamera)) { toast('請先選擇一支 CCTV'); return; }
+    state.visionRunning = true;
+    analysisStages().forEach((stage)=>stage.classList.add('live-analysis-active'));
+    setVisionButtons(true);
+    if ($('cameraVisionLab')) $('cameraVisionLab').hidden = false;
+    clearTimeout(state.visionLoopTimer);
+    const loop = async () => {
+      if (!state.visionRunning) return;
+      await runCameraFrameAnalysis();
+      if (!state.visionRunning) return;
+      state.visionLoopTimer = setTimeout(loop, window.innerWidth <= 920 ? 5000 : 4000);
+    };
+    loop();
+  }
+
+  function toggleCameraLiveAnalysis() {
+    if (state.visionRunning) stopCameraLiveAnalysis({ collapse:false });
+    else startCameraLiveAnalysis();
+  }
+
+  function resetCctvPopupPosition() {
+    const popup = $('cctvPopup');
+    if (!popup) return;
+    popup.style.left = '50%'; popup.style.top = '50%'; popup.style.transform = 'translate(-50%,-50%)';
+  }
+
+  function openCctvPopup() {
+    const cam = state.inlineCamera || state.activeCamera;
+    const popup = $('cctvPopup');
+    if (!cam || !popup) { toast('請先選擇一支 CCTV'); return; }
+    popup.hidden = false;
+    resetCctvPopupPosition();
+    if (state.visionRunning) $('cctvPopupStage')?.classList.add('live-analysis-active');
+    $('cctvPopupTitle').textContent = shortName(cam.name || cam.road || 'PUBLIC CCTV');
+    $('cctvPopupMeta').textContent = `${cam.road || ''} ${cam.direction || ''} · ${cam.source || 'PUBLIC DATA'}`.trim();
+    renderCameraMedia($('cctvPopupStage'), cam);
+    renderCameraIntel(cam).catch(() => {});
+    setVisionButtons(state.visionRunning);
+    setTimeout(() => { if (state.visionRunning) runCameraFrameAnalysis(); }, 700);
+  }
+
+  function closeCctvPopup() {
+    const popup = $('cctvPopup');
+    if (!popup) return;
+    popup.hidden = true;
+    $('cctvPopupStage')?.classList.remove('live-analysis-active');
+    clearCameraStage($('cctvPopupStage'));
+    resetCctvPopupPosition();
+  }
+
+  function bindCctvPopupDrag() {
+    const popup = $('cctvPopup'), handle = $('cctvPopupHandle');
+    if (!popup || !handle || handle.dataset.dragBound) return;
+    handle.dataset.dragBound = '1';
+    let drag = null;
+    handle.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      const r = popup.getBoundingClientRect();
+      drag = { id:e.pointerId, dx:e.clientX-r.left, dy:e.clientY-r.top, w:r.width, h:r.height };
+      popup.style.transform = 'none'; popup.style.left = `${r.left}px`; popup.style.top = `${r.top}px`;
+      handle.setPointerCapture?.(e.pointerId); e.preventDefault();
+    });
+    handle.addEventListener('pointermove', (e) => {
+      if (!drag || drag.id !== e.pointerId) return;
+      const pad = 6;
+      const left = Math.min(window.innerWidth-drag.w-pad, Math.max(pad, e.clientX-drag.dx));
+      const top = Math.min(window.innerHeight-drag.h-pad, Math.max(pad, e.clientY-drag.dy));
+      popup.style.left = `${left}px`; popup.style.top = `${top}px`;
+    });
+    const end = (e) => { if (drag && (!e || drag.id === e.pointerId)) drag = null; };
+    handle.addEventListener('pointerup', end); handle.addEventListener('pointercancel', end);
+  }
+
   function toggleInlineCameraExpand(force = null) {
-    const card = $('inlineCameraCard'), btn = $('inlineCameraExpand');
-    if (!card || !btn) return;
-    const next = force == null ? !card.classList.contains('camera-expanded') : Boolean(force);
-    card.classList.toggle('camera-expanded', next);
-    document.body.classList.toggle('camera-expanded-open', next);
-    btn.setAttribute('aria-pressed', String(next));
-    btn.textContent = next ? '× 縮小' : '⛶ 放大';
-    if (next) openIntelResults();
+    if (force === false) { closeCctvPopup(); return; }
+    openCctvPopup();
   }
 
   function selectInlineCamera(cam, cityFlow = []) {
@@ -2875,9 +3018,15 @@
     $('inlineCameraMeta').textContent = `${cam.road || ''} ${cam.direction || ''} · ${cam.source || 'PUBLIC DATA'}`.trim();
     renderCameraMedia($('inlineCameraStage'), cam);
     syncLocalPrivacyMask($('inlineCameraStage'));
-    if ($('cameraVisionLab')) $('cameraVisionLab').hidden = true;
-    if ($('visionLabStatus')) $('visionLabStatus').textContent = 'READY';
+    if ($('cctvPopup') && !$('cctvPopup').hidden) {
+      $('cctvPopupTitle').textContent = shortName(cam.name || cam.road || 'PUBLIC CCTV');
+      $('cctvPopupMeta').textContent = `${cam.road || ''} ${cam.direction || ''} · ${cam.source || 'PUBLIC DATA'}`.trim();
+      renderCameraMedia($('cctvPopupStage'), cam);
+    }
+    if (!state.visionRunning && $('cameraVisionLab')) $('cameraVisionLab').hidden = true;
+    if ($('visionLabStatus')) $('visionLabStatus').textContent = state.visionRunning ? 'SWITCHING CAMERA…' : 'READY';
     renderCameraIntel(cam).catch(() => {});
+    if (state.visionRunning) setTimeout(() => runCameraFrameAnalysis(), 900);
     document.querySelectorAll('[data-inline-camera]').forEach((btn) => btn.classList.toggle('active', btn.dataset.inlineCamera === String(cam.id)));
   }
 
@@ -2928,7 +3077,7 @@
   }
 
   function applyPrivacyShield() {
-    [$('cameraStage'), $('wallMain'), $('inlineCameraStage'), $('nationalPreviewStage'), $('navCameraThumb')]
+    [$('cameraStage'), $('wallMain'), $('inlineCameraStage'), $('cctvPopupStage'), $('nationalPreviewStage'), $('navCameraThumb')]
       .filter(Boolean)
       .forEach(syncLocalPrivacyMask);
   }
@@ -2951,7 +3100,7 @@
   function isTunnelLaneContext(cam, vd) { return tunnelLaneContext(cam, vd).active; }
 
   function renderCameraVisionOverlay(cam, { status='SIGNAL', speed='—', vd=null } = {}) {
-    const stages = [$('cameraStage'), $('inlineCameraStage')].filter(Boolean);
+    const stages = [$('cameraStage'), $('inlineCameraStage'), $('cctvPopupStage')].filter(Boolean);
     if (!stages.length) return;
     stages.forEach((stage) => stage.querySelector('.vision-fusion')?.remove());
     const stage = stages[0];
@@ -2976,13 +3125,13 @@
   }
 
   function setCameraIntelContent(html = '', hidden = false) {
-    [$('cameraIntel'), $('inlineCameraSensor')].filter(Boolean).forEach((box) => { box.hidden = hidden; box.innerHTML = hidden ? '' : html; });
+    [$('cameraIntel'), $('inlineCameraSensor'), $('cctvPopupSensor')].filter(Boolean).forEach((box) => { box.hidden = hidden; box.innerHTML = hidden ? '' : html; });
   }
 
   async function renderCameraIntel(cam) {
     if (!state.vehicleIntel || !cam) {
       setCameraIntelContent('', true);
-      [$('cameraStage'), $('inlineCameraStage')].filter(Boolean).forEach((stage)=>stage.querySelector('.vision-fusion')?.remove());
+      [$('cameraStage'), $('inlineCameraStage'), $('cctvPopupStage')].filter(Boolean).forEach((stage)=>stage.querySelector('.vision-fusion')?.remove());
       return;
     }
     setCameraIntelContent('<span class="intel-kicker">LIVE SENSOR FUSION</span><b>融合 CCTV、VD 車道偵測器與即時路況…</b><small>道路感測分析不進行車牌 OCR、個別車輛識別或跨鏡頭追蹤。</small>', false);
@@ -3007,11 +3156,11 @@
       const laneHtml = lanes.length ? `<div class="lane-matrix">${lanes.slice(0,4).map((lane,i)=>`<div class="lane-card ${lane===best?'best':''}"><small>${escapeHtml(laneLabel(lane,i))}</small><b>${Number.isFinite(Number(lane.speed))?Math.round(Number(lane.speed)):'—'} <em>km/h</em></b><span>OCC ${Number.isFinite(Number(lane.occupancy))?Math.round(Number(lane.occupancy))+'%':'—'} · FLOW ${Number.isFinite(Number(lane.volume))?Math.round(Number(lane.volume)):'—'}</span><strong>${Number.isFinite(Number(lane.probability))?Math.round(Number(lane.probability))+'%':'—'}</strong></div>`).join('')}</div>` : '';
       const tctx = tunnelLaneContext(cam, vd);
       const safety = tctx.active && best ? `<small class="lane-safety">${escapeHtml(tctx.name || 'TUNNEL APPROACH')}：車道機率為目前速度／占有率／流量推算的短時趨勢，不保證未來速度；進入隧道後請依現場 LCS/CMS、標線與速限行駛${tctx.snow ? '，雪山隧道內禁止變換車道' : ''}。</small>` : '';
-      setCameraIntelContent(`<span class="intel-kicker">LIVE SENSOR FUSION · ROAD ANALYSIS</span><div class="intel-grid four"><div><small>FLOW STATE</small><b>${escapeHtml(status)}</b></div><div><small>AVG SPEED</small><b>${escapeHtml(speed)}</b></div><div><small>OCCUPANCY</small><b>${escapeHtml(occupancy)}</b></div><div><small>FLOW EDGE</small><b>${escapeHtml(bestText)}</b></div></div>${laneHtml}${safety}<small class="privacy-note">FREEWAY VD 1-MINUTE DATA + PUBLIC CCTV · VISION LAB 可選擇做單幀人／車類別與密度推估 · NO PLATE OCR / NO FACE ID / NO TRACKING</small>`, false);
+      setCameraIntelContent(`<span class="intel-kicker">LIVE SENSOR FUSION · ROAD ANALYSIS</span><div class="intel-grid four"><div><small>FLOW STATE</small><b>${escapeHtml(status)}</b></div><div><small>AVG SPEED</small><b>${escapeHtml(speed)}</b></div><div><small>OCCUPANCY</small><b>${escapeHtml(occupancy)}</b></div><div><small>FLOW EDGE</small><b>${escapeHtml(bestText)}</b></div></div>${laneHtml}${safety}<small class="privacy-note">FREEWAY VD 1-MINUTE DATA + PUBLIC CCTV · LIVE ANALYSIS 可將人／車類別與密度推估直接疊在 CCTV 畫面 · NO PLATE OCR / NO FACE ID / NO TRACKING</small>`, false);
       renderCameraVisionOverlay(cam, { status, speed, vd });
     } catch (err) {
       renderCameraVisionOverlay(cam, { status: 'PUBLIC FEED', speed: '—', vd: null });
-      setCameraIntelContent('<span class="intel-kicker">LIVE SENSOR FUSION</span><b>車道級感測資料暫時無法取得</b><small>公開 CCTV 仍可正常檢視；可手動啟動 VISION LAB 做單幀人／車類別與密度推估。未執行車牌或人臉辨識。</small>', false);
+      setCameraIntelContent('<span class="intel-kicker">LIVE SENSOR FUSION</span><b>車道級感測資料暫時無法取得</b><small>公開 CCTV 仍可正常檢視；可手動啟動 LIVE ANALYSIS，將人／車類別與密度推估疊在 CCTV 畫面。未執行車牌或人臉辨識。</small>', false);
     }
   }
 
@@ -3567,14 +3716,14 @@
     $('openSettings').addEventListener('click', () => { tactile(8); openOverlayPanel('settingsPanel'); });
     $('abRouteBtn')?.addEventListener('click', async () => {
       setSearchMode('nav', { focus:false });
-      const a = $('abOrigin')?.value?.trim() || '台北市中心';
+      const a = $('abOrigin')?.value?.trim() || '台北 101';
       const b = $('abTarget')?.value?.trim();
       if (!b) { toast('請輸入 B 點目的地'); $('abTarget')?.focus(); return; }
       await planRoute(a, b, { preference: 'recommended' });
       openIntelResults();
     });
     $('abSwap')?.addEventListener('click', async () => {
-      const a = $('abOrigin')?.value?.trim() || '台北市中心';
+      const a = $('abOrigin')?.value?.trim() || '台北 101';
       const b = $('abTarget')?.value?.trim();
       if (!b) return;
       $('abOrigin').value = b; $('abTarget').value = a;
@@ -3620,10 +3769,13 @@
     $('intelCollapse').addEventListener('click', toggleIntel);
     $('intelPanel').querySelector('.panel-head').addEventListener('click', (e) => { if (window.innerWidth <= 920 && e.target.id !== 'intelCollapse') toggleIntel(); });
     $('cameraSignal').addEventListener('click', () => runCommand('cctv'));
-    $('inlineCameraExpand')?.addEventListener('click', () => toggleInlineCameraExpand());
-    $('inlineCameraStage')?.addEventListener('dblclick', () => toggleInlineCameraExpand());
-    $('cameraAnalyzeBtn')?.addEventListener('click', () => runCameraFrameAnalysis());
-    $('visionLabClose')?.addEventListener('click', () => { if ($('cameraVisionLab')) $('cameraVisionLab').hidden = true; });
+    $('inlineCameraExpand')?.addEventListener('click', () => openCctvPopup());
+    $('inlineCameraStage')?.addEventListener('dblclick', () => openCctvPopup());
+    $('cctvPopupClose')?.addEventListener('click', closeCctvPopup);
+    $('cctvPopupAnalyze')?.addEventListener('click', toggleCameraLiveAnalysis);
+    bindCctvPopupDrag();
+    $('cameraAnalyzeBtn')?.addEventListener('click', toggleCameraLiveAnalysis);
+    $('visionLabClose')?.addEventListener('click', () => stopCameraLiveAnalysis({ collapse:true }));
     document.addEventListener('click', (e) => {
       const more = e.target.closest?.('[data-news-more]');
       if (!more) return;
@@ -3655,11 +3807,11 @@
     $('cockpitToggleBtn')?.addEventListener('click', () => toggleCockpitMode());
     $('stopTrackBtn')?.addEventListener('click', () => stopTracking(true));
     $('exitCockpit3d')?.addEventListener('click', () => toggleCockpitMode(false));
-    document.addEventListener('keydown', (e) => { if (/INPUT|TEXTAREA/.test(e.target?.tagName || '')) return; const map={1:'normal',2:'crt',3:'nvg',4:'flir',5:'noir',6:'snow'}; if(map[e.key]) setSensorMode(map[e.key]); else if(e.key.toLowerCase()==='d'){ const b=$('detectionToggle'); b?.click(); } else if(e.key.toLowerCase()==='c') toggleCockpitMode(); else if(e.key==='Escape' && $('inlineCameraCard')?.classList.contains('camera-expanded')) toggleInlineCameraExpand(false); else if(e.key==='Escape' && state.trackedContact) stopTracking(false); });
+    document.addEventListener('keydown', (e) => { if (/INPUT|TEXTAREA/.test(e.target?.tagName || '')) return; const map={1:'normal',2:'crt',3:'nvg',4:'flir',5:'noir',6:'snow'}; if(map[e.key]) setSensorMode(map[e.key]); else if(e.key.toLowerCase()==='d'){ const b=$('detectionToggle'); b?.click(); } else if(e.key.toLowerCase()==='c') toggleCockpitMode(); else if(e.key==='Escape' && $('cctvPopup') && !$('cctvPopup').hidden) closeCctvPopup(); else if(e.key==='Escape' && state.trackedContact) stopTracking(false); });
     window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); state.deferredInstall = e; $('installBtn').hidden = false; });
     $('installBtn').addEventListener('click', async () => { if (!state.deferredInstall) return; state.deferredInstall.prompt(); await state.deferredInstall.userChoice; state.deferredInstall = null; $('installBtn').hidden = true; });
     window.addEventListener('online', updateNetworkState); window.addEventListener('offline', updateNetworkState);
-    window.addEventListener('pagehide', () => { if (state.navigation.active) stopNavigation(false); if (state.trackedContact) stopTracking(false); });
+    window.addEventListener('pagehide', () => { if (state.navigation.active) stopNavigation(false); if (state.trackedContact) stopTracking(false); stopCameraLiveAnalysis({ collapse:false }); closeCctvPopup(); });
   }
 
   function bindToggle(id, onChange) {
@@ -3692,6 +3844,7 @@
 
   function toggleIntel() {
     state.intelOpen = !state.intelOpen;
+    $('app')?.classList.toggle('intel-results-open', state.intelOpen);
     $('intelPanel').classList.toggle('open', state.intelOpen);
     $('intelCollapse').textContent = state.intelOpen ? '−' : '+';
   }
