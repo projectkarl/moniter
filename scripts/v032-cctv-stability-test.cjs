@@ -6,7 +6,7 @@ const app = fs.readFileSync('app.js','utf8');
 const server = fs.readFileSync('server/cctv.js','utf8');
 const sw = fs.readFileSync('sw.js','utf8');
 function ok(v,m){ assert.ok(v,m); console.log('PASS',m); }
-ok(html.includes('0.39.0 HIGHWAY LIVE + NAV VISION'),'v0.32 build label');
+ok(html.includes('0.40.0 FAST FLOW + CCTV'),'v0.32 build label');
 ok(server.includes('liveOnly:national') && server.includes('localSourceIds') && server.includes('timeoutCap'),'local CCTV uses relevant fast registry while national stays live-only');
 ok(server.includes('loadScenicForQuery') && server.includes('official-original'),'scenic/original source fusion enabled');
 ok(server.includes('referencePlaybackCount:0'),'reference pages are never playback sources');
@@ -19,5 +19,5 @@ ok(app.includes('const requestSeq = ++state.targetRequestSeq') && app.includes('
 ok(!/setTimeout\(\(\) => btn\.click\(\), 0\)/.test(app),'CCTV wall no longer auto-clicks into flyTo');
 ok(html.includes('data-command="cctv"') && !html.includes('data-mission="theater"><span>⌁</span>戰情總覽'),'mobile dock simplified');
 ok(css.includes('v0.32.0 CCTV STABILITY + MOBILE CLEAN MODE'),'mobile clean-mode CSS present');
-ok(sw.includes('eye-taiwan-shell-v390'),'service worker cache bumped');
+ok(sw.includes('eye-taiwan-shell-v400'),'service worker cache bumped');
 console.log('V0.32 CCTV STABILITY PASS');

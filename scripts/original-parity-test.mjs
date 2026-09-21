@@ -4,7 +4,7 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const read = (f)=>fs.readFileSync(path.join(root,f),'utf8');
 const html=read('index.html'), js=read('app.js'), css=read('styles.css'), sw=read('sw.js');
 function ok(cond,msg){ if(!cond){ console.error('FAIL',msg); process.exitCode=1; } else console.log('PASS',msg); }
-ok(html.includes('0.39.0 HIGHWAY LIVE + NAV VISION'),'v0.30 build label');
+ok(html.includes('0.40.0 FAST FLOW + CCTV'),'v0.30 build label');
 for (const id of ['trackHud','trackDetails','cockpit3d','cesiumCockpitCanvas','sourceDrawer','sourceMatrix','provenanceRibbon','detectionToggle','voiceMarkupToggle']) ok(html.includes(`id="${id}"`),`DOM ${id}`);
 for (const mode of ['normal','nvg','flir','noir','crt','snow']) ok(html.includes(`data-sensor="${mode}"`),`sensor ${mode}`);
 for (const token of ['SOURCE_CATALOG','lockMapContact','refreshTrackedAircraft','openCockpit3d','handleVoiceMarkupCommand','renderSourceMatrix','addAnnotation','clearAnnotations']) ok(js.includes(token),`logic ${token}`);
@@ -18,7 +18,7 @@ ok(js.includes("Browser SpeechRecognition + local command parser"),'voice transp
 ok(js.includes("mode:'MODEL'") && js.includes("mode:'DERIVED'") && js.includes("mode:'LIVE'") && js.includes("mode:'OBSERVED'") && js.includes("mode:'ESTIMATED'") && js.includes("mode:'VISUAL'") && js.includes("mode:'STATIC'") && js.includes("mode:'UNAVAILABLE'"),'source state taxonomy');
 ok(css.includes('.sensor-nvg #cockpit3d canvas') && css.includes('.sensor-flir #cockpit3d canvas') && css.includes('.sensor-crt #cockpit3d canvas'),'3D sensor looks');
 ok(css.includes('.app-shell.detection-on'),'detection overlay styling');
-ok(sw.includes('eye-taiwan-shell-v390'),'service worker cache v30');
+ok(sw.includes('eye-taiwan-shell-v400'),'service worker cache v30');
 const apiFiles=fs.readdirSync(path.join(root,'api')).filter(x=>x.endsWith('.js'));
 ok(apiFiles.length===2,`Vercel Hobby functions = ${apiFiles.length}`);
 ok(!/process\.env/.test(js),'frontend zero-key');

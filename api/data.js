@@ -4,6 +4,7 @@ const handlers = {
   weather: require('../server/weather'),
   route: require('../server/route'),
   cctv: require('../server/cctv'),
+  'scenic-cctv': require('../server/scenic'),
   traffic: require('../server/traffic'),
   flow: require('../server/flow'),
   'city-flow': require('../server/city-flow'),

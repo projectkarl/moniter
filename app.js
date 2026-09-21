@@ -879,15 +879,36 @@
     $('nationalEventCount').textContent = String(traffic.length);
     $('nationalCameraCount').textContent = String(cctv.length);
     $('nationalAvgFlow').textContent = avg == null ? 'N/A' : `${avg}`;
-    $('nationalStatusText').textContent = allCritical.length ? `${allCritical.length} CRITICAL CORRIDOR${allCritical.length>1?'S':''} DETECTED` : (allSlow.length ? `${allSlow.length} SLOW CORRIDOR${allSlow.length>1?'S':''} WATCH` : 'TAIWAN NETWORK NOMINAL');
+    $('nationalStatusText').textContent = flow.length
+      ? (allCritical.length ? `${allCritical.length} CRITICAL CORRIDOR${allCritical.length>1?'S':''} DETECTED` : (allSlow.length ? `${allSlow.length} SLOW CORRIDOR${allSlow.length>1?'S':''} WATCH` : 'TAIWAN NETWORK NOMINAL'))
+      : (traffic.length ? `FLOW REFRESHING · ${traffic.length} EVENTS ONLINE` : 'WAITING FOR FREEWAY LIVE FLOW');
     $('nationalDataAge').textContent = new Date().toLocaleTimeString('zh-TW',{hour12:false,hour:'2-digit',minute:'2-digit'});
+    const summary = $('nationalNetworkSummary');
+    if (summary) {
+      const normalCount = flow.filter((x)=>Number.isFinite(Number(x.travelSpeed)) && Number(x.travelSpeed) >= 60).length;
+      const roadStats = Array.isArray(state.latestFlowMeta?.roadStats) ? state.latestFlowMeta.roadStats.slice(0,5) : [];
+      const chips = [
+        `<span><b>${flow.length}</b><small>FLOW SEGMENTS</small></span>`,
+        `<span class="critical"><b>${allCritical.length}</b><small>CONGESTED</small></span>`,
+        `<span class="slow"><b>${Math.max(0,allSlow.length-allCritical.length)}</b><small>SLOW</small></span>`,
+        `<span class="clear"><b>${normalCount}</b><small>NORMAL</small></span>`,
+      ];
+      roadStats.forEach((r)=>chips.push(`<span class="road"><b>${escapeHtml(shortName(r.road || 'FREEWAY'))}</b><small>${r.avgSpeed==null?'—':r.avgSpeed+' km/h'} · ${r.critical||0} RED · ${r.slow||0} SLOW</small></span>`));
+      summary.innerHTML = chips.join('');
+    }
     const list = $('nationalHotspotList');
-    list.innerHTML = critical.length ? critical.map((h,i) => {
-      const speed = Math.round(Number(h.travelSpeed) || 0);
-      const severe = h.status === 'congested' || speed < 30;
-      const cam = nearestCameraForHotspot(h, cctv);
-      return `<button type="button" data-national-hotspot="${i}" class="national-hotspot-card ${i===0?'active':''} ${severe?'danger':'watch'}"><span><i></i>${severe?'CONGESTION':'SLOW WATCH'} ${String(i+1).padStart(2,'0')}</span><b>${escapeHtml(shortName(h.road || h.name || 'FREEWAY'))}</b><strong>${speed} km/h · ${escapeHtml(h.reason.label || (severe?'壅塞':'車多'))}</strong><em>${escapeHtml(h.start || '')}${h.end ? ` → ${escapeHtml(h.end)}` : ''}</em><small>${cam ? `LIVE CCTV ${cam._hotspotDistance.toFixed(1)} km · 點擊預覽` : '點擊查看路段情報'}</small></button>`;
-    }).join('') : '<div class="national-empty">國道即時流速已上線；目前沒有取得可排序的低速路段。</div>';
+    if (critical.length) {
+      list.innerHTML = critical.map((h,i) => {
+        const speed = Math.round(Number(h.travelSpeed) || 0);
+        const severe = h.status === 'congested' || speed < 30;
+        const cam = nearestCameraForHotspot(h, cctv);
+        return `<button type="button" data-national-hotspot="${i}" class="national-hotspot-card ${i===0?'active':''} ${severe?'danger':'watch'}"><span><i></i>${severe?'CONGESTION':'SLOW WATCH'} ${String(i+1).padStart(2,'0')}</span><b>${escapeHtml(shortName(h.road || h.name || 'FREEWAY'))}</b><strong>${speed} km/h · ${escapeHtml(h.reason.label || (severe?'壅塞':'車多'))}</strong><em>${escapeHtml(h.start || '')}${h.end ? ` → ${escapeHtml(h.end)}` : ''}</em><small>${cam ? `LIVE CCTV ${cam._hotspotDistance.toFixed(1)} km · 點擊預覽` : '點擊查看路段情報'}</small></button>`;
+      }).join('');
+    } else if (traffic.length) {
+      list.innerHTML = traffic.slice(0,6).map((ev,i)=>`<button type="button" class="national-hotspot-card watch event-only"><span><i></i>TRAFFIC EVENT ${String(i+1).padStart(2,'0')}</span><b>${escapeHtml(shortName(ev.road || ev.title || 'ROAD EVENT'))}</b><strong>${escapeHtml(shortName(ev.title || ev.description || '即時道路事件'))}</strong><em>${escapeHtml(String(ev.description || '').slice(0,72))}</em><small>FLOW 資料更新中 · 事件資料已上線</small></button>`).join('');
+    } else {
+      list.innerHTML = `<div class="national-empty"><b>${flow.length ? 'NETWORK NOMINAL' : 'FLOW NETWORK CONNECTING'}</b><span>${flow.length ? `已取得 ${flow.length} 段國道路況，目前沒有顯著低速路段。` : '先顯示事件與 CCTV；官方國道路速接通後會自動補上綠／黃／橘／紅色帶。'}</span></div>`;
+    }
     list.querySelectorAll('[data-national-hotspot]').forEach((btn) => btn.addEventListener('click', () => { const h=critical[Number(btn.dataset.nationalHotspot)]; if(h) selectNationalHotspot(h); }));
 
     state.nationalHotspotLayer?.clearLayers();
@@ -932,13 +953,23 @@
   }
 
   async function setFreewayMode(active = true) {
-    state.freewayMode = Boolean(active);
+    const next = Boolean(active);
+    if (next && !state.freewayMode) state.freewayPrevMapSource = state.mapSource || 'satellite';
+    state.freewayMode = next;
     syncFreewayModeUi();
-    if (!state.freewayMode) return;
+    if (!state.freewayMode) {
+      if (state.freewayPrevMapSource) setMapSource(state.freewayPrevMapSource, false);
+      state.freewayPrevMapSource = null;
+      return;
+    }
+    // Street/tactical base makes the traffic colors read like a dedicated road-status map.
+    setMapSource('tactical', false);
     setOverlayVisibility('flow', true, false);
     setOverlayVisibility('event', true, false);
     setOverlayVisibility('cctv', true, false);
     enterNationalMode();
+    $('nationalOverview')?.classList.remove('compact');
+    if ($('nationalCompactBtn')) $('nationalCompactBtn').textContent = '−';
     state.cctvPreviewLayer?.clearLayers?.();
     state.cctvPreviewCards = [];
     resetNationalMapView({ animate:true });
@@ -999,19 +1030,30 @@
 
   async function refreshNationalSignals(includeCctv = false) {
     if (!state.nationalMode) return;
-    const jobs = [
-      loadFlow(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon, false, 220),
-      loadTraffic(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon, false, 250, { draw:false }),
-    ];
-    if (includeCctv || !state.latestCctv.length) jobs.push(loadCctv(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon, false, 420, { draw:false, national:true }));
-    const results = await Promise.allSettled(jobs);
-    const flow = results[0]?.status === 'fulfilled' ? (results[0].value || []) : state.latestFlow;
-    const traffic = results[1]?.status === 'fulfilled' ? (results[1].value || []) : state.latestTraffic;
-    const cctv = jobs.length > 2 && results[2]?.status === 'fulfilled' ? (results[2].value || []) : state.latestCctv;
-    renderCctvMapMarkers(cctv, { national:true });
-    renderNationalTrafficMarkers(traffic);
-    renderNationalOverview({ flow, traffic, cctv });
-    if (includeCctv && state.nationalMode) setTimeout(() => resetNationalMapView({ animate:false }), 50);
+    const flowPromise = loadFlow(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon, false, 240);
+    const trafficPromise = loadTraffic(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon, false, 250, { draw:false });
+    const cctvPromise = (includeCctv || !state.latestCctv.length)
+      ? loadCctv(NATIONAL_CENTER.lat, NATIONAL_CENTER.lon, false, 420, { draw:false, national:true, fast:true })
+      : Promise.resolve(state.latestCctv || []);
+
+    // Progressive paint: no single slow source is allowed to hold the entire national board hostage.
+    flowPromise.then((flow)=>{
+      if (!state.nationalMode) return;
+      renderNationalOverview({ flow:flow || state.latestFlow || [], traffic:state.latestTraffic || [], cctv:state.latestCctv || [] });
+    }).catch(()=>{});
+    trafficPromise.then((traffic)=>{
+      if (!state.nationalMode) return;
+      renderNationalTrafficMarkers(traffic || []);
+      renderNationalOverview({ flow:state.latestFlow || [], traffic:traffic || [], cctv:state.latestCctv || [] });
+    }).catch(()=>{});
+    cctvPromise.then((cctv)=>{
+      if (!state.nationalMode) return;
+      renderCctvMapMarkers(cctv || [], { national:true });
+      renderNationalOverview({ flow:state.latestFlow || [], traffic:state.latestTraffic || [], cctv:cctv || [] });
+      if (includeCctv) setTimeout(() => { if (state.nationalMode) resetNationalMapView({ animate:false }); }, 50);
+    }).catch(()=>{});
+
+    await Promise.allSettled([flowPromise, trafficPromise, cctvPromise]);
   }
 
   async function bootstrapDefaultCenter() {
@@ -1383,7 +1425,7 @@
         const stage = $(stageId);
         if (!stage || !state.cctvPreviewLayer?.hasLayer?.(marker)) return;
         renderCameraMedia(stage, cam, { fast:true, preview:true }).catch?.(() => {});
-      }, 40 + index * 90);
+      }, index * 45);
     });
     setTimeout(layoutTargetCctvPreviews, 0);
   }
@@ -1392,7 +1434,7 @@
     if (!place || !Number.isFinite(Number(place.lat)) || !Number.isFinite(Number(place.lon ?? place.lng))) return;
     const lat = Number(place.lat), lon = Number(place.lon ?? place.lng);
     let items = state.target === place && state.latestCctv?.length ? state.latestCctv : [];
-    if (!items.length) items = await loadCctv(lat, lon, false, 35, { query:place.name || '' });
+    if (!items.length) items = await loadCctv(lat, lon, false, 35, { fast:true });
     renderCctvMapMarkers(items || []);
     renderTargetCctvPreviews(place, items || []);
     renderInlineCctvResults(items || [], place, state.latestCityFlow || []);
@@ -1435,10 +1477,12 @@
     updateMapTelemetry(place.lat, place.lon);
     setTimeout(() => { signalAcquire(false); showTargetLock(place); }, state.motion ? (transferDistance > 1.5 ? 880 : 520) : 0);
     $('intelTitle').textContent = String(place.name || 'TARGET').toUpperCase().slice(0, 42);
-    const cctvPromise = loadCctv(place.lat, place.lon, false, 35, { requestSeq, query:place.name || '' });
+    const cctvPromise = loadCctv(place.lat, place.lon, false, 35, { requestSeq, fast:true });
     cctvPromise.then((items) => {
       if (requestSeq !== state.targetRequestSeq || state.target !== place) return;
       renderTargetCctvPreviews(place, items || []);
+      // Scenic/live-tourism cameras enrich in the background and never block nearby road CCTV.
+      enrichTargetScenic(place, requestSeq).catch(() => {});
     }).catch(() => {});
     const results = await Promise.allSettled([
       loadWeather(place.lat, place.lon, true),
@@ -1480,6 +1524,28 @@
       if (!map.has(key)) map.set(key, cam);
     });
     return [...map.values()];
+  }
+
+  async function enrichTargetScenic(place, requestSeq = state.targetRequestSeq) {
+    const q = String(place?.name || '').trim();
+    if (!q || !Number.isFinite(Number(place?.lat)) || !Number.isFinite(Number(place?.lon ?? place?.lng))) return [];
+    try {
+      const data = await jsonFetch(`/api/data?action=scenic-cctv&q=${encodeURIComponent(q)}&lat=${Number(place.lat).toFixed(6)}&lon=${Number(place.lon ?? place.lng).toFixed(6)}`);
+      const scenic = Array.isArray(data?.items) ? data.items : [];
+      if (!scenic.length || requestSeq !== state.targetRequestSeq || state.target !== place) return scenic;
+      const merged = mergeCctvItems(scenic, state.latestCctv || []);
+      merged.forEach((cam) => {
+        if (!Number.isFinite(Number(cam.distance)) && Number.isFinite(Number(cam.lat)) && Number.isFinite(Number(cam.lon))) {
+          cam.distance = haversineKm(Number(place.lat), Number(place.lon ?? place.lng), Number(cam.lat), Number(cam.lon));
+        }
+      });
+      state.latestCctv = merged;
+      renderCctvMapMarkers(merged);
+      renderTargetCctvPreviews(place, merged);
+      renderInlineCctvResults(merged, place, state.latestCityFlow || []);
+      if ($('cameraCount')) $('cameraCount').textContent = String(merged.length);
+      return scenic;
+    } catch (_) { return []; }
   }
 
   async function searchCctvByText(query, limit = 100) {
@@ -3082,8 +3148,9 @@
     $('cameraCount').textContent = '…';
     try {
       const nationalQuery = options.national ? '&national=1&limit=8000' : '';
+      const fastQuery = options.fast ? '&fast=1' : '';
       const targetQuery = options.query ? `&q=${encodeURIComponent(options.query)}` : '';
-      const data = await jsonFetch(`/api/data?action=cctv&lat=${lat}&lon=${lon}&radius=${Math.round(radius)}${nationalQuery}${targetQuery}`);
+      const data = await jsonFetch(`/api/data?action=cctv&lat=${lat}&lon=${lon}&radius=${Math.round(radius)}${nationalQuery}${fastQuery}${targetQuery}`);
       const items = data.items || [];
       if (options.requestSeq && options.requestSeq !== state.targetRequestSeq) return items;
       state.latestCctv = items;
@@ -3818,10 +3885,16 @@
     if (!state.flowLayer) return;
     $('flowStatus').textContent = '…';
     try {
-      const data = await jsonFetch(`/api/data?action=flow&lat=${lat}&lon=${lon}&radius=${Math.round(radius)}`);
-      const items = data.items || [];
-      state.flowLayer.clearLayers();
-      state.latestFlow = items;
+      const nationalQuery = (state.nationalMode || state.freewayMode || radius >= 180) ? '&national=1' : '';
+      const data = await jsonFetch(`/api/data?action=flow&lat=${lat}&lon=${lon}&radius=${Math.round(radius)}${nationalQuery}`);
+      let items = data.items || [];
+      state.latestFlowMeta = data;
+      // Never erase a visible national network because one refresh temporarily degraded.
+      if (!items.length && data.degraded && state.latestFlow?.length) items = state.latestFlow;
+      if (items.length) {
+        state.flowLayer.clearLayers();
+        state.latestFlow = items;
+      }
       items.forEach((segment) => {
         if (!Array.isArray(segment.geometry) || segment.geometry.length < 2) return;
         const visual = flowVisual(segment);

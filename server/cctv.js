@@ -46,18 +46,22 @@ module.exports = async (req, res) => {
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
   const radius = Math.min(520, Math.max(0.2, Number(req.query.radius || (q ? 280 : 40))));
   const national = String(req.query.national || '') === '1';
+  const fast = String(req.query.fast || '') === '1';
   const limit = Math.min(8000, Math.max(1, Number(req.query.limit || (q ? 240 : national ? 8000 : 620))));
   if (!hasCoords && !q) return json(res, 400, { error: 'Coordinates or q is required' });
 
   try {
-    const sourceIds = !national && hasCoords ? localSourceIds(lat, lon) : null;
-    const registryPromise = deadline(
-      loadRegistry({ liveOnly:national, sourceIds, timeoutCap:national ? null : 4400 }),
-      national ? 24000 : 4700,
-      { items:[], sourceStatus:[] },
-    );
-    const scenicPromise = hasCoords && q && !national && shouldSearchScenic(q)
-      ? deadline(loadScenicForQuery(q, lat, lon, 5), 5200, [])
+    // v0.40: national mode only needs national road cameras; local mode returns partial
+    // source results quickly instead of waiting for every municipal endpoint.
+    const sourceIds = national ? ['freeway','highway'] : (hasCoords ? localSourceIds(lat, lon) : null);
+    const registryPromise = loadRegistry({
+      liveOnly:national,
+      sourceIds,
+      timeoutCap:national ? 3600 : (fast ? 2400 : 4200),
+    });
+    // Scenic discovery is intentionally decoupled from the fast nearby-road request.
+    const scenicPromise = !fast && hasCoords && q && !national && shouldSearchScenic(q)
+      ? deadline(loadScenicForQuery(q, lat, lon, 5), 4600, [])
       : Promise.resolve([]);
 
     const [{ items:registry, sourceStatus }, scenicResult] = await Promise.all([registryPromise, scenicPromise]);
@@ -116,7 +120,7 @@ module.exports = async (req, res) => {
         referencePlaybackCount:0,
       },
       items,
-      discovery: hasCoords ? { provider:'official-original', referencePlayback:false } : undefined,
+      discovery: hasCoords ? { provider:'official-original', referencePlayback:false, fast } : undefined,
       message: items.length ? undefined : (q
         ? '目前未找到此景點／路口可直接使用的原始公開 CCTV；只保留官方可驗證來源，不嵌入第三方參考站。'
         : '此範圍目前沒有取得 CCTV 點位或可直接播放影像。'),

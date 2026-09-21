@@ -2343,3 +2343,49 @@ body.camera-expanded-open{overflow:auto!important;}
 @media(max-width:520px){
   .nav-turn-scene{grid-template-columns:104px minmax(0,1fr) 34px}.nav-turn-scene-media,.nav-turn-scene-media img{min-height:70px}.nav-turn-scene-copy small{font-size:6px}.nav-turn-scene-copy b{font-size:11px}.nav-turn-scene-copy em{font-size:7px}.nav-turn-scene>strong{font-size:22px}
 }
+
+
+/* =========================================================
+   v0.40.0 — FAST NATIONAL FLOW + PROGRESSIVE CCTV
+   ========================================================= */
+/* Search controls must stay legible in every state; no bright white tiles. */
+.search-row .voice-btn,.search-row .go-btn,.search-row .search-locate-btn{
+  color:#d7edf0!important;
+  background:linear-gradient(180deg,rgba(5,24,32,.96),rgba(3,14,20,.96))!important;
+  border-color:rgba(111,206,220,.28)!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.025)!important;
+}
+.search-row .go-btn{color:#f0d58d!important;border-color:rgba(222,192,110,.32)!important;background:linear-gradient(180deg,rgba(52,43,20,.82),rgba(18,17,12,.95))!important;}
+.search-row .search-locate-btn.active,.search-row .search-locate-btn[aria-pressed="true"]{
+  color:#86efff!important;background:linear-gradient(180deg,rgba(4,31,41,.98),rgba(3,19,27,.98))!important;
+  border-color:rgba(96,236,255,.78)!important;
+}
+
+/* The user asked for more nearby camera previews. Do not silently hide cards 3+ on narrow phones. */
+@media(max-width:420px){.leaflet-cctvPreviewPane-pane .leaflet-marker-icon:nth-child(n+3){display:block!important}}
+
+.national-network-summary{display:flex;gap:6px;align-items:stretch;margin-top:7px;overflow-x:auto;overflow-y:hidden;padding-bottom:2px;scrollbar-width:thin;scrollbar-color:rgba(124,223,194,.22) transparent}
+.national-network-summary>span{flex:0 0 auto;min-width:92px;padding:6px 8px;border:1px solid rgba(255,255,255,.055);background:rgba(2,8,10,.62)}
+.national-network-summary b,.national-network-summary small{display:block;white-space:nowrap}.national-network-summary b{color:#d9e9e3;font:800 12px/1.05 ui-monospace,SFMono-Regular,Menlo,monospace}.national-network-summary small{margin-top:3px;color:#74817d;font:700 6px/1.15 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.055em}
+.national-network-summary .critical b{color:#ed8274}.national-network-summary .slow b{color:#e0a55f}.national-network-summary .clear b{color:#9bd2aa}.national-network-summary .road{min-width:122px}.national-network-summary .road b{color:#d8c47f}
+.national-empty b,.national-empty span{display:block}.national-empty b{color:#cddbd7;font:800 10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace}.national-empty span{margin-top:5px;color:#7f8d89;font-size:8px;line-height:1.4}
+
+/* In HWY mode, 1968-like road performance is the primary surface. */
+#app.freeway-mode .national-overview{max-height:min(34dvh,300px)!important;background:linear-gradient(180deg,rgba(3,12,14,.96),rgba(3,8,10,.95))!important}
+#app.freeway-mode .national-overview .national-metrics{display:grid!important}
+#app.freeway-mode .national-overview .national-network-summary{display:flex!important}
+#app.freeway-mode .national-overview .national-body{display:grid!important}
+#app.freeway-mode .national-overview .national-foot{display:flex!important}
+#app.freeway-mode .flow-legend{z-index:910!important}
+#app.freeway-mode .leaflet-flow-pane{opacity:1!important;filter:drop-shadow(0 0 4px rgba(0,0,0,.94)) saturate(1.28) brightness(1.05)!important}
+
+@media(max-width:920px){
+  #app.freeway-mode .national-overview{left:8px!important;right:8px!important;bottom:calc(72px + var(--safe-bottom))!important;width:auto!important;max-height:31dvh!important;overflow:hidden!important}
+  #app.freeway-mode .national-overview .national-body{display:block!important}
+  #app.freeway-mode .national-overview .national-preview{display:none!important}
+  #app.freeway-mode .national-hotspot-list{display:block!important;max-height:74px!important}
+  #app.freeway-mode .national-hotspot-card,#app.freeway-mode .national-hotspot-card:nth-child(n){display:block!important;min-height:46px!important}
+  #app.freeway-mode .national-hotspot-card:nth-child(n+4){display:none!important}
+  #app.freeway-mode .national-network-summary{margin-top:5px!important}
+  #app.freeway-mode .national-network-summary>span{min-width:84px;padding:5px 6px}
+}
