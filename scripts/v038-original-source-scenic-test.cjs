@@ -1,0 +1,21 @@
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const app = fs.readFileSync('app.js','utf8');
+const registry = fs.readFileSync('server/cctv-registry.js','utf8');
+const server = fs.readFileSync('server/cctv.js','utf8');
+const scenic = fs.readFileSync('server/scenic-cctv.js','utf8');
+const css = fs.readFileSync('styles.css','utf8');
+function ok(v,m){ assert.ok(v,m); console.log('PASS',m); }
+ok(registry.includes('hls.bote.gov.taipei/live/index.html?id='),'Taipei CCTV uses official BOTE source');
+ok(registry.includes('atis.ntpc.gov.tw/ATIS/ShowFrame4CCTV/'),'New Taipei CCTV uses official ATIS source');
+ok(!server.includes('twipcam') && !app.includes('twipcam.com'),'runtime no longer uses twipcam playback/index fallback');
+ok(scenic.includes('monitor1.wfuapp.com') && scenic.includes('isReferenceHost'),'monitor1 is reference-only resolver');
+ok(scenic.includes('deepenOriginalSource') && scenic.includes('upstreamPage'),'official wrapper pages are deep-resolved to direct media when possible');
+ok(scenic.includes('new URL(decodeHtml(m[1]), REFERENCE_ORIGIN)'),'relative reference article links are normalized safely');
+ok(server.includes('referencePlaybackCount:0'),'API declares zero reference-page playback');
+ok(scenic.includes('youtube.com/embed/XUWjAsajKXg') && scenic.includes('youtube.com/embed/GUCaVR88ZFU') && scenic.includes('youtube.com/embed/neaiCec1kec'),'verified official Taoyuan scenic live sources included');
+ok(app.includes('query:place.name') && app.includes('targetQuery'),'place name is sent to CCTV scenic resolver');
+ok(app.includes('Number(Boolean(b.scenic))-Number(Boolean(a.scenic))'),'scenic camera is prioritized at searched target');
+ok(app.includes("cam.scenic?'SCENIC':'LIVE'") && css.includes('.map-live-cctv-card.scenic'),'scenic camera has distinct map live-card treatment');
+ok(app.includes('renderScenicOriginal') && app.includes('camera-official-frame'),'scenic playback uses direct official frame/embed');
+console.log('V0.38 ORIGINAL SOURCE + SCENIC FUSION PASS');

@@ -42,7 +42,7 @@ function res(){
   let r=res();
   await handler({method:'GET',query:{q:'忠孝東路 與 基隆路 CCTV',limit:'20'}},r);
   if(r.code!==200) throw new Error(`query status ${r.code}`);
-  if(!r.body.items?.some((x)=>String(x.road || x.name).includes('忠孝東路') && !x.streamUrl)) throw new Error('position-only Taipei CCTV should be returned for local search');
+  if(!r.body.items?.some((x)=>String(x.road || x.name).includes('忠孝東路') && String(x.streamUrl||'').includes('hls.bote.gov.taipei'))) throw new Error('Taipei CCTV should resolve to original BOTE source');
   if(r.body.coverage?.activeSourceCount !== r.body.coverage?.sourceCount) throw new Error('source coverage status missing');
   if(!r.body.coverage?.liveCount || !(r.body.coverage?.positionOnlyCount > 0)) throw new Error('live + position-only coverage contract missing');
 
@@ -53,8 +53,7 @@ function res(){
   r=res();
   await handler({method:'GET',query:{lat:'25.041',lon:'121.565',radius:'2',limit:'50'}},r);
   if(r.code!==200) throw new Error('nearby lookup status failed');
-  if(!r.body.discovery?.nearbyUrl?.includes('twipcam.com/nearby?lat=25.041000&lon=121.565000')) throw new Error('twipcam coordinate discovery missing');
-  if(!r.body.items?.some((x)=>x.verifiedFallback && String(x.name).includes('101'))) throw new Error('Taipei 101 verified CCTV fallback missing');
-  if(!r.body.discovery?.widgetUrl?.includes('twipcam.com/widget/v1/query-cam-list-by-coordinate')) throw new Error('embeddable CCTV widget discovery missing');
+  if(r.body.discovery?.provider!=='official-original' || r.body.discovery?.referencePlayback!==false) throw new Error('official-original CCTV discovery contract missing');
+  if(r.body.coverage?.referencePlaybackCount!==0) throw new Error('reference pages must never be playback sources');
   console.log('CCTV V29 API SEARCH PASS');
 })().catch((e)=>{console.error(e);process.exit(1);});

@@ -14,7 +14,7 @@ assert.equal(taichung.length,1); assert.equal(taichung[0].id,'taichung:TC01');
 
 const taipeiCsv = '流水號,攝影機編號位置,WGSX,WGSY\n1,忠孝東路與基隆路口,121.565,25.041\n';
 const taipei = parseSourceText(taipeiCsv,taipeiSource);
-assert.equal(taipei.length,1); assert.equal(taipei[0].access,'position-only'); assert.equal(taipei[0].streamUrl,'');
+assert.equal(taipei.length,1); assert.equal(taipei[0].access,'live-wrapper'); assert.match(taipei[0].streamUrl,/hls\.bote\.gov\.taipei\/live\/index\.html\?id=1/);
 
 const freewayXml = '<Root><CCTV><CCTVID>F01</CCTVID><VideoStreamURL>https://cam.example/f.m3u8</VideoStreamURL><PositionLon>121.75</PositionLon><PositionLat>24.86</PositionLat><RoadName>國道5號</RoadName><RoadDirection>南向</RoadDirection><LocationMile>28K</LocationMile></CCTV></Root>';
 const freeway = parseSourceText(freewayXml,freewaySource);

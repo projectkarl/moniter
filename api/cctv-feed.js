@@ -99,9 +99,15 @@ async function resolveMediaTarget(camera) {
   const cached = mediaCache.get(camera.id);
   if (cached && cached.expiresAt > Date.now()) return cached;
   const original = safeHttpUrl(camera.streamUrl);
+  const obviousKind = mediaKind('', original.toString());
+  if (obviousKind !== 'unknown' && obviousKind !== 'html') {
+    const direct = { url: original, kind: obviousKind, contentType:'', expiresAt: Date.now() + 30 * 60 * 1000 };
+    mediaCache.set(camera.id, direct);
+    return direct;
+  }
   let response = await fetchWithTimeout(original.toString(), {
-    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'EYE-Taiwan/0.29 public-cctv-probe' },
-  }, 10000);
+    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'EYE-Taiwan/0.38 public-cctv-probe' },
+  }, 6500);
   if (!response.ok) throw new Error(`CCTV upstream HTTP ${response.status}`);
   const finalUrl = safeHttpUrl(response.url || original.toString());
   const contentType = response.headers.get('content-type') || '';
@@ -116,8 +122,8 @@ async function resolveMediaTarget(camera) {
     if (!discovered) throw new Error('No playable media found in CCTV wrapper');
     target = safeHttpUrl(discovered.toString());
     response = await fetchWithTimeout(target.toString(), {
-      headers: { Accept: '*/*', Range: 'bytes=0-4095', 'User-Agent': 'EYE-Taiwan/0.29 public-cctv-probe' },
-    }, 10000);
+      headers: { Accept: '*/*', Range: 'bytes=0-4095', 'User-Agent': 'EYE-Taiwan/0.38 public-cctv-probe' },
+    }, 6000);
     if (!response.ok) throw new Error(`CCTV media HTTP ${response.status}`);
     kind = mediaKind(response.headers.get('content-type') || '', response.url || target.toString());
     target = safeHttpUrl(response.url || target.toString());
@@ -129,7 +135,7 @@ async function resolveMediaTarget(camera) {
   }
 
   try { await response.body?.cancel?.(); } catch (_) {}
-  const out = { url: target, kind, contentType: response.headers.get('content-type') || contentType, expiresAt: Date.now() + 10 * 60 * 1000 };
+  const out = { url: target, kind, contentType: response.headers.get('content-type') || contentType, expiresAt: Date.now() + 30 * 60 * 1000 };
   mediaCache.set(camera.id, out);
   return out;
 }
@@ -172,10 +178,10 @@ module.exports = async (req, res) => {
 
     const headers = {
       Accept: '*/*',
-      'User-Agent': 'EYE-Taiwan/0.29 public-cctv-inline-proxy',
+      'User-Agent': 'EYE-Taiwan/0.38 public-cctv-inline-proxy',
     };
     if (req.headers?.range) headers.Range = req.headers.range;
-    const upstream = await fetchWithTimeout(target.toString(), { headers }, 15000);
+    const upstream = await fetchWithTimeout(target.toString(), { headers }, 12000);
     if (!upstream.ok || !upstream.body) return res.status(502).send(`CCTV upstream HTTP ${upstream.status}`);
 
     const finalUrl = safeHttpUrl(upstream.url || target.toString());

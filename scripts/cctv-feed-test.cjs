@@ -4,14 +4,14 @@ const xml = `<Root>
 <CCTV><CCTVID>C2</CCTVID><VideoStreamURL>https://cam.example/video.mp4</VideoStreamURL><PositionLon>121.6</PositionLon><PositionLat>25.1</PositionLat><RoadName>測試路口二</RoadName></CCTV>
 </Root>`;
 const playlist = `#EXTM3U\n#EXT-X-TARGETDURATION:4\nseg01.ts\n#EXT-X-ENDLIST`;
-let lastHeaders = null;
+let lastHeaders = null; let c2Fetches = 0;
 function headers(type, extras={}){ return { get(name){ const k=String(name).toLowerCase(); if(k==='content-type') return type; return extras[k] ?? null; } }; }
 function streamBytes(bytes=[1,2,3]){ return new ReadableStream({ start(c){ c.enqueue(new Uint8Array(bytes)); c.close(); } }); }
 global.fetch = async (url, opts={}) => {
   const u = String(url); lastHeaders = opts.headers || {};
   if (u.includes('CCTV.xml')) return { ok:true, status:200, async text(){ return xml; } };
   if (u === 'http://cam.example/live/master.m3u8') return { ok:true, status:200, url:u, headers:headers('application/vnd.apple.mpegurl'), body:streamBytes(), async text(){ return playlist; } };
-  if (u === 'https://cam.example/video.mp4') return { ok:true, status:206, url:u, headers:headers('video/mp4', {'content-range':'bytes 0-2/3','accept-ranges':'bytes','content-length':'3'}), body:streamBytes([0,0,0]), async arrayBuffer(){ return Uint8Array.from([0,0,0,24,102,116,121,112]).buffer; } };
+  if (u === 'https://cam.example/video.mp4') { c2Fetches++; return { ok:true, status:206, url:u, headers:headers('video/mp4', {'content-range':'bytes 0-2/3','accept-ranges':'bytes','content-length':'3'}), body:streamBytes([0,0,0]), async arrayBuffer(){ return Uint8Array.from([0,0,0,24,102,116,121,112]).buffer; } }; }
   throw new Error(`Unexpected URL ${u}`);
 };
 const handler = require('../api/cctv-feed');
@@ -39,7 +39,7 @@ class MockRes extends Writable {
   await handler({method:'GET',query:{id:'freeway:C2',probe:'1'},headers:{}},res);
   const videoProbe = JSON.parse(res.body);
   if(videoProbe.kind!=='video') throw new Error(`video probe failed ${res.body}`);
-  if(!String(lastHeaders.Range||lastHeaders.range||'').startsWith('bytes=')) throw new Error('probe range header missing');
+  if(c2Fetches!==0) throw new Error('obvious MP4 probe should not prefetch upstream media');
 
   console.log('CCTV INLINE FEED PASS');
 })().catch((e)=>{console.error(e);process.exit(1);});

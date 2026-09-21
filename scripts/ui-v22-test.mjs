@@ -7,7 +7,7 @@ const ok=(cond,msg)=>{console.log(`${cond?'PASS':'FAIL'} ${msg}`); if(!cond) fai
 ok(html.includes('ops-rail'),'desktop operations rail');
 ok(html.includes('source-pills'),'top source-state pills');
 ok(html.includes('intel-tabs'),'intelligence quick tabs');
-ok(html.includes('0.34.0 SEARCH FUSION + MAP CCTV'),'v0.30 build label');
+ok(html.includes('0.38.0 ORIGINAL SOURCE + SCENIC FUSION'),'v0.30 build label');
 ok(html.includes('mapFocusBtn'),'map focus control');
 ok(html.includes('nationalCompactBtn'),'national monitor compact control');
 ok(html.includes('taiwan-silhouette.svg'),'large Taiwan boot visual');

@@ -62,7 +62,7 @@ function run(handler, query){
   const cases = [
     ['weather',{lat:'25.03',lon:'121.55'}],
     ['route',{from:'121.5,25',to:'121.6,25.1'}],
-    ['cctv',{lat:'25.03',lon:'121.55',radius:'20'}],
+    ['cctv',{lat:'25.03',lon:'121.55',radius:'20',national:'1'}],
     ['traffic',{lat:'25.03',lon:'121.55',radius:'20'}],
     ['flow',{lat:'25.03',lon:'121.55',radius:'20'}],
     ['news',{lat:'24.75',lon:'121.75'}],

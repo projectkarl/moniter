@@ -1,6 +1,7 @@
 const { json, fetchText, distanceKm, tag, xmlBlocks, parseWktLineString, midpoint, simplifyCoords } = require('./_utils');
 
 const BASE = 'https://tisvcloud.freeway.gov.tw/history/motc20';
+let snapshot = { live: new Map(), sections: new Map(), shapes: new Map(), liveAt: 0, metaAt: 0 };
 
 function parseLive(xml) {
   const map = new Map();
@@ -75,57 +76,85 @@ module.exports = async (req, res) => {
   const radius = Math.min(220, Math.max(10, Number(req.query.radius || 70)));
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return json(res, 400, { error: 'Invalid coordinates' });
 
-  try {
-    const settled = await Promise.allSettled([
-      fetchText(`${BASE}/LiveTraffic.xml`, {}, 16000),
-      fetchText(`${BASE}/Section.xml`, {}, 16000),
-      fetchText(`${BASE}/SectionShape.xml`, {}, 20000),
-    ]);
-    if (settled[0].status !== 'fulfilled') throw settled[0].reason;
-
+  const settled = await Promise.allSettled([
+    fetchText(`${BASE}/LiveTraffic.xml`, {}, 9000),
+    fetchText(`${BASE}/Section.xml`, {}, 9500),
+    fetchText(`${BASE}/SectionShape.xml`, {}, 11000),
+  ]);
+  let degraded = false;
+  if (settled[0].status === 'fulfilled') {
     const live = parseLive(settled[0].value);
-    const sections = settled[1].status === 'fulfilled' ? parseSections(settled[1].value) : new Map();
-    const shapes = settled[2].status === 'fulfilled' ? parseShapes(settled[2].value) : new Map();
+    if (live.size) snapshot.live = live;
+    snapshot.liveAt = Date.now();
+  } else degraded = true;
+  if (settled[1].status === 'fulfilled') {
+    const sections = parseSections(settled[1].value);
+    if (sections.size) snapshot.sections = sections;
+    snapshot.metaAt = Date.now();
+  } else degraded = true;
+  if (settled[2].status === 'fulfilled') {
+    const shapes = parseShapes(settled[2].value);
+    if (shapes.size) snapshot.shapes = shapes;
+    snapshot.metaAt = Date.now();
+  } else degraded = true;
 
-    const items = [];
-    for (const [sectionId, dynamic] of live) {
-      const meta = sections.get(sectionId) || {};
-      const geometry = shapes.get(sectionId) || meta.geometryFallback || [];
-      if (!geometry?.length) continue;
-      const center = midpoint(geometry);
-      if (!center) continue;
-      const distance = distanceKm(lat, lon, center.lat, center.lon);
-      if (distance > radius) continue;
-      const item = {
-        ...meta,
-        ...dynamic,
-        lat: center.lat,
-        lon: center.lon,
-        distance,
-        geometry: simplifyCoords(geometry, 32),
-      };
-      item.status = inferStatus(item);
-      items.push(item);
-    }
-
-    items.sort((a, b) => a.distance - b.distance);
-    const visible = items.slice(0, 220);
-    const speeds = visible.map((x) => x.travelSpeed).filter(Number.isFinite).filter((x) => x >= 0);
-    const avgSpeed = speeds.length ? Math.round(speeds.reduce((a, b) => a + b, 0) / speeds.length) : null;
-    const worst = visible.some((x) => x.status === 'congested') ? 'congested' : visible.some((x) => x.status === 'slow') ? 'slow' : visible.length ? 'normal' : 'unknown';
-
+  const live = snapshot.live;
+  const sections = snapshot.sections;
+  const shapes = snapshot.shapes;
+  if (!live.size) {
     return json(res, 200, {
       zeroKey: true,
-      source: 'Freeway Bureau LiveTraffic.xml + SectionShape.xml + Section endpoint fallback',
+      source: 'Freeway Bureau LiveTraffic temporarily unavailable',
+      degraded: true,
+      unavailable: true,
       shapeAvailable: shapes.size > 0,
-      shapeFallbackAvailable: [...sections.values()].some((x) => x.geometryFallback?.length >= 2),
       metadataAvailable: sections.size > 0,
-      avgSpeed,
-      status: worst,
-      items: visible,
-      message: visible.length ? undefined : '此範圍目前沒有可定位的國道路段即時流速資料。',
-    }, 's-maxage=60, stale-while-revalidate=180');
-  } catch (e) {
-    return json(res, 502, { error: `國道即時流速暫時無法取得：${e.message}` }, 'no-store');
+      avgSpeed: null,
+      status: 'unknown',
+      items: [],
+      message: '國道路速來源暫時無法更新；仍可使用導航、警廣事件與 CCTV。',
+    }, 'no-store');
   }
+
+  const items = [];
+  for (const [sectionId, dynamic] of live) {
+    const meta = sections.get(sectionId) || {};
+    const geometry = shapes.get(sectionId) || meta.geometryFallback || [];
+    if (!geometry?.length) continue;
+    const center = midpoint(geometry);
+    if (!center) continue;
+    const distance = distanceKm(lat, lon, center.lat, center.lon);
+    if (distance > radius) continue;
+    const item = {
+      ...meta,
+      ...dynamic,
+      lat: center.lat,
+      lon: center.lon,
+      distance,
+      geometry: simplifyCoords(geometry, 32),
+    };
+    item.status = inferStatus(item);
+    items.push(item);
+  }
+
+  items.sort((a, b) => a.distance - b.distance);
+  const visible = items.slice(0, 220);
+  const speeds = visible.map((x) => x.travelSpeed).filter(Number.isFinite).filter((x) => x >= 0);
+  const avgSpeed = speeds.length ? Math.round(speeds.reduce((a, b) => a + b, 0) / speeds.length) : null;
+  const worst = visible.some((x) => x.status === 'congested') ? 'congested' : visible.some((x) => x.status === 'slow') ? 'slow' : visible.length ? 'normal' : 'unknown';
+
+  return json(res, 200, {
+    zeroKey: true,
+    source: degraded ? 'Freeway Bureau cached/live blended snapshot' : 'Freeway Bureau LiveTraffic.xml + SectionShape.xml + Section endpoint fallback',
+    degraded,
+    stale: degraded,
+    updatedAt: snapshot.liveAt || null,
+    shapeAvailable: shapes.size > 0,
+    shapeFallbackAvailable: [...sections.values()].some((x) => x.geometryFallback?.length >= 2),
+    metadataAvailable: sections.size > 0,
+    avgSpeed,
+    status: worst,
+    items: visible,
+    message: visible.length ? (degraded ? '部分國道資料使用最近快取。' : undefined) : '此範圍目前沒有可定位的國道路段流速資料。',
+  }, degraded ? 'no-store' : 's-maxage=45, stale-while-revalidate=300');
 };

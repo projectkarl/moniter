@@ -46,22 +46,24 @@ const SOURCES = [
     },
   },
   {
-    id: 'taipei-position', name: '臺北市交通管制工程處 CCTV 設施', region: '臺北市', access: 'position-only', kind: 'csv-generic',
+    id: 'taipei-position', name: '臺北市交通管制工程處 CCTV', region: '臺北市', access: 'live-wrapper', kind: 'csv-generic',
     url: 'https://data.taipei/api/frontstage/tpeod/dataset/resource.download?rid=d317a3c4-ff08-48af-894e-31dfb5155de3', timeout: 16000,
     fields: {
       id: ['流水號','序號','編號','id','Serial number'], name: ['攝影機編號位置','攝影機編號','攝影機位置','位置','路口','camera','Camera number'],
       lat: ['WGSYWGS84緯度座標','WGSY','WGS84Y','緯度','latitude'], lon: ['WGSXWGS84經度座標','WGSX','WGS84X','經度','longitude'],
     },
-    note: '官方公開 CCTV 設施位置；即時交通影像需依臺北市授權規範介接。',
+    streamBuilder: ({ rawId, road }) => { const m = String(road || '').match(/(?:^|\D)(\d{1,4})(?:\D|$)/); const id = m?.[1] || String(rawId || '').match(/\d{1,4}/)?.[0] || ''; return id ? `https://hls.bote.gov.taipei/live/index.html?id=${encodeURIComponent(id)}` : ''; },
+    note: '原始公開來源：臺北市交通管制工程處 hls.bote.gov.taipei；若無法解析攝影機編號則僅保留點位。',
   },
   {
-    id: 'new-taipei-position', name: '新北市政府交通局 CCTV 點位', region: '新北市', access: 'position-only', kind: 'json-generic',
+    id: 'new-taipei-position', name: '新北市政府交通局 CCTV', region: '新北市', access: 'live-wrapper', kind: 'json-generic',
     url: 'https://data.ntpc.gov.tw/api/datasets/157501bf-f1cd-4838-92a7-612770351e43/json?page=0&size=2000', timeout: 16000,
     fields: {
       id: ['id','ID','cctv_id','CCTVID','項次','編號'], name: ['equipment','location','Location','address','Address','位置','設備位置','路口'],
-      lat: ['lat','latitude','Latitude','緯度','PositionLat'], lon: ['lon','lng','longitude','Longitude','經度','PositionLon'],
+      lat: ['lat','latitude','Latitude','緯度','PositionLat'], lon: ['lon','lng','longitude','Longitude','經度','PositionLon'], stream:['areacode','設備編號','equipment_id','deviceid'],
     },
-    note: '官方公開 CCTV 點位；未提供可直接免授權播放的串流時僅顯示位置。',
+    streamBuilder: ({ rawStream }) => { const id = String(rawStream || '').trim().match(/[A-Za-z]?\d{3,}/)?.[0] || ''; return id ? `https://atis.ntpc.gov.tw/ATIS/ShowFrame4CCTV/${encodeURIComponent(id)}` : ''; },
+    note: '原始公開來源：新北市即時交通資訊網 ATIS；設備編號可解析時直接使用官方 CCTV 頁。',
   },
   {
     id: 'keelung', name: '基隆市政府公開 CCTV', region: '基隆市', access: 'live', kind: 'csv-generic',
@@ -153,6 +155,60 @@ function plausibleTaiwan(lat, lon) {
   return Number.isFinite(lat) && Number.isFinite(lon) && lat >= 20.5 && lat <= 26.7 && lon >= 118 && lon <= 123.8;
 }
 
+const ADMIN_REGION_RE = /(臺北市|台北市|新北市|桃園市|臺中市|台中市|臺南市|台南市|高雄市|基隆市|新竹市|嘉義市|新竹縣|苗栗縣|彰化縣|南投縣|雲林縣|嘉義縣|屏東縣|宜蘭縣|花蓮縣|臺東縣|台東縣|澎湖縣|金門縣|連江縣)/;
+function normalizeRegionName(value = '') {
+  const raw = String(value || '').trim();
+  const hit = raw.match(ADMIN_REGION_RE)?.[1] || '';
+  return hit.replace(/^台北市$/, '臺北市').replace(/^台中市$/, '臺中市').replace(/^台南市$/, '臺南市').replace(/^台東縣$/, '臺東縣');
+}
+
+// Conservative offline county/city inference for national-road cameras whose source only says
+// "全台國道/省道/Taiwan". Municipal sources and explicit place text always win.
+// This avoids an external reverse-geocoder request for every camera, keeping nearby CCTV fast.
+function approximateRegionByCoordinate(lat, lon) {
+  const y = Number(lat), x = Number(lon);
+  if (!plausibleTaiwan(y, x)) return '';
+  if (x < 118.65 && y > 24.30 && y < 24.65) return '金門縣';
+  if (x < 120.05 && y > 23.10 && y < 23.90) return '澎湖縣';
+  if (y > 25.80 && x >= 119.80 && x < 120.75) return '連江縣';
+
+  // North coast / Taipei basin. Smaller municipality envelopes are checked first.
+  if (y >= 25.075 && y <= 25.205 && x >= 121.625 && x <= 121.825) return '基隆市';
+  if (y >= 24.280 && y < 25.060 && x >= 121.650 && x <= 122.050) return '宜蘭縣';
+  if (y >= 24.955 && y <= 25.205 && x >= 121.495 && x <= 121.690 && !(y < 25.025 && x < 121.525)) return '臺北市';
+  if (y >= 24.640 && y <= 25.320 && x >= 121.280 && x <= 122.020) return '新北市';
+  if (y >= 24.720 && y <= 25.150 && x >= 120.970 && x < 121.460) return '桃園市';
+
+  // Hsinchu / central west.
+  if (y >= 24.725 && y <= 24.875 && x >= 120.880 && x <= 121.030) return '新竹市';
+  if (y >= 24.620 && y <= 24.980 && x >= 120.820 && x <= 121.390) return '新竹縣';
+  if (y >= 24.250 && y < 24.740 && x >= 120.550 && x <= 121.300) return '苗栗縣';
+  if (y >= 23.930 && y <= 24.500 && x >= 120.450 && x <= 121.420) return '臺中市';
+  if (y >= 23.780 && y <= 24.220 && x >= 120.200 && x < 120.700) return '彰化縣';
+  if (y >= 23.400 && y <= 24.260 && x >= 120.610 && x <= 121.350) return '南投縣';
+  if (y >= 23.420 && y < 23.850 && x >= 120.080 && x < 120.720) return '雲林縣';
+  if (y >= 23.425 && y <= 23.535 && x >= 120.365 && x <= 120.515) return '嘉義市';
+  if (y >= 23.200 && y <= 23.670 && x >= 120.050 && x <= 121.050) return '嘉義縣';
+  if (y >= 22.850 && y <= 23.420 && x >= 120.000 && x <= 120.720) return '臺南市';
+  if (y >= 22.450 && y < 23.450 && x >= 120.150 && x <= 121.060) return '高雄市';
+  if (y >= 21.850 && y < 22.900 && x >= 120.300 && x <= 120.980) return '屏東縣';
+
+  // East coast; evaluate Yilan before Hualien and use longitude to avoid central-mountain overlap.
+  if (y >= 23.000 && y < 24.650 && x >= 121.000 && x <= 121.850) return '花蓮縣';
+  if (y >= 21.900 && y < 23.520 && x >= 120.720 && x <= 121.650) return '臺東縣';
+  return '';
+}
+
+function resolveCameraRegion(camera = {}, source = {}) {
+  const textRegion = normalizeRegionName([camera.road, camera.name, camera.direction].filter(Boolean).join(' '));
+  if (textRegion) return { region:textRegion, by:'camera-text', confidence:'high' };
+  const declared = normalizeRegionName(camera.region || source.region || '');
+  if (declared) return { region:declared, by:'source', confidence:'high' };
+  const inferred = approximateRegionByCoordinate(Number(camera.lat), Number(camera.lon));
+  if (inferred) return { region:inferred, by:'coordinate', confidence:'medium' };
+  return { region:'臺灣', by:'fallback', confidence:'low' };
+}
+
 function cameraRecord(source, raw, index) {
   const f = source.fields || {};
   const rawId = fieldValue(raw, f.id || ['CCTVID','id','編號','序號']);
@@ -161,7 +217,11 @@ function cameraRecord(source, raw, index) {
   // Defensive swap for providers that publish X/Y with inverted labels.
   if (!plausibleTaiwan(lat, lon) && plausibleTaiwan(lon, lat)) [lat, lon] = [lon, lat];
   const road = String(fieldValue(raw, f.name || ['RoadName','Location','位置','路口','name']) || '').trim();
-  const streamUrl = source.access === 'position-only' ? '' : decodeXmlUrl(fieldValue(raw, f.stream || ['VideoStreamURL','URL','url','streamUrl']));
+  const rawStream = decodeXmlUrl(fieldValue(raw, f.stream || ['VideoStreamURL','URL','url','streamUrl']));
+  let streamUrl = source.access === 'position-only' ? '' : rawStream;
+  if (typeof source.streamBuilder === 'function') {
+    try { streamUrl = source.streamBuilder({ rawId, rawStream, road, raw, index }) || ''; } catch (_) { streamUrl = ''; }
+  }
   const direction = String(fieldValue(raw, f.direction || ['RoadDirection','Direction','direction','方向']) || '').trim();
   const status = String(fieldValue(raw, f.status || ['status','Status','狀態']) || '').trim();
   const item = {
@@ -173,10 +233,15 @@ function cameraRecord(source, raw, index) {
     start: '', end: '', mile: '', status,
     source: source.name,
     region: source.region || '',
-    access: streamUrl ? 'live' : 'position-only',
+    access: streamUrl ? (source.access || 'live') : 'position-only',
     note: source.note || (streamUrl ? '政府公開交通 CCTV 影像來源。' : '政府公開 CCTV 位置；未提供可直接免授權播放的串流。'),
   };
-  return plausibleTaiwan(item.lat, item.lon) ? item : null;
+  if (!plausibleTaiwan(item.lat, item.lon)) return null;
+  const resolvedRegion = resolveCameraRegion(item, source);
+  item.region = resolvedRegion.region;
+  item.regionResolvedBy = resolvedRegion.by;
+  item.regionConfidence = resolvedRegion.confidence;
+  return item;
 }
 
 function parseStandardXml(xml, source) {
@@ -411,18 +476,6 @@ function searchRegistry(items, query, limit = 120) {
 async function resolveCamera(id) {
   const rawId = String(id || '');
   const prefix = rawId.split(':')[0];
-  if (prefix === 'twipcam') {
-    const slug = rawId.slice('twipcam:'.length).trim();
-    if (!/^[A-Za-z0-9._-]{2,120}$/.test(slug)) throw new Error('Invalid twipcam camera id');
-    return {
-      id: rawId,
-      streamUrl: `https://www.twipcam.com/cam/${encodeURIComponent(slug)}`,
-      source: 'twipcam public camera index',
-      access: 'live',
-      road: slug,
-      region: 'Taiwan',
-    };
-  }
   const source = SOURCES.find((item) => item.id === prefix);
   if (!source) throw new Error('Unknown CCTV source');
   const items = await fetchSource(source);
@@ -444,6 +497,8 @@ module.exports = {
   extractZipEntry,
   normalizeSearch,
   searchRegistry,
+  approximateRegionByCoordinate,
+  resolveCameraRegion,
   loadRegistry,
   resolveCamera,
 };

@@ -16,8 +16,8 @@ ok(app.includes('resetNationalMapView({ animate:false })'),'post-animation full-
 ok(css.includes('.command.search-nav #searchForm') && css.includes('.command.search-nav #commandHint'),'NAV only exposes A/B planning chrome');
 ok(app.includes("if ($('abTarget') && !$('abTarget').value.trim()) $('abTarget').value = state.target.name || ''"),'searched target seeds B field');
 ok(cctv.includes('liveOnly:national') && cctv.includes('sourceIds') && cctv.includes('timeoutCap'),'local registry is region-scoped/fast while national stays live-only');
-ok(cctv.includes('loadTwipcamNearby') && cctv.includes('twipcam 公開即時影像索引'),'twipcam nearby cameras become in-app camera records');
-ok(registry.includes("prefix === 'twipcam'") && registry.includes('https://www.twipcam.com/cam/'),'dynamic twipcam camera IDs resolve inside CCTV proxy');
+ok(cctv.includes('loadScenicForQuery') && cctv.includes('referencePlaybackCount:0'),'scenic cameras use original-source fusion without reference playback');
+ok(registry.includes('hls.bote.gov.taipei/live/index.html?id=') && registry.includes('atis.ntpc.gov.tw/ATIS/ShowFrame4CCTV/'),'Taipei/New Taipei cameras resolve to official source wrappers');
 ok(feed.includes('discoverMediaFromHtml') && feed.includes('data-stream'),'wrapper-page media discovery retained');
 ok(app.includes('openTargetNearbyCctv') && app.includes('targetNearbyCctvBtn'),'target popup opens nearby CCTV in EYE');
 ok(!app.includes('openExternalCamera'),'CCTV camera flow has no external-window fallback');
@@ -31,5 +31,5 @@ ok(app.includes('enrichNationalHotspotCamera') && app.includes('SEARCHING NEARBY
 ok(flow.includes("tag(block, 'SectionStart') || tag(block, 'Start')") && flow.includes('geometryFallback'),'freeway geometry fallback');
 ok(app.includes("pane:'flowPane'") && app.includes("color: '#050606'"),'freeway flow color casing emphasized');
 ok(html.includes('TAIWAN NATIONAL GRID · CONGESTION + CCTV'),'national header communicates congestion + CCTV');
-ok(html.includes('0.34.0 SEARCH FUSION + MAP CCTV'),'v0.30 successor build label');
+ok(html.includes('0.38.0 ORIGINAL SOURCE + SCENIC FUSION'),'v0.30 successor build label');
 console.log('V0.29 BASELINE REGRESSION PASS ON V0.30');

@@ -1,5 +1,6 @@
 const handlers = {
   geocode: require('../server/geocode'),
+  'reverse-geocode': require('../server/reverse-geocode'),
   weather: require('../server/weather'),
   route: require('../server/route'),
   cctv: require('../server/cctv'),

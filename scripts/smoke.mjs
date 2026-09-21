@@ -3,7 +3,7 @@ import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const required = [
   'index.html','styles.css','app.js','manifest.webmanifest','sw.js','vercel.json',
-  'api/data.js','api/cctv-feed.js','server/_utils.js','server/cctv-registry.js','server/geocode.js','server/weather.js','server/route.js','server/cctv.js','server/traffic.js','server/flow.js','server/lane-flow.js','server/news.js','server/speed-cameras.js','server/flights.js','server/earthquakes.js','server/health.js','server/air-quality.js','server/city-flow.js','server/parking.js','server/construction.js','server/flood.js'
+  'api/data.js','api/cctv-feed.js','server/_utils.js','server/cctv-registry.js','server/geocode.js','server/reverse-geocode.js','server/weather.js','server/route.js','server/cctv.js','server/traffic.js','server/flow.js','server/lane-flow.js','server/news.js','server/speed-cameras.js','server/flights.js','server/earthquakes.js','server/health.js','server/air-quality.js','server/city-flow.js','server/parking.js','server/construction.js','server/flood.js'
 ];
 let failed = false;
 for (const file of required) {
@@ -23,7 +23,7 @@ const source = required.filter((x) => x.endsWith('.js')).map((x) => fs.readFileS
 for (const forbidden of ['TDX_CLIENT_ID','TDX_CLIENT_SECRET','CWA_KEY','OPENAI_KEY']) {
   if (source.includes(forbidden)) { console.error('ZERO-KEY FAIL', forbidden); failed = true; }
 }
-if (!html.includes('0.34.0 SEARCH FUSION + MAP CCTV')) { console.error('BUILD LABEL MISSING'); failed = true; }
+if (!html.includes('0.38.0 ORIGINAL SOURCE + SCENIC FUSION')) { console.error('BUILD LABEL MISSING'); failed = true; }
 for (const id of ['vehicleIntelToggle','privacyShieldToggle','cameraIntel']) {
   if (!html.includes(`id=\"${id}\"`)) { console.error('PRIVACY DOM MISSING', id); failed = true; }
 }
