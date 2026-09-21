@@ -11,6 +11,7 @@
     routeLayer: null,
     routeAltLayer: null,
     cameraLayer: null,
+    cctvPreviewLayer: null,
     cctvCanvasRenderer: null,
     incidentLayer: null,
     flowLayer: null,
@@ -104,6 +105,10 @@
   };
 
   const aliases = {
+    '華南總行': { name: '華南商業銀行總行', lat: 25.0343, lon: 121.5692, address:'臺北市信義區松仁路123號' },
+    '華南銀行總行': { name: '華南商業銀行總行', lat: 25.0343, lon: 121.5692, address:'臺北市信義區松仁路123號' },
+    '華南商銀總行': { name: '華南商業銀行總行', lat: 25.0343, lon: 121.5692, address:'臺北市信義區松仁路123號' },
+    '華南商業銀行總行': { name: '華南商業銀行總行', lat: 25.0343, lon: 121.5692, address:'臺北市信義區松仁路123號' },
     '台北101': { name: '台北 101', lat: 25.033968, lon: 121.564468 },
     '101': { name: '台北 101', lat: 25.033968, lon: 121.564468 },
     '信義101': { name: '台北 101', lat: 25.033968, lon: 121.564468 },
@@ -148,6 +153,7 @@
   };
 
   const poiCatalog = [
+    ['華南商業銀行總行','華南商業銀行總行 臺北市信義區松仁路123號','BANK / HQ',['華南總行','華南銀行總行','華南商銀總行','華南商業銀行總行','松仁路123號']],
     ['台北 101','台北 101','LANDMARK',['101','台北101','信義101']],
     ['新光三越 A11','新光三越 台北信義新天地 A11','MALL',['a11','新光a11','信義a11']],
     ['新光三越 A8','新光三越 台北信義新天地 A8','MALL',['a8','新光a8']],
@@ -296,9 +302,13 @@
     const flowPane = state.map.createPane('flowPane');
     flowPane.style.zIndex = '455';
     flowPane.style.pointerEvents = 'auto';
+    const cctvPreviewPane = state.map.createPane('cctvPreviewPane');
+    cctvPreviewPane.style.zIndex = '645';
+    cctvPreviewPane.style.pointerEvents = 'auto';
     setMapSource('satellite', false);
     $('map').classList.toggle('map-fx', state.mapFx);
     state.cameraLayer = L.layerGroup().addTo(state.map);
+    state.cctvPreviewLayer = L.layerGroup().addTo(state.map);
     state.incidentLayer = L.layerGroup().addTo(state.map);
     state.flowLayer = L.layerGroup().addTo(state.map);
     state.cityFlowLayer = L.layerGroup().addTo(state.map);
@@ -506,7 +516,7 @@
     const biasQuery = bias && Number.isFinite(Number(bias.lat)) && Number.isFinite(Number(bias.lon ?? bias.lng))
       ? `&lat=${Number(bias.lat).toFixed(5)}&lon=${Number(bias.lon ?? bias.lng).toFixed(5)}` : '';
     const data = await jsonFetch(`/api/data?action=geocode&q=${encodeURIComponent(lookup)}${biasQuery}`);
-    if (!data.results?.length) throw new Error('找不到這個地點');
+    if (!data.results?.length) throw new Error(data.hint || '找不到這個地點，請加入縣市、區域或完整地址再試。');
     const first = data.results[0];
     if ((alias && typeof alias === 'string') || strongLocal) first.aliasFrom = clean;
     return first;
@@ -600,7 +610,7 @@
     const hint = $('commandHint');
     if (hint) hint.innerHTML = next === 'nav'
       ? '<b>NAV MODE</b><span>設定 A → B；系統比較替代路線、ETA、沿途事件與即時流速。</span>'
-      : '<b>AUTO INTEL</b><span>搜尋地點或路口；自動載入附近 CCTV、車流、天氣與事件。可直接輸入「XX路與YY路 CCTV」。</span>';
+      : '<b>AUTO INTEL</b><span>搜尋地點後，地圖直接顯示最近 LIVE CCTV；詳細車流、天氣與事件收在情報面板。</span>';
     if (focus) setTimeout(() => (next === 'nav' ? $('abTarget') : $('queryInput'))?.focus?.(), 0);
   }
 
@@ -611,6 +621,14 @@
     if ($('intelPanel')) $('intelPanel').hidden = false;
     $('intelPanel')?.classList.add('open');
     if ($('intelCollapse')) $('intelCollapse').textContent = '−';
+  }
+
+  function collapseIntelResults() {
+    state.intelOpen = false;
+    $('app')?.classList.remove('intel-results-open');
+    if ($('intelPanel')) $('intelPanel').hidden = false;
+    $('intelPanel')?.classList.remove('open');
+    if ($('intelCollapse')) $('intelCollapse').textContent = '+';
   }
 
   function setRailActive(key) {
@@ -769,8 +787,17 @@
 
     state.nationalHotspotLayer?.clearLayers();
     critical.forEach((h) => {
-      const icon = L.divIcon({ className:'', html:`<div class="national-hotspot-tag ${h.status === 'congested' || Number(h.travelSpeed) < 30 ? 'danger' : 'watch'}"><span>${h.status === 'congested' || Number(h.travelSpeed) < 30 ? 'CONGESTION' : 'SLOW WATCH'}</span><b>${Math.round(Number(h.travelSpeed)||0)} km/h</b><em>${escapeHtml(shortName(h.road || h.name || 'FLOW'))}</em><i>${escapeHtml(h.reason?.label || 'FLOW WATCH')}</i></div>`, iconSize:[124,64], iconAnchor:[62,32] });
-      const marker = L.marker([h.lat,h.lon], { icon, zIndexOffset:760, interactive:true }).addTo(state.nationalHotspotLayer);
+      const severe = h.status === 'congested' || Number(h.travelSpeed) < 30;
+      const marker = L.circleMarker([h.lat,h.lon], {
+        radius: severe ? 5.5 : 4.5,
+        weight: 1.5,
+        color: severe ? '#7d2d27' : '#7b5a2e',
+        fillColor: severe ? '#e16d60' : '#d59a59',
+        fillOpacity: .92,
+        opacity: .95,
+        pane:'markerPane',
+      }).addTo(state.nationalHotspotLayer);
+      marker.bindTooltip(`${escapeHtml(shortName(h.road || h.name || 'FLOW'))} · ${Math.round(Number(h.travelSpeed)||0)} km/h`, { direction:'top', opacity:.9 });
       marker.on('click', () => selectNationalHotspot(h));
     });
     if (critical[0]) selectNationalHotspot(critical[0], false);
@@ -799,7 +826,7 @@
     if ($('nationalOverview')) $('nationalOverview').hidden = false;
     state.target = null;
     state.targetMarker?.remove?.(); state.targetMarker = null;
-    state.cameraLayer?.clearLayers?.(); state.incidentLayer?.clearLayers?.(); state.speedLayer?.clearLayers?.(); state.cityFlowLayer?.clearLayers?.();
+    state.cameraLayer?.clearLayers?.(); state.cctvPreviewLayer?.clearLayers?.(); state.incidentLayer?.clearLayers?.(); state.speedLayer?.clearLayers?.(); state.cityFlowLayer?.clearLayers?.();
     state.airLayer?.clearLayers?.(); state.quakeLayer?.clearLayers?.(); state.sentinelLayer?.clearLayers?.(); state.threatLayer?.clearLayers?.();
     if (state.routeLayer) { state.map?.removeLayer?.(state.routeLayer); state.routeLayer = null; }
     if (state.routeAltLayer) { state.map?.removeLayer?.(state.routeAltLayer); state.routeAltLayer = null; }
@@ -1140,6 +1167,52 @@
     signalBox.innerHTML = `<div class="auto-feed-title"><span>感測訊號</span><em>${escapeHtml(shortName(place?.name || 'TARGET'))}</em></div><div class="auto-signal-grid"><div><small>FLOW</small><b>${escapeHtml(flowText)}</b></div><div><small>SPEED</small><b>${escapeHtml(speedText)}</b></div><div><small>AIRSPACE</small><b>${flights.length} PUBLIC SIGNALS</b></div><div><small>SEISMIC</small><b>${escapeHtml(quakeText)}</b></div></div>`;
   }
 
+  function targetCctvPreviewCandidates(place, items = []) {
+    const max = window.innerWidth <= 760 ? 3 : 4;
+    const lat = Number(place?.lat), lon = Number(place?.lon ?? place?.lng);
+    const seen = new Set();
+    return (items || [])
+      .filter((cam) => cam?.streamUrl && Number.isFinite(Number(cam.lat)) && Number.isFinite(Number(cam.lon)))
+      .map((cam) => ({ ...cam, _targetDistance: Number.isFinite(lat) && Number.isFinite(lon) ? haversineKm(lat, lon, Number(cam.lat), Number(cam.lon)) : Number(cam.distance || 999) }))
+      .sort((a,b) => a._targetDistance-b._targetDistance)
+      .filter((cam) => {
+        const key = cam.id || `${Number(cam.lat).toFixed(5)},${Number(cam.lon).toFixed(5)}`;
+        if (seen.has(key)) return false;
+        seen.add(key); return true;
+      }).slice(0, max);
+  }
+
+  function renderTargetCctvPreviews(place, items = []) {
+    if (!state.cctvPreviewLayer || !state.map) return;
+    state.cctvPreviewLayer.clearLayers();
+    if (!place || state.nationalMode || state.navigation.active) return;
+    const cameras = targetCctvPreviewCandidates(place, items);
+    if (!cameras.length) return;
+    const mobile = window.innerWidth <= 760;
+    const offsets = mobile
+      ? [[12,-86],[-118,-84],[10,12]]
+      : [[14,-116],[-166,-112],[18,16],[-164,18]];
+    cameras.forEach((cam, index) => {
+      const [dx,dy] = offsets[index] || [12 + (index%2)*-150, -110 + Math.floor(index/2)*120];
+      const stageId = `mapCctvPreviewStage-${String(cam.id || index).replace(/[^a-z0-9_-]/gi,'_')}-${index}`;
+      const title = shortName(cam.road || cam.name || 'PUBLIC CCTV');
+      const distance = Number.isFinite(Number(cam._targetDistance)) ? `${Math.max(0,Number(cam._targetDistance)).toFixed(1)} km` : 'NEARBY';
+      const icon = L.divIcon({
+        className:'',
+        html:`<div class="map-live-cctv-card ${cam.indexed?'indexed':''}" style="--cctv-dx:${dx}px;--cctv-dy:${dy}px"><div class="map-live-cctv-head"><span>${cam.indexed?'PUBLIC':'LIVE'}</span><b>${escapeHtml(title)}</b><em>${escapeHtml(distance)}</em></div><div class="map-live-cctv-stage" id="${escapeAttr(stageId)}"><div class="map-live-cctv-loading">LIVE…</div></div></div>`,
+        iconSize: mobile ? [116,82] : [154,108],
+        iconAnchor: [0,0],
+      });
+      const marker = L.marker([Number(cam.lat),Number(cam.lon)], { icon, pane:'cctvPreviewPane', interactive:true, keyboard:true }).addTo(state.cctvPreviewLayer);
+      marker.on('click', (ev) => { try { L.DomEvent.stopPropagation(ev); } catch (_) {} openCamera(cam); });
+      setTimeout(() => {
+        const stage = $(stageId);
+        if (!stage || !state.cctvPreviewLayer?.hasLayer?.(marker)) return;
+        renderCameraMedia(stage, cam).catch?.(() => {});
+      }, 90 + index * 120);
+    });
+  }
+
   async function openTargetNearbyCctv(place = state.target) {
     if (!place || !Number.isFinite(Number(place.lat)) || !Number.isFinite(Number(place.lon ?? place.lng))) return;
     const lat = Number(place.lat), lon = Number(place.lon ?? place.lng);
@@ -1155,11 +1228,11 @@
     const requestSeq = ++state.targetRequestSeq;
     exitNationalMode();
     state.target = place;
+    state.cctvPreviewLayer?.clearLayers?.();
     setTheaterStandby(false);
     if (state.targetMarker) state.targetMarker.remove();
     state.targetMarker = L.marker([place.lat, place.lon], { icon: markerIcon('target', 13), zIndexOffset: 900 }).addTo(state.map).bindPopup(`<b>${escapeHtml(place.name || '目標位置')}</b><br><button type="button" class="map-cctv-link" id="targetNearbyCctvBtn">附近公開 CCTV</button>`);
     state.targetMarker.on('popupopen', () => { const btn = $('targetNearbyCctvBtn'); if (btn) btn.onclick = () => openTargetNearbyCctv(place); });
-    state.targetMarker.openPopup();
     signalAcquire(true, place.aliasFrom ? `ALIAS RESOLVED // ${String(place.aliasFrom).toUpperCase()}` : 'TARGET ACQUISITION');
     const center = state.map.getCenter();
     const transferDistance = haversineKm(center.lat, center.lng, place.lat, place.lon);
@@ -1168,12 +1241,17 @@
     updateMapTelemetry(place.lat, place.lon);
     setTimeout(() => { signalAcquire(false); showTargetLock(place); }, state.motion ? (transferDistance > 1.5 ? 880 : 520) : 0);
     $('intelTitle').textContent = String(place.name || 'TARGET').toUpperCase().slice(0, 42);
+    const cctvPromise = loadCctv(place.lat, place.lon, false, 35, { requestSeq });
+    cctvPromise.then((items) => {
+      if (requestSeq !== state.targetRequestSeq || state.target !== place) return;
+      renderTargetCctvPreviews(place, items || []);
+    }).catch(() => {});
     const results = await Promise.allSettled([
       loadWeather(place.lat, place.lon, true),
       loadTraffic(place.lat, place.lon, false, 35),
       loadFlow(place.lat, place.lon, false, 55),
       loadCityFlow(place.lat, place.lon, false, 8),
-      loadCctv(place.lat, place.lon, false, 35, { requestSeq }),
+      cctvPromise,
       loadSpeedCameras(place.lat, place.lon, false, 30),
       loadNews(place.lat, place.lon, false, place.name),
       loadFlights(place.lat, place.lon, false, 70),
@@ -1185,10 +1263,12 @@
     renderTargetBrief(place, { weather: value(0, null), traffic: value(1, []), flow: value(2, []), cityFlow:value(3,[]), cctv: value(4, []), speedCameras: value(5, []) });
     renderAutoIntel(place, { traffic: value(1, []), flow: value(2, []), cityFlow:value(3,[]), cctv: value(4, []), speedCameras: value(5, []), news: value(6, []), flights: value(7, []), quakes: value(8, []) });
     renderSituationIntel(place, { weather:value(0,null), traffic:value(1,[]), flow:value(2,[]), ...(value(9,{})) });
+    renderTargetCctvPreviews(place, value(4, []));
     renderInlineCctvResults(value(4, []), place, value(3,[]));
     updateIntelSync('TARGET AUTO');
     if ($('abTarget')) $('abTarget').value = place.name || '';
-    openIntelResults();
+    if (window.innerWidth > 920 || state.searchMode === 'nav') openIntelResults();
+    else collapseIntelResults();
   }
 
   function cctvSearchIntent(text = '') {
@@ -1288,7 +1368,8 @@
       await planRoute(origin, place, { preference: 'recommended', fromVoice: Boolean(context.fromVoice) });
     }
     if (wantsNews) await loadNews(place.lat, place.lon, false, place.name || stripped);
-    openIntelResults();
+    if (state.searchMode === 'nav' || window.innerWidth > 920) openIntelResults();
+    else collapseIntelResults();
   }
 
   function parseTravelIntent(text) {
@@ -1406,6 +1487,32 @@
     return mins + (intel.traffic?.length || 0) * 5.5 + severe * 9 + (intel.anomalies?.length || 0) * 2.5 + avgPenalty;
   }
 
+  function routeFreewayProfile(route = {}) {
+    let n1 = 0, n3 = 0, highway = 0;
+    for (const step of (route.steps || [])) {
+      const d = Math.max(0, Number(step.distance || 0));
+      const text = `${step.name || ''} ${step.ref || ''} ${step.destinations || ''}`.replace(/\s+/g,' ');
+      const one = /國道\s*1(?:號)?|國1|一高|中山高速|Freeway\s*1|National Highway\s*1/i.test(text) || /(^|\D)1($|\D)/.test(String(step.ref || ''));
+      const three = /國道\s*3(?:號)?|國3|二高|福爾摩沙高速|Freeway\s*3|National Highway\s*3/i.test(text) || /(^|\D)3($|\D)/.test(String(step.ref || ''));
+      if (one) n1 += d;
+      if (three) n3 += d;
+      if (one || three || /國道|高速公路|freeway|expressway/i.test(text)) highway += d;
+    }
+    if (n1 <= 0 && n3 <= 0) return { code:'OTHER', label:'一般最短路線', n1, n3, highway };
+    if (n1 > n3 * 1.12) return { code:'N1', label:'一高優先', n1, n3, highway };
+    if (n3 > n1 * 1.12) return { code:'N3', label:'二高優先', n1, n3, highway };
+    return { code:'MIX', label:'一高／二高混合', n1, n3, highway };
+  }
+
+  function chooseTwoNavigationRoutes(candidates = []) {
+    const sorted = [...candidates].sort((a,b) => a.distance-b.distance);
+    if (sorted.length <= 2) return sorted.map((x,i) => ({ ...x, index:i }));
+    const first = sorted[0];
+    const opposite = sorted.slice(1).find((x) => ((first.corridor?.code === 'N1' && x.corridor?.code === 'N3') || (first.corridor?.code === 'N3' && x.corridor?.code === 'N1')) && x.distance <= first.distance * 1.18);
+    const second = opposite || sorted[1];
+    return [first, second].sort((a,b) => a.distance-b.distance).map((x,i) => ({ ...x, index:i }));
+  }
+
   function renderRouteOptions() {
     const box = $('routeOptions');
     if (!box) return;
@@ -1418,14 +1525,14 @@
     const recommended = [...candidates].sort((a,b) => a.score-b.score)[0]?.index;
     box.innerHTML = candidates.map((x) => {
       const active = state.currentRoute?.candidateIndex === x.index;
-      const badges = [x.index === recommended ? 'RECOMMENDED' : '', x.isFastest ? 'FASTEST' : '', x.isShortest ? 'SHORTEST' : ''].filter(Boolean).join(' · ');
+      const badges = [x.corridor?.label || '', x.isFastest ? 'FASTEST' : '', x.isShortest ? 'SHORTEST' : ''].filter(Boolean).join(' · ');
       const flow = Number.isFinite(Number(x.intel.avgSpeed)) ? `${Math.round(x.intel.avgSpeed)} km/h` : 'FLOW N/A';
       const risk = x.threat.level === 'red' ? 'CRITICAL' : x.threat.level === 'amber' ? 'WATCH' : 'NOMINAL';
       const delta = Math.max(0, Math.round((x.duration - Math.min(...candidates.map((c)=>c.duration))) / 60));
       const rationale = x.index === recommended
         ? `${delta ? `較最快基準 +${delta}m · ` : ''}綜合 ETA / 事件 / 流速風險最低`
         : `${risk} · ${x.intel.traffic.length} EVT · ${flow}`;
-      return `<button class="route-option ${active ? 'active' : ''} ${x.threat.level === 'red' ? 'danger' : x.threat.level === 'amber' ? 'warning' : ''}" data-route-option="${x.index}"><span>PATH ${String(x.index+1).padStart(2,'0')} · ${risk}</span><b>${Math.round(x.duration/60)} min · ${(x.distance/1000).toFixed(1)} km</b><em>${escapeHtml(badges || 'ALTERNATE')} · ${escapeHtml(rationale)}</em></button>`;
+      return `<button class="route-option ${active ? 'active' : ''} ${x.threat.level === 'red' ? 'danger' : x.threat.level === 'amber' ? 'warning' : ''}" data-route-option="${x.index}"><span>${escapeHtml(x.corridor?.label || `PATH ${String(x.index+1).padStart(2,'0')}`)} · ${risk}</span><b>${Math.round(x.duration/60)} min · ${(x.distance/1000).toFixed(1)} km</b><em>${escapeHtml(badges || 'ALTERNATE')} · ${escapeHtml(rationale)}</em></button>`;
     }).join('');
     box.querySelectorAll('[data-route-option]').forEach((btn) => btn.addEventListener('click', () => activateRouteCandidate(Number(btn.dataset.routeOption), { announce: true })));
   }
@@ -1532,6 +1639,7 @@
     const candidate = (state.routeCandidates || []).find((x) => x.index === index);
     const ctx = state.routeContext;
     if (!candidate || !ctx) return;
+    state.cctvPreviewLayer?.clearLayers?.();
     renderRouteLayers(candidate.index);
     const bounds = state.routeLayer.getBounds();
     if (!navigation) state.map.fitBounds(bounds.pad(.08), { animate: true });
@@ -1543,8 +1651,8 @@
     $('routeEta').textContent = `${mins} min`;
     $('routeDistance').textContent = `${km.toFixed(1)} km`;
     const recommended = [...state.routeCandidates].sort((a,b) => a.score-b.score)[0]?.index;
-    $('routeMode').textContent = candidate.index === recommended ? 'RECOMMENDED' : candidate.isFastest ? 'FASTEST BASE' : candidate.isShortest ? 'SHORTEST' : `PATH ${candidate.index+1}`;
-    if ($('routeRecommendation')) $('routeRecommendation').textContent = candidate.index === recommended ? `PATH ${String(candidate.index+1).padStart(2,'0')} · 最佳綜合選擇` : `PATH ${String(candidate.index+1).padStart(2,'0')} · 使用者選擇`;
+    $('routeMode').textContent = candidate.corridor?.label || (candidate.isFastest ? 'FASTEST BASE' : candidate.isShortest ? 'SHORTEST' : `PATH ${candidate.index+1}`);
+    if ($('routeRecommendation')) $('routeRecommendation').textContent = `${candidate.corridor?.label || `PATH ${String(candidate.index+1).padStart(2,'0')}`} · ${candidate.index === recommended ? '建議路線' : '使用者選擇'}`;
     $('routeFrom').textContent = shortName(ctx.origin.name || 'START');
     $('routeTo').textContent = shortName(ctx.target.name || 'TARGET');
     const intel = buildMissionRouteBrief({ route: candidate.route, origin: ctx.origin, target: ctx.target, mins, km, traffic: ctx.datasets.traffic, flow: ctx.datasets.flow, cctv: ctx.datasets.cctv, speedCameras: ctx.datasets.speedCameras, weatherData: ctx.weatherData });
@@ -1592,14 +1700,16 @@
       renderFlowTimeMachine({ lat:center.lat, lon:center.lng, name:'ROUTE CORRIDOR' }, datasets.flow);
       const fastestDuration = Math.min(...routes.map((r) => Number(r.duration)));
       const shortestDistance = Math.min(...routes.map((r) => Number(r.distance)));
-      state.routeCandidates = routes.map((route, index) => {
+      const routePool = routes.map((route, index) => {
         const intel = routeIntelSnapshot(route, datasets, Number(route.distance)/1000);
         const forecast = forecastForArrival(weatherData, Math.round(Number(route.duration)/60));
         const threat = assessRouteThreat(intel, forecast);
-        const candidate = { index, route, duration: Number(route.duration), distance: Number(route.distance), intel, threat, isFastest: Number(route.duration) === fastestDuration, isShortest: Number(route.distance) === shortestDistance };
+        const corridor = routeFreewayProfile(route);
+        const candidate = { index, route, duration: Number(route.duration), distance: Number(route.distance), intel, threat, corridor, isFastest: Number(route.duration) === fastestDuration, isShortest: Number(route.distance) === shortestDistance };
         candidate.score = routeOperationalScore(candidate);
         return candidate;
       });
+      state.routeCandidates = chooseTwoNavigationRoutes(routePool);
       const preference = options.preference || 'recommended';
       let selected;
       if (preference === 'fastest') selected = [...state.routeCandidates].sort((a,b) => a.duration-b.duration)[0];
@@ -1610,7 +1720,8 @@
       await activateRouteCandidate(selected.index, { announce: false, fromVoice: Boolean(options.fromVoice) });
       signalAcquire(false);
       showTargetLock(target);
-      const routeCountText = state.routeCandidates.length >= 2 ? `已取得 ${state.routeCandidates.length} 條可選路線` : '路由服務僅回傳 1 條不同路線';
+      const corridorText = state.routeCandidates.map((x)=>x.corridor?.label).filter(Boolean).join(' / ');
+      const routeCountText = state.routeCandidates.length >= 2 ? `已取得最短兩條可選路線${corridorText ? `（${corridorText}）` : ''}` : '路由服務僅回傳 1 條不同路線';
       toast(`${routeCountText}｜推薦 PATH ${selected.index+1}`);
       const currentBrief = state.currentRoute?.travelBrief?.text;
       if (options.fromVoice && currentBrief) speak(currentBrief, true);

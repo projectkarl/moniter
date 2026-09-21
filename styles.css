@@ -2257,3 +2257,43 @@ body.camera-expanded-open{overflow:auto!important;}
   .cctv-popup{height:min(64dvh,460px)!important;}
   .cctv-popup-meta{white-space:normal!important;max-height:34px!important;overflow:hidden!important;}
 }
+
+/* =========================================================
+   v0.33.0 MAP CCTV + FLOW FIRST + DUAL ROUTE
+   ========================================================= */
+/* Search-result CCTV is visible on the map, but deliberately capped at 4/3 cards. */
+.map-live-cctv-card{
+  position:relative;width:154px;height:108px;transform:translate(var(--cctv-dx,12px),var(--cctv-dy,-112px));
+  overflow:hidden;border:1px solid rgba(224,199,127,.62);border-radius:8px;background:rgba(5,8,9,.94);
+  box-shadow:0 12px 26px rgba(0,0,0,.45);backdrop-filter:blur(9px);cursor:pointer;color:#eee9dc;
+  font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;
+}
+.map-live-cctv-card.indexed{border-color:rgba(126,183,159,.58)}
+.map-live-cctv-head{height:27px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:5px;padding:0 6px;background:rgba(8,11,12,.94);border-bottom:1px solid rgba(255,255,255,.08)}
+.map-live-cctv-head span{color:#f0d77e;font:800 7px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}
+.map-live-cctv-card.indexed .map-live-cctv-head span{color:#93cfb2}
+.map-live-cctv-head b{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;font-weight:700}
+.map-live-cctv-head em{font:normal 7px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#929a96;white-space:nowrap}
+.map-live-cctv-stage{position:relative;height:81px;overflow:hidden;background:#050606}
+.map-live-cctv-stage>img,.map-live-cctv-stage>video,.map-live-cctv-stage>iframe{width:100%!important;height:100%!important;object-fit:cover!important;border:0!important;display:block!important}
+.map-live-cctv-stage .camera-loading,.map-live-cctv-stage .camera-placeholder{position:absolute!important;inset:0!important;min-height:0!important;padding:7px!important;display:flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;font-size:8px!important}
+.map-live-cctv-stage .camera-loading i,.map-live-cctv-stage .camera-index-badge,.map-live-cctv-stage .local-privacy-mask{display:none!important}
+.map-live-cctv-loading{height:100%;display:grid;place-items:center;color:#858d89;font:700 8px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em}
+/* The national map is flow-first: large numeric tags no longer cover road colors. */
+.app-shell.national-mode .national-hotspot-tag{display:none!important}
+.app-shell.national-mode .leaflet-flowPane-pane{filter:drop-shadow(0 1px 2px rgba(0,0,0,.78))}
+.app-shell.national-mode .leaflet-flowPane-pane path{vector-effect:non-scaling-stroke}
+/* Route choices are the decision surface; keep them compact enough to compare two paths. */
+.route-options{gap:7px!important}
+.route-option{min-height:64px!important}
+.route-option span{letter-spacing:.03em!important}
+@media(max-width:760px){
+  .map-live-cctv-card{width:116px;height:82px;border-radius:7px;box-shadow:0 9px 22px rgba(0,0,0,.46)}
+  .map-live-cctv-head{height:23px;grid-template-columns:auto minmax(0,1fr);padding:0 5px}.map-live-cctv-head em{display:none}.map-live-cctv-head b{font-size:8px}
+  .map-live-cctv-stage{height:59px}
+  .route-option{min-height:58px!important;padding:9px!important}
+}
+@media(max-width:420px){
+  /* On very narrow screens show only the two nearest map cards; remaining cameras stay as markers / in the CCTV panel. */
+  .leaflet-cctvPreviewPane-pane .leaflet-marker-icon:nth-child(n+3){display:none!important}
+}

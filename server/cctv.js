@@ -75,7 +75,7 @@ async function loadTwipcamNearby(lat, lon, maxItems = 14) {
   const browserHeaders = {
     Accept:'text/html,application/xhtml+xml',
     'Accept-Language':'zh-TW,zh;q=0.9,en;q=0.6',
-    'User-Agent':'Mozilla/5.0 (compatible; EYE-Taiwan/0.32; +public-cctv-nearby)',
+    'User-Agent':'Mozilla/5.0 (compatible; EYE-Taiwan/0.34; +public-cctv-nearby)',
     Referer:'https://www.twipcam.com/',
   };
   let links = [];

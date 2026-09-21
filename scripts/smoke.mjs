@@ -23,7 +23,7 @@ const source = required.filter((x) => x.endsWith('.js')).map((x) => fs.readFileS
 for (const forbidden of ['TDX_CLIENT_ID','TDX_CLIENT_SECRET','CWA_KEY','OPENAI_KEY']) {
   if (source.includes(forbidden)) { console.error('ZERO-KEY FAIL', forbidden); failed = true; }
 }
-if (!html.includes('0.32.0 CCTV STABLE + CLEAN')) { console.error('BUILD LABEL MISSING'); failed = true; }
+if (!html.includes('0.34.0 SEARCH FUSION + MAP CCTV')) { console.error('BUILD LABEL MISSING'); failed = true; }
 for (const id of ['vehicleIntelToggle','privacyShieldToggle','cameraIntel']) {
   if (!html.includes(`id=\"${id}\"`)) { console.error('PRIVACY DOM MISSING', id); failed = true; }
 }

@@ -6,7 +6,7 @@ const app = fs.readFileSync('app.js','utf8');
 const server = fs.readFileSync('server/cctv.js','utf8');
 const sw = fs.readFileSync('sw.js','utf8');
 function ok(v,m){ assert.ok(v,m); console.log('PASS',m); }
-ok(html.includes('0.32.0 CCTV STABLE + CLEAN'),'v0.32 build label');
+ok(html.includes('0.34.0 SEARCH FUSION + MAP CCTV'),'v0.32 build label');
 ok(server.includes('liveOnly:national') && server.includes('localSourceIds') && server.includes('timeoutCap'),'local CCTV uses relevant fast registry while national stays live-only');
 ok(server.includes('query-cam-list-by-coordinate'),'embeddable nearby CCTV discovery');
 ok(server.includes('TAIPEI_101_VERIFIED_SEEDS') && server.includes('tpe-000277') && server.includes('tpe-000128'),'Taipei 101 verified CCTV fallback seeds');
@@ -19,5 +19,5 @@ ok(app.includes('const requestSeq = ++state.targetRequestSeq') && app.includes('
 ok(!/setTimeout\(\(\) => btn\.click\(\), 0\)/.test(app),'CCTV wall no longer auto-clicks into flyTo');
 ok(html.includes('data-command="cctv"') && !html.includes('data-mission="theater"><span>⌁</span>戰情總覽'),'mobile dock simplified');
 ok(css.includes('v0.32.0 CCTV STABILITY + MOBILE CLEAN MODE'),'mobile clean-mode CSS present');
-ok(sw.includes('eye-taiwan-shell-v320'),'service worker cache bumped');
+ok(sw.includes('eye-taiwan-shell-v340'),'service worker cache bumped');
 console.log('V0.32 CCTV STABILITY PASS');
