@@ -49,6 +49,7 @@
     latestFlood: [],
     currentSituation: null,
     nationalMode: true,
+    freewayMode: false,
     nationalHotspots: [],
     nationalPreviewKey: '',
     nationalTimer: null,
@@ -104,6 +105,8 @@
       lastRouteProgress: 0,
       viewMode: 'map',
       immersiveCameraId: null,
+      turnImageKey: '',
+      turnImagePending: false,
     },
     motion: !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
   };
@@ -918,6 +921,31 @@
     updateMapTelemetry(NATIONAL_CENTER.lat,NATIONAL_CENTER.lon);
   }
 
+  function syncFreewayModeUi() {
+    const btn = $('freewayModeBtn');
+    if (btn) {
+      btn.classList.toggle('active', Boolean(state.freewayMode));
+      btn.setAttribute('aria-pressed', state.freewayMode ? 'true' : 'false');
+      btn.title = state.freewayMode ? '退出全台國道壅塞色帶模式' : '全台國道即時壅塞色帶模式';
+    }
+    $('app')?.classList.toggle('freeway-mode', Boolean(state.freewayMode));
+  }
+
+  async function setFreewayMode(active = true) {
+    state.freewayMode = Boolean(active);
+    syncFreewayModeUi();
+    if (!state.freewayMode) return;
+    setOverlayVisibility('flow', true, false);
+    setOverlayVisibility('event', true, false);
+    setOverlayVisibility('cctv', true, false);
+    enterNationalMode();
+    state.cctvPreviewLayer?.clearLayers?.();
+    state.cctvPreviewCards = [];
+    resetNationalMapView({ animate:true });
+    await refreshNationalSignals(true).catch(()=>{});
+    toast('HWY LIVE // 全台國道壅塞色帶');
+  }
+
   function enterNationalMode() {
     closeOverlayPanels();
     $('app')?.classList.remove('map-focus');
@@ -941,6 +969,7 @@
   function exitNationalMode() {
     closeOverlayPanels();
     state.nationalMode = false;
+    if (state.freewayMode) { state.freewayMode = false; syncFreewayModeUi(); }
     if (state.nationalTimer) { clearInterval(state.nationalTimer); state.nationalTimer = null; }
     $('app')?.classList.remove('national-mode');
     if ($('nationalOverview')) $('nationalOverview').hidden = true;
@@ -1697,6 +1726,40 @@
   }
 
 
+  function routeRoadSummary(route = {}) {
+    const roads = [];
+    for (const leg of (route.legs || [])) for (const step of (leg.steps || [])) {
+      const raw = String(step.ref || step.name || step.destinations || '').trim();
+      if (!raw) continue;
+      const text = raw.replace(/\s+/g,' ');
+      const important = /國道|高速公路|快速道路|台\s*\d+線|縣道|市民大道|環東|建國高架|Freeway|Expressway/i.test(text);
+      if (!important && roads.length >= 2) continue;
+      const short = text.split('/')[0].trim().slice(0,34);
+      if (short && !roads.includes(short)) roads.push(short);
+      if (roads.length >= 4) break;
+    }
+    if (!roads.length) {
+      for (const leg of (route.legs || [])) for (const step of (leg.steps || [])) {
+        const text = String(step.name || step.ref || '').trim();
+        if (text && !roads.includes(text)) roads.push(text.slice(0,34));
+        if (roads.length >= 3) break;
+      }
+    }
+    return roads.slice(0,3).join(' → ') || '依即時路線規劃';
+  }
+
+  function routeChoiceReason(candidate, candidates = [], recommended = null) {
+    const fastest = Math.min(...candidates.map((c)=>Number(c.duration)||Infinity));
+    const delta = Math.max(0, Math.round((Number(candidate.duration)-fastest)/60));
+    const ev = candidate.intel?.traffic?.length || 0;
+    const avg = Number(candidate.intel?.avgSpeed);
+    const flow = Number.isFinite(avg) ? `沿途可用流速約 ${Math.round(avg)} km/h` : '部分路段即時流速未涵蓋';
+    if (candidate.index === recommended) return `${delta ? `較最快 +${delta} 分 · ` : ''}綜合 ETA、${ev} 個事件與流速後優先`;
+    if (candidate.corridor?.code === 'N1') return `一高走廊 · ${flow}`;
+    if (candidate.corridor?.code === 'N3') return `二高走廊 · ${flow}`;
+    return `${ev} 個事件 · ${flow}`;
+  }
+
   function renderRouteOptions() {
     const box = $('routeOptions');
     if (!box) return;
@@ -1712,11 +1775,9 @@
       const badges = [x.corridor?.label || '', x.isFastest ? 'FASTEST' : '', x.isShortest ? 'SHORTEST' : ''].filter(Boolean).join(' · ');
       const flow = Number.isFinite(Number(x.intel.avgSpeed)) ? `${Math.round(x.intel.avgSpeed)} km/h` : 'FLOW N/A';
       const risk = x.threat.level === 'red' ? 'CRITICAL' : x.threat.level === 'amber' ? 'WATCH' : 'NOMINAL';
-      const delta = Math.max(0, Math.round((x.duration - Math.min(...candidates.map((c)=>c.duration))) / 60));
-      const rationale = x.index === recommended
-        ? `${delta ? `較最快基準 +${delta}m · ` : ''}綜合 ETA / 事件 / 流速風險最低`
-        : `${risk} · ${x.intel.traffic.length} EVT · ${flow}`;
-      return `<button class="route-option ${active ? 'active' : ''} ${x.threat.level === 'red' ? 'danger' : x.threat.level === 'amber' ? 'warning' : ''}" data-route-option="${x.index}"><span>${escapeHtml(x.corridor?.label || `PATH ${String(x.index+1).padStart(2,'0')}`)} · ${risk}</span><b>${Math.round(x.duration/60)} min · ${(x.distance/1000).toFixed(1)} km</b><em>${escapeHtml(badges || 'ALTERNATE')} · ${escapeHtml(rationale)}</em></button>`;
+      const rationale = routeChoiceReason(x, candidates, recommended);
+      const roads = routeRoadSummary(x.route);
+      return `<button class="route-option ${active ? 'active' : ''} ${x.threat.level === 'red' ? 'danger' : x.threat.level === 'amber' ? 'warning' : ''}" data-route-option="${x.index}"><span>${escapeHtml(x.corridor?.label || `PATH ${String(x.index+1).padStart(2,'0')}`)} · ${risk}</span><b>${Math.round(x.duration/60)} min · ${(x.distance/1000).toFixed(1)} km</b><strong class="route-option-path">${escapeHtml(roads)}</strong><em>${escapeHtml(badges || 'ALTERNATE')} · ${escapeHtml(rationale)}</em></button>`;
     }).join('');
     box.querySelectorAll('[data-route-option]').forEach((btn) => btn.addEventListener('click', () => activateRouteCandidate(Number(btn.dataset.routeOption), { announce: true })));
   }
@@ -1836,7 +1897,7 @@
     $('routeDistance').textContent = `${km.toFixed(1)} km`;
     const recommended = [...state.routeCandidates].sort((a,b) => a.score-b.score)[0]?.index;
     $('routeMode').textContent = candidate.corridor?.label || (candidate.isFastest ? 'FASTEST BASE' : candidate.isShortest ? 'SHORTEST' : `PATH ${candidate.index+1}`);
-    if ($('routeRecommendation')) $('routeRecommendation').textContent = `${candidate.corridor?.label || `PATH ${String(candidate.index+1).padStart(2,'0')}`} · ${candidate.index === recommended ? '建議路線' : '使用者選擇'}`;
+    if ($('routeRecommendation')) $('routeRecommendation').textContent = `${candidate.corridor?.label || `PATH ${String(candidate.index+1).padStart(2,'0')}`} · ${candidate.index === recommended ? '建議路線' : '使用者選擇'} · ${routeRoadSummary(candidate.route)}`;
     $('routeFrom').textContent = shortName(ctx.origin.name || 'START');
     $('routeTo').textContent = shortName(ctx.target.name || 'TARGET');
     const intel = buildMissionRouteBrief({ route: candidate.route, origin: ctx.origin, target: ctx.target, mins, km, traffic: ctx.datasets.traffic, flow: ctx.datasets.flow, cctv: ctx.datasets.cctv, speedCameras: ctx.datasets.speedCameras, weatherData: ctx.weatherData });
@@ -2366,11 +2427,58 @@
     tactile(threshold === 'NOW' ? 24 : threshold === 'NEAR' ? 16 : 8);
   }
 
+  function hideNavTurnScene() {
+    const scene = $('navTurnScene');
+    if (scene) scene.hidden = true;
+  }
+
+  async function updateTurnStreetImage(next) {
+    const scene = $('navTurnScene'), img = $('navTurnSceneImage');
+    if (!scene || !img || !state.navigation.active || !next?.step?.maneuver?.location) { hideNavTurnScene(); return; }
+    if (!Number.isFinite(Number(next.distance)) || Number(next.distance) > 1.25) { hideNavTurnScene(); return; }
+    const [lon,lat] = next.step.maneuver.location.map(Number);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) { hideNavTurnScene(); return; }
+    const key = `${next.index}:${lat.toFixed(5)},${lon.toFixed(5)}`;
+    if (state.navigation.turnImageKey === key && !scene.hidden) return;
+    if (state.navigation.turnImagePending) return;
+    state.navigation.turnImagePending = true;
+    try {
+      const heading = Number(next.step.maneuver.bearingAfter ?? next.step.maneuver.bearingBefore ?? state.navigation.heading ?? 0);
+      const data = await jsonFetch(`/api/data?action=street-image&lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}&heading=${Number.isFinite(heading)?Math.round(heading):0}&radius=220`);
+      const item = data?.item;
+      if (!state.navigation.active || !item?.imageUrl) { hideNavTurnScene(); return; }
+      state.navigation.turnImageKey = key;
+      img.onload = () => { scene.hidden = false; };
+      img.onerror = () => { scene.hidden = true; };
+      img.src = item.imageUrl;
+      $('navTurnSceneTitle').textContent = navTurnText(next.step);
+      const captured = item.capturedAt ? new Date(item.capturedAt).toLocaleDateString('zh-TW') : '日期未知';
+      $('navTurnSceneMeta').textContent = `${captured} · 歷史街景 · 非即時影像`;
+      $('navTurnSceneArrow').textContent = navTurnArrow(next.step);
+    } catch (_) { hideNavTurnScene(); }
+    finally { state.navigation.turnImagePending = false; }
+  }
+
+  function updateNavAheadStrip(point, cur, progress, cameras = [], incidents = []) {
+    const flowBox = $('navAheadFlow'), cctvBox = $('navAheadCctv'), eventBox = $('navAheadEvent');
+    if (!flowBox || !cctvBox || !eventBox) return;
+    const flows = routeAheadItems(cur.route, cur.intel?.flow || state.latestFlow || [], progress, 5)
+      .map((x)=>({ ...x, navDistance:haversineKm(point.lat,point.lon,x.lat,x.lon) }))
+      .filter((x)=>x.navDistance <= 8)
+      .sort((a,b)=>a.navDistance-b.navDistance);
+    const flow = flows[0];
+    const speed = Number(flow?.travelSpeed);
+    flowBox.textContent = flow ? `${Number.isFinite(speed)?Math.round(speed)+' km/h':'FLOW'} · ${flow.navDistance.toFixed(1)} km` : 'NO FLOW';
+    cctvBox.textContent = cameras[0] ? `${cameras[0].navDistance.toFixed(1)} km` : 'NONE';
+    eventBox.textContent = incidents[0] ? `${incidents[0].navDistance.toFixed(1)} km` : 'CLEAR';
+  }
+
   function updateTurnInstruction(next, speed) {
     const arrow = $('navTurnArrow'), text = $('navTurnText'), dist = $('navTurnDistance'), road = $('navTurnRoad');
     if (!arrow || !text || !dist || !road) return;
     if (!next?.step) {
       arrow.textContent = '↑'; text.textContent = '沿目前路線繼續行駛'; dist.textContent = ''; road.textContent = 'ROUTE GUIDANCE';
+      hideNavTurnScene();
       return;
     }
     arrow.textContent = navTurnArrow(next.step);
@@ -2378,6 +2486,7 @@
     dist.textContent = navDistanceLabel(next.distance);
     road.textContent = next.step.name || next.step.ref || (next.step.maneuver?.type === 'arrive' ? 'DESTINATION' : 'ROUTE GUIDANCE');
     announceTurnStep(next, speed);
+    updateTurnStreetImage(next).catch(()=>{});
   }
 
   async function rerouteNavigation(point) {
@@ -2500,6 +2609,9 @@
     state.navigation.offRouteHits = 0;
     state.navigation.rerouting = false;
     state.navigation.lastRouteProgress = 0;
+    state.navigation.turnImageKey = '';
+    state.navigation.turnImagePending = false;
+    hideNavTurnScene();
     setSearchMode('nav', { focus:false });
     $('app')?.classList.add('nav-driving');
     if ($('intelTitle')) $('intelTitle').textContent = 'LIVE NAVIGATION';
@@ -2542,6 +2654,8 @@
     if ($('intelTitle')) $('intelTitle').textContent = shortName(state.target?.name || (state.nationalMode ? 'TAIWAN COMMAND' : 'TARGET INTEL'));
     if ($('intelSync')) $('intelSync').textContent = 'PUBLIC SIGNALS · AUTO';
     if ($('navHud')) $('navHud').hidden = true;
+    hideNavTurnScene();
+    state.navigation.turnImageKey = '';
     if ($('navCameraHandoff')) $('navCameraHandoff').hidden = true;
     if ($('navLimitBadge')) { $('navLimitBadge').hidden = true; $('navLimitBadge').classList.remove('danger'); }
     setNavigationViewMode('map');
@@ -2691,6 +2805,8 @@
       .map((x) => ({ ...x, navDistance: haversineKm(point.lat, point.lon, x.lat, x.lon) }))
       .filter((x) => x.navDistance <= 4)
       .sort((a, b) => a.navDistance - b.navDistance);
+
+    updateNavAheadStrip(point, cur, progress, cameraCandidates, incidents);
 
     const accuracyKm = Number.isFinite(Number(pos.coords.accuracy)) ? Number(pos.coords.accuracy) / 1000 : .03;
     const deviationThreshold = Math.max(.12, accuracyKm * 2.5);
@@ -3008,11 +3124,8 @@
       stage.innerHTML = `<iframe class="camera-official-frame" src="${escapeAttr(yt)}" title="${escapeAttr(cam.name || '景點官方即時影像')}" loading="eager" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="camera-index-badge">SCENIC · OFFICIAL SOURCE</div>`;
       return true;
     }
-    if (!/\.(?:m3u8|mjpg|mjpeg|jpg|jpeg|png|webp|mp4|webm)(?:\?|$)/i.test(stream)) {
-      clearCameraStage(stage);
-      stage.innerHTML = `<iframe class="camera-official-frame" src="${escapeAttr(stream)}" title="${escapeAttr(cam.name || '景點官方即時影像')}" loading="eager" allow="autoplay; encrypted-media; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="camera-index-badge">SCENIC · ORIGINAL SOURCE</div>`;
-      return true;
-    }
+    // v0.39: never fall back to embedding a whole scenic/reference webpage.
+    // Only actual media URLs or verified official YouTube embeds are rendered.
     return false;
   }
 
@@ -3189,8 +3302,11 @@
     clearCameraStage(stage);
     const kind = probe?.kind || 'unknown';
     if (renderKnown(kind)) return;
-    if (cam?.access === 'live-wrapper' && renderOfficialWrapperFrame(stage, cam)) return;
-    // Unknown endpoints are commonly live snapshots without a useful extension.
+    if (cam?.access === 'live-wrapper') {
+      stage.innerHTML = '<div class="camera-placeholder"><b>DIRECT STREAM UNAVAILABLE</b><span>官方攝影機點位存在，但目前無法解析到原始影像串流；不再嵌入整個網頁或留言頁。</span></div>';
+      return;
+    }
+    // Unknown direct endpoints are commonly live snapshots without a useful extension.
     renderCameraImage(stage, url, true, true);
   }
 
@@ -3710,8 +3826,9 @@
         if (!Array.isArray(segment.geometry) || segment.geometry.length < 2) return;
         const visual = flowVisual(segment);
         const nationalScale = state.nationalMode || state.map.getZoom() <= 8;
-        L.polyline(segment.geometry, { pane:'flowPane', color: '#050606', weight: nationalScale ? (visual.className === 'critical' ? 10 : 9) : (visual.className === 'critical' ? 12 : 11), opacity: .82, lineCap: 'round', lineJoin: 'round' }).addTo(state.flowLayer);
-        const style = flowStyle(segment); style.pane='flowPane'; if (nationalScale) style.weight = visual.className === 'critical' ? 7 : 6; else style.weight += 1;
+        const freewayScale = Boolean(state.freewayMode);
+        L.polyline(segment.geometry, { pane:'flowPane', color: '#050606', weight: freewayScale ? (visual.className === 'critical' ? 13 : 12) : nationalScale ? (visual.className === 'critical' ? 10 : 9) : (visual.className === 'critical' ? 12 : 11), opacity: freewayScale ? .94 : .82, lineCap: 'round', lineJoin: 'round' }).addTo(state.flowLayer);
+        const style = flowStyle(segment); style.pane='flowPane'; if (freewayScale) { style.weight = visual.className === 'critical' ? 9 : 8; style.opacity = 1; } else if (nationalScale) style.weight = visual.className === 'critical' ? 7 : 6; else style.weight += 1;
         const line = L.polyline(segment.geometry, style).addTo(state.flowLayer); line.bringToFront?.();
         const speedValue = Number(segment.travelSpeed);
         const speed = Number.isFinite(speedValue) ? `${Math.round(speedValue)} km/h` : '速度未提供';
@@ -4059,6 +4176,7 @@
       return true;
     }
     if (/座艙|cockpit/i.test(text) && /開|進入|追蹤/.test(text)) { toggleCockpitMode(true); return true; }
+    if (/1968|國道(?:路況|車流)|高速公路(?:路況|車流)/i.test(text)) { await setFreewayMode(true); return true; }
     if (/全台(?:總覽|戰情)|回到台灣/.test(text)) { await bootstrapDefaultCenter(); return true; }
     return false;
   }
@@ -4146,6 +4264,7 @@
     $('startNavBtn').addEventListener('click', () => startNavigation());
     $('watchZoneBtn')?.addEventListener('click', toggleWatchZone);
     $('nationalResetBtn')?.addEventListener('click', () => bootstrapDefaultCenter().catch((err)=>toast(err.message,4200)));
+    $('freewayModeBtn')?.addEventListener('click', () => setFreewayMode(!state.freewayMode).catch((err)=>toast(`國道路況：${err.message}`,4200)));
     $('brandHome')?.addEventListener('click', () => bootstrapDefaultCenter().catch((err)=>toast(err.message,4200)));
     $('brandHome')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bootstrapDefaultCenter().catch((err)=>toast(err.message,4200)); } });
     $('stopNavBtn').addEventListener('click', () => stopNavigation(true));

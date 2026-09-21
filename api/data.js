@@ -8,6 +8,7 @@ const handlers = {
   flow: require('../server/flow'),
   'city-flow': require('../server/city-flow'),
   'lane-flow': require('../server/lane-flow'),
+  'street-image': require('../server/street-image'),
   news: require('../server/news'),
   'speed-cameras': require('../server/speed-cameras'),
   flights: require('../server/flights'),

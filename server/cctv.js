@@ -1,6 +1,6 @@
 const { json, distanceKm } = require('./_utils');
 const { loadRegistry, searchRegistry, resolveCameraRegion } = require('./cctv-registry');
-const { loadScenicForQuery } = require('./scenic-cctv');
+const { loadScenicForQuery, shouldSearchScenic } = require('./scenic-cctv');
 
 function mergeCameras(primary = [], extra = []) {
   const map = new Map();
@@ -20,13 +20,13 @@ function mergeCameras(primary = [], extra = []) {
 function localSourceIds(lat, lon) {
   const y = Number(lat), x = Number(lon);
   if (!Number.isFinite(y) || !Number.isFinite(x)) return null;
-  if (y >= 24.96 && y <= 25.20 && x >= 121.43 && x <= 121.69) return ['taipei-position','new-taipei-position'];
-  if (y >= 25.05 && y <= 25.20 && x > 121.64 && x <= 121.86) return ['keelung','new-taipei-position'];
-  if (y >= 24.78 && y <= 25.18 && x >= 120.95 && x <= 121.38) return ['taoyuan-position','new-taipei-position','highway'];
-  if (y >= 23.95 && y <= 24.48 && x >= 120.45 && x <= 121.05) return ['taichung','highway'];
-  if (y >= 22.82 && y <= 23.48 && x >= 119.95 && x <= 120.58) return ['tainan','highway'];
-  if (y >= 23.30 && y <= 23.64 && x >= 120.25 && x <= 120.58) return ['chiayi-city','chiayi-county','highway'];
-  if (y >= 24.60 && y <= 25.45 && x >= 121.30 && x <= 122.15) return ['new-taipei-position','highway'];
+  if (y >= 24.96 && y <= 25.20 && x >= 121.43 && x <= 121.69) return ['taipei-position','new-taipei-position','freeway','highway'];
+  if (y >= 25.05 && y <= 25.20 && x > 121.64 && x <= 121.86) return ['keelung','new-taipei-position','freeway','highway'];
+  if (y >= 24.78 && y <= 25.18 && x >= 120.95 && x <= 121.38) return ['taoyuan-position','new-taipei-position','freeway','highway'];
+  if (y >= 23.95 && y <= 24.48 && x >= 120.45 && x <= 121.05) return ['taichung','freeway','highway'];
+  if (y >= 22.82 && y <= 23.48 && x >= 119.95 && x <= 120.58) return ['tainan','freeway','highway'];
+  if (y >= 23.30 && y <= 23.64 && x >= 120.25 && x <= 120.58) return ['chiayi-city','chiayi-county','freeway','highway'];
+  if (y >= 24.60 && y <= 25.45 && x >= 121.30 && x <= 122.15) return ['new-taipei-position','freeway','highway'];
   return ['freeway','highway'];
 }
 
@@ -56,13 +56,13 @@ module.exports = async (req, res) => {
       national ? 24000 : 4700,
       { items:[], sourceStatus:[] },
     );
-    const scenicPromise = hasCoords && q && !national
+    const scenicPromise = hasCoords && q && !national && shouldSearchScenic(q)
       ? deadline(loadScenicForQuery(q, lat, lon, 5), 5200, [])
       : Promise.resolve([]);
 
     const [{ items:registry, sourceStatus }, scenicResult] = await Promise.all([registryPromise, scenicPromise]);
     const scenic = Array.isArray(scenicResult) ? scenicResult : [];
-    if (q && hasCoords && !national) {
+    if (q && hasCoords && !national && shouldSearchScenic(q)) {
       sourceStatus.push({
         id:'scenic-original', name:'景點原始公開即時影像', region:'搜尋景點', ok:true,
         count:scenic.length, access:'original-source',

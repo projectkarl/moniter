@@ -78,6 +78,7 @@ function discoverMediaFromHtml(html, baseUrl) {
       else if (/\.png(?:\?|$)/i.test(url)) score += 25;
       if (/(?:cctv|camera|cam|stream|snapshot|live|traffic|video)/i.test(url)) score += 45;
       if (/(?:logo|icon|favicon|avatar|banner|ads?|sprite|brand)/i.test(url)) score -= 120;
+      if (/(?:comment|comments|guest|guestbook|board|message|forum|reply|chat|留言|討論)/i.test(url)) score -= 500;
       scored.push({ abs, score });
     } catch (_) {}
   }
@@ -106,7 +107,7 @@ async function resolveMediaTarget(camera) {
     return direct;
   }
   let response = await fetchWithTimeout(original.toString(), {
-    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'EYE-Taiwan/0.38 public-cctv-probe' },
+    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'EYE-Taiwan/0.39 public-cctv-probe' },
   }, 6500);
   if (!response.ok) throw new Error(`CCTV upstream HTTP ${response.status}`);
   const finalUrl = safeHttpUrl(response.url || original.toString());
@@ -122,7 +123,7 @@ async function resolveMediaTarget(camera) {
     if (!discovered) throw new Error('No playable media found in CCTV wrapper');
     target = safeHttpUrl(discovered.toString());
     response = await fetchWithTimeout(target.toString(), {
-      headers: { Accept: '*/*', Range: 'bytes=0-4095', 'User-Agent': 'EYE-Taiwan/0.38 public-cctv-probe' },
+      headers: { Accept: '*/*', Range: 'bytes=0-4095', 'User-Agent': 'EYE-Taiwan/0.39 public-cctv-probe' },
     }, 6000);
     if (!response.ok) throw new Error(`CCTV media HTTP ${response.status}`);
     kind = mediaKind(response.headers.get('content-type') || '', response.url || target.toString());
@@ -178,7 +179,7 @@ module.exports = async (req, res) => {
 
     const headers = {
       Accept: '*/*',
-      'User-Agent': 'EYE-Taiwan/0.38 public-cctv-inline-proxy',
+      'User-Agent': 'EYE-Taiwan/0.39 public-cctv-inline-proxy',
     };
     if (req.headers?.range) headers.Range = req.headers.range;
     const upstream = await fetchWithTimeout(target.toString(), { headers }, 12000);

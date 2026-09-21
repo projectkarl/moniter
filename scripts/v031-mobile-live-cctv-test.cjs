@@ -6,7 +6,7 @@ const app = fs.readFileSync('app.js','utf8');
 const geo = fs.readFileSync('server/geocode.js','utf8');
 const sw = fs.readFileSync('sw.js','utf8');
 function ok(v,m){ assert.ok(v,m); console.log('PASS',m); }
-ok(html.includes('0.38.0 ORIGINAL SOURCE + SCENIC FUSION'),'v0.31 build label');
+ok(html.includes('0.39.0 HIGHWAY LIVE + NAV VISION'),'v0.31 build label');
 ok(app.includes("lat: 25.033968, lon: 121.564468, name: '台北 101'"),'default fallback center is Taipei 101');
 ok(html.includes('id="cctvPopup"') && html.includes('id="cctvPopupHandle"'),'dedicated CCTV popup DOM');
 ok(app.includes('bindCctvPopupDrag') && app.includes('setPointerCapture'),'CCTV popup draggable');
@@ -20,5 +20,5 @@ ok(css.includes('Mobile: map-first layout') && css.includes('#app.intel-results-
 ok(css.includes('.national-overview{left:6px!important;right:6px!important;bottom:calc(116px + var(--safe-bottom))!important'),'mobile national panel moved above controls');
 ok(geo.includes('queryCandidates') && geo.includes('Photon') && geo.includes('normalizedQueries'),'geocode normalization + free fallback');
 ok(app.includes("'台北101世貿站'") && app.includes("'捷運市政府'"),'common Taipei landmark aliases added');
-ok(sw.includes('eye-taiwan-shell-v380'),'service worker cache bumped');
+ok(sw.includes('eye-taiwan-shell-v390'),'service worker cache bumped');
 console.log('V0.31 MOBILE + LIVE CCTV REGRESSION PASS');

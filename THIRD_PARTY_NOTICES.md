@@ -46,3 +46,8 @@ The optional 3D cockpit path lazy-loads CesiumJS from a public CDN only when req
 ## Taiwan administrative boundary reference
 - Ministry of the Interior / National Land Surveying and Mapping Center county-city boundary dataset is used as the reference for CCTV region QA. Runtime v0.35 prefers explicit camera/source metadata and conservative coordinate inference to avoid bulk reverse-geocoding against public services.
 - Government Open Data License, version 1.0 applies to the referenced dataset.
+
+## Highway Live / navigation visual additions (v0.39)
+- Traffic color bands use the Freeway Bureau public LiveTraffic / Section / SectionShape feeds already integrated in EYE. The HWY mode is an EYE visualization inspired by the information hierarchy of freeway traffic maps; it is not an official 1968 client.
+- KartaView is used only for best-effort public historical street-level imagery near an upcoming maneuver. KartaView images remain subject to KartaView/OpenStreetCam source terms and contributor licensing. EYE does not claim these images are live or current.
+- The navigation HUD does not use or reproduce proprietary commercial Junction View assets. If no public historical image exists, text/arrow navigation continues normally.

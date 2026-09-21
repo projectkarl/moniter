@@ -10,13 +10,6 @@ const REFERENCE_ORIGIN = 'https://monitor1.wfuapp.com';
 
 const VERIFIED_SCENIC = [
   {
-    keys:['台北101','台北 101','101','信義101'],
-    name:'台北101／信義松智', region:'臺北市',
-    streamUrl:'https://hls.bote.gov.taipei/live/index.html?id=128',
-    source:'臺北市交通管制工程處即時交通影像',
-    note:'原始公開來源：臺北市即時交通資訊網（攝影機 128）。',
-  },
-  {
     keys:['大溪老街'], name:'大溪老街', region:'桃園市',
     streamUrl:'https://www.youtube.com/embed/XUWjAsajKXg?autoplay=1&mute=1&playsinline=1',
     source:'桃園市政府觀光旅遊局官方即時影像',
@@ -134,7 +127,7 @@ function extractOriginalStream(html = '', baseUrl = '') {
 
 function isDirectMediaUrl(url = '') {
   const raw = String(url || '');
-  return Boolean(canonicalYoutube(raw)) || /\.m3u8(?:\?|$)|\.(?:mjpg|mjpeg|mp4|webm|jpg|jpeg)(?:\?|$)/i.test(raw) || /hls\.bote\.gov\.taipei/i.test(raw);
+  return Boolean(canonicalYoutube(raw)) || /\.m3u8(?:\?|$)|\.(?:mjpg|mjpeg|mp4|webm|jpg|jpeg|png|webp)(?:\?|$)/i.test(raw);
 }
 
 async function deepenOriginalSource(media, headers) {
@@ -189,6 +182,28 @@ function verifiedScenic(query, lat, lon) {
   })).map((item) => cameraRecord({ ...item, lat, lon }));
 }
 
+
+function shouldSearchScenic(query = '') {
+  const raw = String(query || '').trim();
+  if (raw.length < 2) return false;
+  if (/(?:國道|高速公路|交流道|匝道|捷運|銀行|總行|分行|公司|醫院|學校|地址)/i.test(raw)) return false;
+  if (/\d+\s*號/.test(raw)) return false;
+  if (/(?:路|街|大道|橋).*(?:與|和|口|交叉)/.test(raw)) return false;
+  return true;
+}
+
+function scenicTitleMatches(query = '', title = '') {
+  const q = normalizeQuery(query), t = normalizeQuery(title);
+  if (!q || !t) return false;
+  if (/(?:留言板|留言|討論|站務|聯絡我們|關於本站|使用說明|隱私|標籤|分類|搜尋結果)/i.test(title)) return false;
+  if (q === t) return true;
+  if (t.includes(q) || q.includes(t)) {
+    const ratio = Math.min(q.length, t.length) / Math.max(q.length, t.length);
+    return ratio >= .42 || Math.min(q.length, t.length) >= 4;
+  }
+  return false;
+}
+
 async function fetchReferenceScenic(query, lat, lon, maxItems = 4) {
   const url = `${REFERENCE_ORIGIN}/search?q=${encodeURIComponent(query)}`;
   const headers = { Accept:'text/html,application/xhtml+xml', 'Accept-Language':'zh-TW,zh;q=0.9', 'User-Agent':'Mozilla/5.0 (compatible; EYE-Taiwan/0.38; source-resolution-only)' };
@@ -198,11 +213,12 @@ async function fetchReferenceScenic(query, lat, lon, maxItems = 4) {
   if (!links.length) return [];
   const settled = await Promise.allSettled(links.map(async (referenceUrl) => {
     const html = await fetchText(referenceUrl, { headers }, 3600);
+    const name = articleTitle(html) || '';
+    if (!scenicTitleMatches(query, name)) return null;
     let media = extractOriginalStream(html, referenceUrl);
     if (!media?.streamUrl || isReferenceHost(media.streamUrl)) return null;
     media = await deepenOriginalSource(media, headers);
-    if (!media?.streamUrl || isReferenceHost(media.streamUrl)) return null;
-    const name = articleTitle(html) || query;
+    if (!media?.streamUrl || isReferenceHost(media.streamUrl) || !isDirectMediaUrl(media.streamUrl)) return null;
     const source = articleSourceName(html, media.upstreamPage || media.streamUrl);
     const note = media.upstreamPage
       ? `參考目錄僅用於辨識來源；已再解析官方頁 ${new URL(media.upstreamPage).hostname} 並直接使用其原始媒體。`
@@ -219,7 +235,7 @@ async function loadScenicForQuery(query, lat, lon, maxItems = 4) {
   const cached = queryCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.items.map((x)=>({ ...x }));
   const verified = verifiedScenic(q, Number(lat), Number(lon));
-  const dynamic = verified.length >= maxItems ? [] : await fetchReferenceScenic(q, Number(lat), Number(lon), Math.max(1,maxItems-verified.length));
+  const dynamic = verified.length >= maxItems || !shouldSearchScenic(q) ? [] : await fetchReferenceScenic(q, Number(lat), Number(lon), Math.max(1,maxItems-verified.length));
   const seen = new Set(), items = [...verified, ...dynamic].filter((cam) => {
     const k = cam.streamUrl; if (!k || seen.has(k)) return false; seen.add(k); return true;
   }).slice(0,maxItems);
@@ -239,6 +255,8 @@ module.exports = {
   canonicalYoutube,
   extractArticleLinks,
   extractOriginalStream,
+  shouldSearchScenic,
+  scenicTitleMatches,
   loadScenicForQuery,
   resolveScenicCamera,
 };

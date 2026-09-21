@@ -2306,3 +2306,40 @@ body.camera-expanded-open{overflow:auto!important;}
 .map-live-cctv-card.scenic .map-live-cctv-head span{color:#86e8d2!important}
 .inline-camera-choices button.scenic span{color:#86e8d2!important}
 .camera-official-frame{width:100%;height:100%;border:0;display:block;background:#050807}
+
+/* =========================================================
+   v0.39.0 — HIGHWAY LIVE + DIRECT CCTV + NAV VISION HUD
+   ========================================================= */
+/* Location follow stays tactical-dark instead of turning into a bright white/cyan tile. */
+.search-locate-btn.active,.search-locate-btn[aria-pressed="true"]{
+  color:#8ff4ff!important;background:linear-gradient(180deg,rgba(4,31,41,.98),rgba(3,19,27,.98))!important;
+  border-color:rgba(96,236,255,.78)!important;box-shadow:0 0 0 2px rgba(73,220,242,.09),inset 0 0 18px rgba(62,211,233,.07),0 0 20px rgba(62,211,233,.12)!important;
+}
+
+/* 1968-inspired national freeway situation mode: colored road performance is the hero layer. */
+#freewayModeBtn.active,#freewayModeBtn[aria-pressed="true"]{color:#071416!important;background:#8cf4d0!important;border-color:#b8ffe9!important;box-shadow:0 0 18px rgba(86,235,190,.22)!important}
+#app.freeway-mode .flow-legend{opacity:1!important;border-color:rgba(118,238,190,.34)!important;background:rgba(4,13,14,.93)!important;box-shadow:0 8px 34px rgba(0,0,0,.42)!important}
+#app.freeway-mode .national-overview{border-color:rgba(118,238,190,.2)!important}
+#app.freeway-mode .reticle,#app.freeway-mode .sensor-rack,#app.freeway-mode .provenance-ribbon{opacity:.2!important}
+#app.freeway-mode .national-hotspot-card{background:rgba(4,10,11,.91)!important}
+#app.freeway-mode .leaflet-flow-pane{filter:drop-shadow(0 0 3px rgba(0,0,0,.88)) saturate(1.18)}
+
+.route-option-path{grid-column:1/-1;display:block;color:#d7c885!important;font:700 9px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace!important;letter-spacing:.015em!important;white-space:normal!important;margin-top:3px}
+
+.nav-turn-scene{position:relative;display:grid;grid-template-columns:minmax(130px,42%) minmax(0,1fr) 46px;gap:10px;align-items:stretch;margin:8px 0;padding:7px;border:1px solid rgba(102,226,245,.22);background:linear-gradient(120deg,rgba(8,24,30,.94),rgba(7,11,14,.94));overflow:hidden}
+.nav-turn-scene[hidden]{display:none!important}
+.nav-turn-scene-media{position:relative;min-height:92px;overflow:hidden;background:#05090b;border:1px solid rgba(255,255,255,.06)}
+.nav-turn-scene-media img{width:100%;height:100%;min-height:92px;object-fit:cover;display:block;filter:saturate(.82) contrast(1.07) brightness(.83)}
+.nav-turn-scene-media:after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,transparent 55%,rgba(0,0,0,.55));box-shadow:inset 0 0 0 1px rgba(106,235,255,.08)}
+.nav-turn-scene-media span{position:absolute;left:6px;bottom:5px;z-index:2;color:#93f1ff;font:700 6px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em;text-shadow:0 1px 3px #000}
+.nav-turn-scene-copy{min-width:0;align-self:center}.nav-turn-scene-copy small,.nav-turn-scene-copy b,.nav-turn-scene-copy em{display:block}.nav-turn-scene-copy small{color:#67dbea;font:700 7px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em}.nav-turn-scene-copy b{color:#edf8f6;font:800 14px/1.22 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:5px 0}.nav-turn-scene-copy em{color:#849493;font:normal 8px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace}.nav-turn-scene>strong{display:grid;place-items:center;color:#8ff2ff;font:800 30px/1 system-ui;background:rgba(75,219,239,.055);border-left:1px solid rgba(83,222,241,.13)}
+.nav-ahead-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:6px 0 8px}.nav-ahead-strip>span{min-width:0;padding:7px 8px;background:rgba(4,8,10,.55);border:1px solid rgba(255,255,255,.055)}.nav-ahead-strip small,.nav-ahead-strip b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.nav-ahead-strip small{color:#697978;font:700 6px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}.nav-ahead-strip b{margin-top:4px;color:#c6e9e6;font:700 9px/1.1 ui-monospace,SFMono-Regular,Menlo,monospace}
+
+@media(max-width:920px){
+  #app.freeway-mode .national-overview{max-height:25dvh!important}
+  .nav-turn-scene{grid-template-columns:120px minmax(0,1fr) 38px;gap:7px}.nav-turn-scene-media,.nav-turn-scene-media img{min-height:78px}.nav-turn-scene-copy b{font-size:12px}.nav-turn-scene>strong{font-size:25px}
+  .nav-ahead-strip>span{padding:6px}.nav-ahead-strip b{font-size:8px}
+}
+@media(max-width:520px){
+  .nav-turn-scene{grid-template-columns:104px minmax(0,1fr) 34px}.nav-turn-scene-media,.nav-turn-scene-media img{min-height:70px}.nav-turn-scene-copy small{font-size:6px}.nav-turn-scene-copy b{font-size:11px}.nav-turn-scene-copy em{font-size:7px}.nav-turn-scene>strong{font-size:22px}
+}

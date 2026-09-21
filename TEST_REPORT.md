@@ -1,3 +1,29 @@
+# Test report — EYE // TAIWAN v0.39.0
+
+**PASS — full regression + v0.39 highway/direct-CCTV/navigation-vision checks**
+
+## v0.39 checks
+- Dedicated HWY national freeway mode control and behavior: PASS
+- HWY mode strengthens official LiveTraffic color rendering: PASS
+- Freeway Bureau official CCTV registry retained: PASS
+- Highway Bureau official CCTV registry retained: PASS
+- Local-area queries also retain freeway/highway camera sources: PASS
+- Road cameras carry original-source metadata: PASS
+- CCTV media resolver rejects guestboard/comment/discussion candidates: PASS
+- Frontend no longer falls back to whole-page official/reference iframe when media resolution fails: PASS
+- Scenic reference search keeps strict place-title matching: PASS
+- Active location-follow button uses dark tactical state: PASS
+- Route cards expose major-road summary + explanation: PASS
+- Valhalla maneuvers carry route-shape coordinates: PASS
+- Live navigation exposes FLOW AHEAD / CCTV / EVENT: PASS
+- KartaView street-image adapter is registered and used only as historical turn visual: PASS
+- Service worker shell: `eye-taiwan-shell-v390`: PASS
+
+## Full regression
+All existing syntax, smoke, API contract, CCTV proxy/HLS, original parity, national flow, Search Fusion, dual-route navigation, live location, map-point, scenic-source, mobile layout and v0.29–v0.38 regression suites pass.
+
+---
+
 # Test report — EYE // TAIWAN v0.38.0
 
 **PASS — full regression + original-source CCTV + scenic fusion checks**

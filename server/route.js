@@ -51,6 +51,28 @@ function osrmRoutes(d) {
   }));
 }
 
+
+function valhallaManeuverKind(m = {}) {
+  const text = `${m.instruction || ''} ${m.verbal_transition_alert_instruction || ''} ${m.verbal_pre_transition_instruction || ''}`.toLowerCase();
+  let type = 'continue', modifier = '';
+  if (/destination|arrive|抵達|到達/.test(text)) type = 'arrive';
+  else if (/roundabout|rotary|圓環/.test(text)) type = 'roundabout';
+  else if (/exit|off ramp|出口|下匝道/.test(text)) type = 'off ramp';
+  else if (/ramp|匝道/.test(text)) type = 'on ramp';
+  else if (/merge|匯入|併入/.test(text)) type = 'merge';
+  else if (/fork|岔路/.test(text)) type = 'fork';
+  else if (/turn|左轉|右轉|轉向/.test(text)) type = 'turn';
+  if (/sharp left|大幅左|急左/.test(text)) modifier = 'sharp left';
+  else if (/sharp right|大幅右|急右/.test(text)) modifier = 'sharp right';
+  else if (/slight left|稍向左|靠左/.test(text)) modifier = 'slight left';
+  else if (/slight right|稍向右|靠右/.test(text)) modifier = 'slight right';
+  else if (/u[- ]?turn|迴轉|回轉/.test(text)) modifier = 'uturn';
+  else if (/left|左/.test(text)) modifier = 'left';
+  else if (/right|右/.test(text)) modifier = 'right';
+  else if (/straight|直行|繼續/.test(text)) modifier = 'straight';
+  return { type, modifier };
+}
+
 function valhallaRoute(d) {
   const trip = d?.trip;
   if (!trip?.legs?.length) return null;
@@ -65,6 +87,9 @@ function valhallaRoute(d) {
     for (const m of (leg.maneuvers || [])) {
       const streetNames = Array.isArray(m.street_names) ? m.street_names.filter(Boolean) : [];
       const signToward = (m.sign?.exit_toward_elements || []).map((x) => x?.text).filter(Boolean).join(' / ');
+      const shapeIndex = Math.max(0, Math.min(decoded.length - 1, Number(m.begin_shape_index || 0)));
+      const location = decoded[shapeIndex] ? [Number(decoded[shapeIndex][0]), Number(decoded[shapeIndex][1])] : null;
+      const kind = valhallaManeuverKind(m);
       steps.push({
         distance: Number(m.length || 0) * 1000,
         duration: Number(m.time || 0),
@@ -73,12 +98,12 @@ function valhallaRoute(d) {
         destinations: signToward,
         drivingSide: 'right',
         maneuver: {
-          location: null,
-          type: String(m.type ?? ''),
-          modifier: '',
-          bearingBefore: null,
-          bearingAfter: null,
-          exit: null,
+          location,
+          type: kind.type,
+          modifier: kind.modifier,
+          bearingBefore: Number.isFinite(Number(m.begin_heading)) ? Number(m.begin_heading) : null,
+          bearingAfter: Number.isFinite(Number(m.end_heading)) ? Number(m.end_heading) : null,
+          exit: Number.isFinite(Number(m.roundabout_exit_count)) ? Number(m.roundabout_exit_count) : null,
         },
       });
     }

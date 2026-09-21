@@ -10,8 +10,8 @@ const data = fs.readFileSync('api/data.js','utf8');
 const rev = fs.readFileSync('server/reverse-geocode.js','utf8');
 const sw = fs.readFileSync('sw.js','utf8');
 function ok(v,m){assert.ok(v,m);console.log('PASS',m);}
-ok(html.includes('0.38.0 ORIGINAL SOURCE + SCENIC FUSION'),'v0.36 build label');
-ok(sw.includes('eye-taiwan-shell-v380'),'v0.36 cache namespace');
+ok(html.includes('0.39.0 HIGHWAY LIVE + NAV VISION'),'v0.36 build label');
+ok(sw.includes('eye-taiwan-shell-v390'),'v0.36 cache namespace');
 ok(html.includes('id="searchLocateBtn"'),'search bar current-location button');
 ok(app.includes('navigator.geolocation.watchPosition'),'continuous geolocation watch');
 ok(app.includes('locationFollowing'),'explicit follow-mode state');

@@ -232,6 +232,8 @@ function cameraRecord(source, raw, index) {
     direction,
     start: '', end: '', mile: '', status,
     source: source.name,
+    sourceDatasetUrl: source.url || '',
+    originalSource: true,
     region: source.region || '',
     access: streamUrl ? (source.access || 'live') : 'position-only',
     note: source.note || (streamUrl ? '政府公開交通 CCTV 影像來源。' : '政府公開 CCTV 位置；未提供可直接免授權播放的串流。'),
