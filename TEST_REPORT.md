@@ -1,8 +1,25 @@
-# Test report — EYE // TAIWAN v0.31.1
+# Test report — EYE // TAIWAN v0.32.0
 
 ## Result
 
 **PASS — syntax + smoke + API contract + original parity + navigation + CCTV + flow + v0.29/v0.30/v0.31 regression suites**
+
+## v0.32 checks
+
+- Local CCTV retains official position-only records.
+- Embeddable nearby CCTV fallback is present for direct-feed failures.
+- CCTV load/wall selection does not auto-fly the map.
+- Search request sequence guard prevents stale target rendering.
+- Mobile map-first declutter and 3-action dock are present.
+- Service worker cache bumped to v320.
+
+
+### v0.32 execution result
+
+- Full script suite: PASS.
+- Taipei 101 CCTV fallback request: 5 verified nearby camera records returned without waiting for slow upstream feeds.
+- Verified fallback cameras: Taipei 101, 信義松智東南角, 市府東南（松壽松智）, 信義路－莊敬路口, 信義松仁.
+- `app.js`, `server/cctv.js`, and `server/cctv-registry.js`: syntax PASS.
 
 ## v0.31 / v0.31.1 checks
 

@@ -1,6 +1,17 @@
-# EYE // TAIWAN — Mobile + Live CCTV v0.31.1
+# EYE // TAIWAN — CCTV Stable + Clean v0.32.0
 
 Zero-Key / Vercel Hobby friendly Taiwan situation-awareness interface.
+
+## v0.32.0 CCTV Stability + Clean Mobile
+
+- Local CCTV queries now keep official camera positions even when a city does not expose a zero-key live stream.
+- Taipei 101 and other target searches refresh nearby CCTV using official points and a public nearby live-camera index; Taipei 101 also carries a small, currently verified fallback set so this default target never depends on a slow upstream response.
+- Failed/direct-incompatible camera feeds fall back inside the app to an embeddable nearby CCTV widget instead of a blank player.
+- Loading/selecting CCTV no longer moves the map automatically. Explicit place search/navigation remains authoritative.
+- Recent manual pan/zoom temporarily suppresses non-essential programmatic flyTo calls.
+- Stale target requests cannot overwrite a newer search.
+- Mobile UI is map-first: locate / CCTV / voice remain in the dock; decorative overlays are hidden; national overview starts compact.
+
 
 ## v0.31.1 Mobile Usability + Search Recovery
 

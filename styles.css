@@ -2227,3 +2227,33 @@ body.camera-expanded-open{overflow:auto!important;}
   .national-hotspot-card:first-child{min-height:32px!important;padding:3px 5px!important;}
   .cctv-popup{width:91vw!important;height:min(62dvh,450px)!important;min-height:260px!important;}
 }
+
+/* =========================================================
+   v0.32.0 CCTV STABILITY + MOBILE CLEAN MODE
+   ========================================================= */
+.camera-nearby-widget{background:#050708!important;}
+.camera-index-badge{pointer-events:none;}
+.marker-camera.location-only{opacity:.74;filter:saturate(.65);}
+.marker-camera.location-only span{background:#9b8d69!important;box-shadow:0 0 0 2px rgba(155,141,105,.18)!important;}
+
+@media(max-width:920px){
+  /* Remove decorative overlays that steal visual space/touch confidence on phones. */
+  .reticle,.signal-trace,.geo-transfer,.sweep-fx,.theater-standby,.theater-grid,.map-vignette,.scanline{display:none!important;}
+  .provenance-ribbon,.sensor-rack{display:none!important;}
+  .mobile-dock{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
+  .mobile-dock button{min-width:0!important;}
+  /* National summary starts collapsed; search and map stay visually dominant. */
+  .national-overview.compact{left:8px!important;right:auto!important;width:min(245px,calc(100vw - 16px))!important;max-height:44px!important;}
+  .national-overview.compact .national-preview,.national-overview.compact .national-metrics,.national-overview.compact .national-body,.national-overview.compact .national-foot{display:none!important;}
+  /* CCTV popup stays central but leaves a clear grab/close header. */
+  .cctv-popup{top:50%!important;width:calc(100vw - 16px)!important;max-width:720px!important;height:min(68dvh,520px)!important;min-width:0!important;min-height:280px!important;padding:8px!important;}
+  .cctv-popup-head{min-height:46px!important;}
+  .cctv-popup-stage{min-height:210px!important;}
+  .camera-index-frame{min-height:210px!important;}
+}
+@media(max-width:480px){
+  .command{max-height:160px!important;}
+  .national-overview.compact{width:min(210px,calc(100vw - 16px))!important;max-height:42px!important;}
+  .cctv-popup{height:min(64dvh,460px)!important;}
+  .cctv-popup-meta{white-space:normal!important;max-height:34px!important;overflow:hidden!important;}
+}

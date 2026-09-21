@@ -15,13 +15,13 @@ ok(app.includes("q.get('view') !== 'shared'"),'ordinary coordinates cannot overr
 ok(app.includes('resetNationalMapView({ animate:false })'),'post-animation full-island reset');
 ok(css.includes('.command.search-nav #searchForm') && css.includes('.command.search-nav #commandHint'),'NAV only exposes A/B planning chrome');
 ok(app.includes("if ($('abTarget') && !$('abTarget').value.trim()) $('abTarget').value = state.target.name || ''"),'searched target seeds B field');
-ok(cctv.includes('loadRegistry({ liveOnly:true })'),'position-only camera sources skipped');
+ok(cctv.includes('liveOnly:national') && cctv.includes('sourceIds') && cctv.includes('timeoutCap'),'local registry is region-scoped/fast while national stays live-only');
 ok(cctv.includes('loadTwipcamNearby') && cctv.includes('twipcam 公開即時影像索引'),'twipcam nearby cameras become in-app camera records');
 ok(registry.includes("prefix === 'twipcam'") && registry.includes('https://www.twipcam.com/cam/'),'dynamic twipcam camera IDs resolve inside CCTV proxy');
 ok(feed.includes('discoverMediaFromHtml') && feed.includes('data-stream'),'wrapper-page media discovery retained');
 ok(app.includes('openTargetNearbyCctv') && app.includes('targetNearbyCctvBtn'),'target popup opens nearby CCTV in EYE');
 ok(!app.includes('openExternalCamera'),'CCTV camera flow has no external-window fallback');
-ok(app.includes('const drawItems = national ? viewable : viewable.slice(0, 240)'),'national CCTV is not client-sampled');
+ok(app.includes('const drawItems = national ? viewable : valid.slice(0, 240)'),'national CCTV stays live-only while local map keeps official points');
 ok(app.includes('cctvCanvasRenderer') && app.includes('L.canvas({ padding:0.5, tolerance:5 })'),'national CCTV uses canvas renderer for large marker sets');
 ok(cctv.includes("national ? 8000"),'national API permits full live registry');
 ok(css.includes('.national-preview{\n    display:block!important') || css.includes('.national-preview{display:block!important'),'national hotspot CCTV preview restored');
@@ -31,5 +31,5 @@ ok(app.includes('enrichNationalHotspotCamera') && app.includes('SEARCHING NEARBY
 ok(flow.includes("tag(block, 'SectionStart') || tag(block, 'Start')") && flow.includes('geometryFallback'),'freeway geometry fallback');
 ok(app.includes("pane:'flowPane'") && app.includes("color: '#050606'"),'freeway flow color casing emphasized');
 ok(html.includes('TAIWAN NATIONAL GRID · CONGESTION + CCTV'),'national header communicates congestion + CCTV');
-ok(html.includes('0.31.1 MOBILE + LIVE CCTV'),'v0.30 successor build label');
+ok(html.includes('0.32.0 CCTV STABLE + CLEAN'),'v0.30 successor build label');
 console.log('V0.29 BASELINE REGRESSION PASS ON V0.30');

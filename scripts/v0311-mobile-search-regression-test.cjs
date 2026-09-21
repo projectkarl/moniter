@@ -6,12 +6,12 @@ const app = fs.readFileSync('app.js','utf8');
 const geo = fs.readFileSync('server/geocode.js','utf8');
 const sw = fs.readFileSync('sw.js','utf8');
 function ok(v,m){ assert.ok(v,m); console.log('PASS',m); }
-ok(html.includes('0.31.1 MOBILE + LIVE CCTV'),'v0.31.1 build label');
+ok(html.includes('0.32.0 CCTV STABLE + CLEAN'),'v0.31.1 build label');
 ok(css.includes('.provenance-ribbon,.stage>.flow-legend{display:none!important;}'),'mobile extra HUDs removed');
 ok(css.includes('.national-overview .national-metrics{display:none!important;}'),'narrow-phone national summary compacted');
 ok(css.includes('width:min(92vw,620px)!important'),'mobile CCTV popup leaves drag margin');
 ok(app.includes('const strongLocal = localTop && localTop.score >= 82'),'strong local partial POI resolution');
 ok(geo.includes('const metroStation = station ? `捷運${station}`'),'MRT normalized query variant');
 ok(geo.includes('candidates.slice(0, 5)'),'expanded Photon normalized fallback');
-ok(sw.includes('eye-taiwan-shell-v311'),'service worker cache v311');
+ok(sw.includes('eye-taiwan-shell-v320'),'service worker cache v311');
 console.log('V0.31.1 MOBILE + SEARCH REGRESSION PASS');

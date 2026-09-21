@@ -339,19 +339,22 @@ function parseSourceText(text, source) {
   return [];
 }
 
-async function fetchSource(source, { force = false } = {}) {
+async function fetchSource(source, { force = false, timeoutCap = null } = {}) {
   const now = Date.now();
   const cached = registryCache.get(source.id);
   if (!force && cached && cached.expiresAt > now) return cached.items;
+  const normalTimeout = source.kind === 'ods-generic' ? (source.timeout || 22000) : (source.timeout || 16000);
+  const timeout = Number.isFinite(Number(timeoutCap)) ? Math.max(1800, Math.min(normalTimeout, Number(timeoutCap))) : normalTimeout;
   const items = source.kind === 'ods-generic'
-    ? parseOdsGeneric(await fetchBuffer(source.url, {}, source.timeout || 22000, 16 * 1024 * 1024), source)
-    : parseSourceText(await fetchText(source.url, {}, source.timeout || 16000), source);
+    ? parseOdsGeneric(await fetchBuffer(source.url, {}, timeout, 16 * 1024 * 1024), source)
+    : parseSourceText(await fetchText(source.url, {}, timeout), source);
   registryCache.set(source.id, { items, expiresAt: now + CACHE_MS });
   return items;
 }
 
 async function loadRegistry(options = {}) {
-  const sourceList = options.liveOnly ? SOURCES.filter((source) => source.access !== 'position-only') : SOURCES;
+  const allowedIds = Array.isArray(options.sourceIds) && options.sourceIds.length ? new Set(options.sourceIds) : null;
+  const sourceList = SOURCES.filter((source) => (!options.liveOnly || source.access !== 'position-only') && (!allowedIds || allowedIds.has(source.id)));
   const settled = await Promise.allSettled(sourceList.map((source) => fetchSource(source, options)));
   const dedup = new Map();
   const sourceStatus = [];
