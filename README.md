@@ -1,30 +1,31 @@
-# EYE // TAIWAN — Fast Flow + Progressive CCTV v0.40.0
+# SENTINEL // TAIWAN
 
-A zero-key Taiwan map-first traffic / CCTV / navigation experiment.
+**Version 1.0.0 · Public Signal Command Grid**
 
-## v0.40 focus
-- Nearby road CCTV first: municipal / freeway / highway road cameras are requested on a fast path and render before scenic-source discovery.
-- Scenic live cameras enrich a searched place afterward through the same `/api/data` function, so scenery discovery cannot hold up road CCTV.
-- National HWY mode uses the original Freeway Bureau live-traffic feed and draws a nationwide congestion-colored road network using fast section geometry.
-- National traffic, events and CCTV paint progressively instead of waiting for the slowest source.
-- National status now includes a road-network summary rather than only a few hotspot cards.
+SENTINEL // TAIWAN 是一個以台灣公開資料為基礎的地圖型戰情／導航實驗專案。核心目標是把即時車流、公開 CCTV、交通事件、天氣、環境資訊與導航整合在同一張地圖，同時清楚標示資料來源與即時性。
 
-## Congestion colors
-- Green: clear / about 70 km/h or faster
-- Yellow-green: moderately slow / about 50–69 km/h
-- Orange: slow / about 30–49 km/h
-- Red: congested / below about 30 km/h
+## 核心功能
+- 全台國道即時 FLOW 色帶與 HWY 戰情模式
+- 搜尋地點／點選地圖後顯示周邊公開 CCTV
+- 原始政府／官方 CCTV 來源優先，支援 HLS、JPEG/MJPEG、MP4/WebM 與官方公開播放器解析
+- 景點官方直播與周邊道路 CCTV 融合
+- 目前位置追蹤、雙路線導航、偏離路線重算、轉彎提示與前方事件／CCTV 情報
+- 全台即時戰情、事件、AQI、水情、施工、停車、天氣與來源狀態
+- CONTACT TRACK、航空公開訊號、3D Cockpit、Watch Zone、Flow Trend、Sensor Look
+- 軍事／情報中心風格資料感知開機序列
 
-These bands are a visualization of available public road performance data, not a guarantee of every vehicle's speed.
+## 資料原則
+- 優先使用政府或官方公開來源，不把第三方索引頁當成正式影像播放器。
+- `LIVE / OBSERVED / MODEL / DERIVED / ESTIMATED / VISUAL / UNAVAILABLE` 分級用來區分資料性質。
+- CCTV 影像分析不做人臉辨識、車牌 OCR 或身分追蹤。
+- 公開資料來源可能暫時離線、改版、限流或停止提供；系統會盡量降級顯示而不虛構資料。
 
-## CCTV policy
-The application plays original government / official public feeds where available. Third-party index pages are not used as playback surfaces. Official position-only cameras remain identifiable but are not fabricated into live streams.
+## 部署
+直接將此資料夾部署至 Vercel 即可。正式執行使用兩個 Serverless Functions：
+- `/api/data`
+- `/api/cctv-feed`
 
-## Deployment
-Deploy the folder directly to Vercel. The architecture keeps two `/api` serverless entrypoints (`data.js` and `cctv-feed.js`).
+不需要前端付費 API Key。
 
-Service-worker shell cache: `eye-taiwan-shell-v400`.
-
-## v0.40.1 CCTV Visible First
-
-This patch keeps the working national FLOW layer unchanged and focuses only on CCTV visibility. A nearby-place lookup now paints official CCTV points as soon as coordinates are available, then upgrades playable cameras and adds slower freeway/highway sources in a background enrichment pass. `POINT` means an official published camera location whose original public stream is not currently available or not yet resolved; it is not a fabricated live feed.
+## 版本
+**SENTINEL // TAIWAN v1.0.0** 為第一個正式發布版本。

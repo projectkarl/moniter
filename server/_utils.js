@@ -20,7 +20,7 @@ async function fetchJson(url, init = {}, timeoutMs = 10000) {
       signal: ctrl.signal,
       headers: {
         Accept: 'application/json',
-        'User-Agent': 'EYE-Taiwan/0.5 zero-key-public-data-client',
+        'User-Agent': 'SENTINEL-Taiwan/1.0 zero-key-public-data-client',
         ...(init.headers || {}),
       },
     });
@@ -43,7 +43,7 @@ async function fetchText(url, init = {}, timeoutMs = 10000) {
       signal: ctrl.signal,
       headers: {
         Accept: '*/*',
-        'User-Agent': 'EYE-Taiwan/0.5 zero-key-public-data-client',
+        'User-Agent': 'SENTINEL-Taiwan/1.0 zero-key-public-data-client',
         ...(init.headers || {}),
       },
     });
@@ -64,7 +64,7 @@ async function fetchBuffer(url, init = {}, timeoutMs = 10000, maxBytes = 20 * 10
       signal: ctrl.signal,
       headers: {
         Accept: '*/*',
-        'User-Agent': 'EYE-Taiwan/0.27 zero-key-public-data-client',
+        'User-Agent': 'SENTINEL-Taiwan/1.0 zero-key-public-data-client',
         ...(init.headers || {}),
       },
     });

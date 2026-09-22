@@ -6,38 +6,52 @@
   <meta name="theme-color" content="#08090a" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="EYE Taiwan" />
-  <meta name="description" content="台灣公開資訊即時地圖：語音查詢、導航、公開測速點警示、天氣、路況、事故與公開 CCTV。" />
+  <meta name="apple-mobile-web-app-title" content="Sentinel Taiwan" />
+  <meta name="description" content="SENTINEL // TAIWAN：整合台灣公開車流、CCTV、交通事件、天氣與導航的即時戰情地圖。" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="/assets/icon-192.png" />
   <link rel="preconnect" href="https://unpkg.com" crossorigin />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <link rel="stylesheet" href="/styles.css" />
-  <title>EYE // TAIWAN</title>
+  <title>SENTINEL // TAIWAN</title>
 </head>
 <body>
   <div id="app" class="app-shell cinematic-ui">
-    <div id="bootSequence" class="boot-sequence" aria-hidden="true">
+    <div id="bootSequence" class="boot-sequence tactical-boot" aria-hidden="true">
+      <div class="boot-classification"><span>◆ SENTINEL COMMAND</span><b>TAIWAN THEATER // RESTRICTED DISPLAY</b><span>NODE 01</span></div>
+      <div class="boot-corner boot-corner-a"></div><div class="boot-corner boot-corner-b"></div>
+      <div class="boot-corner boot-corner-c"></div><div class="boot-corner boot-corner-d"></div>
       <div class="boot-frame">
+        <div class="boot-kicker">TACTICAL PUBLIC-SIGNAL INTELLIGENCE SYSTEM</div>
         <div class="boot-planet-sequence" aria-hidden="true">
+          <div class="boot-radar"><i></i><i></i><i></i><span></span></div>
           <div class="boot-earth"><i class="earth-grid"></i><i class="earth-orbit"></i><span class="earth-lock"></span></div>
-          <div class="boot-taiwan-focus"><img src="/assets/taiwan-silhouette.svg" alt="" /><span></span><i></i></div>
+          <div class="boot-taiwan-focus"><img src="/assets/taiwan-silhouette.svg" alt="" /><span></span><i></i><b>TW-OPS</b></div>
+          <div class="boot-crosshair"><i></i><i></i></div>
         </div>
-        <div class="boot-title">EYE // TAIWAN</div>
-        <div class="boot-sub">GLOBAL VIEW → TAIWAN LIVE GRID</div>
-        <div class="boot-track"><i></i></div>
-        <div id="bootStatus" class="boot-status">ORBITAL LINK ACQUIRING TAIWAN</div>
-        <div class="boot-codes"><span>ZERO-KEY</span><span>PUBLIC SIGNALS</span><span>TAIWAN GRID</span></div>
+        <div class="boot-title">SENTINEL // TAIWAN</div>
+        <div class="boot-sub">COMMAND GRID INITIALIZATION · LIVE PUBLIC SIGNAL FUSION</div>
+        <div class="boot-module-grid" aria-label="系統模組載入狀態">
+          <div id="bootModuleLink" class="boot-module"><span>SAT-LINK</span><b>ACQUIRING</b><i></i></div>
+          <div id="bootModuleFlow" class="boot-module"><span>FLOW-GRID</span><b>SYNC</b><i></i></div>
+          <div id="bootModuleCctv" class="boot-module"><span>CCTV-NET</span><b>SYNC</b><i></i></div>
+          <div id="bootModuleEvent" class="boot-module"><span>EVENT-BUS</span><b>SYNC</b><i></i></div>
+        </div>
+        <div class="boot-progress-meta"><span id="bootProgressText">00%</span><span id="bootTelemetry">ENCRYPTED LINK // TAIWAN GRID</span></div>
+        <div class="boot-track"><i id="bootProgressBar"></i><em></em></div>
+        <div id="bootStatus" class="boot-status">AUTHENTICATING PUBLIC SIGNAL CHANNELS</div>
+        <div class="boot-codes"><span>ZERO-KEY</span><span>PUBLIC SIGNALS</span><span>NO ID TRACKING</span><span>LIVE GRID</span></div>
       </div>
+      <div class="boot-footer"><span>LAT 23.6978°N</span><span>LON 120.9605°E</span><span id="bootClock">--:--:--</span></div>
     </div>
     <div class="hud-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <header class="topbar hud-panel">
       <div class="brand" id="brandHome" role="button" tabindex="0" aria-label="回到台灣全域監控總覽" title="回到台灣全域監控總覽">
         <div class="brand-mark" aria-hidden="true"><span></span><i></i></div>
         <div>
-          <div class="brand-name">EYE <b>//</b> TAIWAN</div>
-          <div class="brand-sub">PUBLIC SIGNAL INTELLIGENCE</div>
+          <div class="brand-name">SENTINEL <b>//</b> TAIWAN</div>
+          <div class="brand-sub">PUBLIC SIGNAL COMMAND GRID</div>
         </div>
       </div>
       <div class="topbar-center" aria-hidden="true">
@@ -404,7 +418,7 @@
         <div class="source-legend"><span class="src-live">LIVE</span><span class="src-observed">OBSERVED</span><span class="src-derived">DERIVED</span><span class="src-model">MODEL</span><span class="src-estimated">ESTIMATED</span><span class="src-static">STATIC</span><span class="src-visual">VISUAL</span><span class="src-simulated">SIMULATED</span><span class="src-unavailable">UNAVAILABLE</span></div>
         <p class="source-explain">每個圖層都標示來源與資料性質。LIVE 不代表零延遲；OBSERVED 為官方測站觀測；DERIVED 為公開訊號計算的推論；MODEL / ESTIMATED 不應視為即時觀測；VISUAL 只代表畫面效果；SIMULATED 為合成資料，本版目前沒有啟用中的模擬交通／火箭圖層。</p>
         <div id="sourceMatrix" class="source-matrix"></div>
-        <div class="source-original-note"><b>ORIGINAL PARITY</b><span>原 God’s Eye View 也明確區分 live / simulated / estimated。台灣版沿用同一透明原則：本版國道 FLOW 改用官方 LIVE 資料，不沿用原版沿真實道路模擬的交通；目前未提供火箭圖層，因此不製造假的粗略軌跡。</span></div>
+        <div class="source-original-note"><b>SOURCE TRANSPARENCY</b><span>系統明確區分 LIVE / OBSERVED / MODEL / DERIVED / ESTIMATED / VISUAL / UNAVAILABLE；國道 FLOW 採官方公開即時資料，不以模擬交通冒充即時資訊。</span></div>
       </section>
 
       <section class="settings hud-panel" id="settingsPanel" hidden>
@@ -421,11 +435,11 @@
         <div class="setting-row"><div><b>CCTV 自動接管</b><small>導航移動時自動切換前方公開 CCTV 情報；只切換公開鏡頭，不追蹤個別車輛</small></div><button id="cameraHandoffToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-row"><div><b>戰術地點轉場</b><small>跨區移動時使用衛星鎖定、訊號切換與座標轉移動畫</small></div><button id="transferFxToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-stack"><div><b>MAP SOURCE</b><small>預設使用原專案 Zero-Key 思路的 Esri 衛星影像＋地名/道路標註；可一鍵切換清楚街圖</small></div><div class="map-modes" id="mapModes"><button data-map-source="satellite" class="active" aria-pressed="true">SATELLITE</button><button data-map-source="tactical" aria-pressed="false">STREET</button></div></div>
-        <div class="setting-stack"><div><b>SENSOR LOOK</b><small>沿用 God's Eye View 的感測器視覺概念；NORMAL / NVG / FLIR / NOIR / CRT / SNOW 只改視覺，不改資料內容</small></div><div class="sensor-modes" id="sensorModes"><button data-sensor="normal" class="active">NORMAL</button><button data-sensor="nvg">NVG</button><button data-sensor="flir">FLIR</button><button data-sensor="noir">NOIR</button><button data-sensor="crt">CRT</button><button data-sensor="snow">SNOW</button></div></div>
+        <div class="setting-stack"><div><b>SENSOR LOOK</b><small>NORMAL / NVG / FLIR / NOIR / CRT / SNOW 僅切換戰術視覺效果，不改變底層資料內容</small></div><div class="sensor-modes" id="sensorModes"><button data-sensor="normal" class="active">NORMAL</button><button data-sensor="nvg">NVG</button><button data-sensor="flir">FLIR</button><button data-sensor="noir">NOIR</button><button data-sensor="crt">CRT</button><button data-sensor="snow">SNOW</button></div></div>
         <div class="setting-row"><div><b>DETECTION OVERLAY</b><small>在可見公開訊號標記加上識別框與 ID；CCTV 的 LIVE ANALYSIS 會將人／車類別框直接疊在目前影像並定期更新；不做人臉／車牌辨識</small></div><button id="detectionToggle" class="toggle" aria-pressed="false"><span></span></button></div>
         <div class="setting-row"><div><b>VOICE MARKUP</b><small>Zero-Key 本地語音指令：例如「標記這裡集合點」、「清除標註」、「切換夜視」、「追蹤最近航班」</small></div><button id="voiceMarkupToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-row"><div><b>CCTV 局部隱私遮罩</b><small>預設關閉。開啟時只遮罩畫面下緣近距離區域，保留大部分道路與車流可視；這是輕量 ROI 遮罩，不宣稱自動辨識人臉或車牌</small></div><button id="privacyShieldToggle" class="toggle" aria-pressed="false"><span></span></button></div>
-        <div class="system-box"><span>BUILD</span><b>TAIWAN // 0.40.1 CCTV VISIBLE FIRST</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
+        <div class="system-box"><span>BUILD</span><b>SENTINEL // TAIWAN // 1.0.0</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
       </section>
 
 

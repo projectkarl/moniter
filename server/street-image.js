@@ -35,7 +35,7 @@ module.exports = async (req, res) => {
 
   try {
     const url = `https://api.openstreetcam.org/2.0/photo/?lat=${lat.toFixed(6)}&lng=${lon.toFixed(6)}&radius=${Math.round(radius)}&zoomLevel=18&join=sequence&orderBy=id&orderDirection=desc`;
-    const payload = await fetchJson(url, { headers:{ Accept:'application/json', 'User-Agent':'EYE-Taiwan/0.39 public-turn-visual' } }, 5200);
+    const payload = await fetchJson(url, { headers:{ Accept:'application/json', 'User-Agent':'SENTINEL-Taiwan/1.0 public-turn-visual' } }, 5200);
     const rows = normalizeRows(payload).map((row) => {
       const y = Number(row.lat ?? row.matchLat), x = Number(row.lng ?? row.matchLng);
       const h = Number(row.heading ?? row.projectionYaw);

@@ -148,7 +148,7 @@ module.exports = async (req, res) => {
     };
     calls.push(fetchJson('https://valhalla1.openstreetmap.de/route', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Client-Id': 'eye-taiwan-zero-key' },
+      headers: { 'Content-Type': 'application/json', 'X-Client-Id': 'sentinel-taiwan-zero-key' },
       body: JSON.stringify(body),
     }, 12000));
   }

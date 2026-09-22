@@ -81,7 +81,7 @@ module.exports = async (req, res) => {
   const detail = String(req.query.detail || '') === '1';
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return json(res, 400, { error: 'Invalid coordinates' });
 
-  // v0.40 FAST FLOW: LiveTraffic + Section endpoints are sufficient to draw the
+  // FAST FLOW: LiveTraffic + Section endpoints are sufficient to draw the
   // nationwide performance network immediately. The much heavier SectionShape feed
   // is optional and must never block the first paint.
   const jobs = [

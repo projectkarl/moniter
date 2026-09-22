@@ -66,7 +66,7 @@ function verifiedMatches(raw = '') {
       else if (k.startsWith(key) || key.startsWith(k)) score = Math.max(score, 930);
       else if (k.includes(key) || key.includes(k)) score = Math.max(score, 860);
     }
-    if (score) out.push({ ...place, provider: 'EYE verified landmark', verified: true, textScore: score });
+    if (score) out.push({ ...place, provider: 'SENTINEL verified landmark', verified: true, textScore: score });
   }
   return out.sort((a,b) => b.textScore - a.textScore);
 }

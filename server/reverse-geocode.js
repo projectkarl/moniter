@@ -14,7 +14,7 @@ module.exports = async (req, res) => {
   };
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1&accept-language=zh-TW`;
-    const d = await fetchJson(url, { headers: { 'User-Agent': 'EYE-TAIWAN/0.36 (zero-key public map client)' } }, 6500);
+    const d = await fetchJson(url, { headers: { 'User-Agent': 'SENTINEL-TAIWAN/1.0 (zero-key public map client)' } }, 6500);
     const a = d.address || {};
     const city = a.city || a.town || a.county || a.state || '';
     const district = a.city_district || a.district || a.suburb || a.village || a.neighbourhood || '';

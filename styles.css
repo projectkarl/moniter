@@ -171,7 +171,7 @@ button { color: inherit; }
 .credits { color: #81765a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; }
 
 
-/* v0.3 privacy-first CCTV controls */
+/* privacy-first CCTV controls */
 .camera-stage { position: relative; overflow: hidden; }
 .camera-stage.privacy-shield img,
 .camera-stage.privacy-shield video { filter: blur(6px) saturate(.65) brightness(.78); transform: scale(1.025); }
@@ -192,7 +192,7 @@ button { color: inherit; }
 .camera-intel .intel-grid b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; font-weight:500; }
 @media (max-width: 520px) { .camera-intel .intel-grid { grid-template-columns: 1fr 1fr; } }
 
-/* v0.4 mission operations */
+/* mission operations */
 .mission-deck { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; margin-top:8px; }
 .mission-deck button { min-width:0; min-height:46px; border:1px solid rgba(205,176,107,.16); background:linear-gradient(180deg,rgba(205,176,107,.045),rgba(255,255,255,.012)); padding:7px 8px; text-align:left; cursor:pointer; transition:.18s ease; }
 .mission-deck button:hover, .mission-deck button.active { border-color:rgba(224,199,127,.55); background:rgba(205,176,107,.09); box-shadow:inset 0 0 18px rgba(205,176,107,.035); }
@@ -287,7 +287,7 @@ button { color: inherit; }
   .news-item em { max-width:none; text-align:left; }
 }
 
-/* v0.6 cinematic intelligence interaction layer */
+/* cinematic intelligence interaction layer */
 :root { --cinematic-speed: 1; }
 body::before {
   content:""; position:fixed; z-index:2000; inset:0; pointer-events:none; opacity:.17;
@@ -397,7 +397,7 @@ body::before {
 .boot-sequence.done { animation:none; }
 
 
-/* v0.7 theater standby / military-intelligence overview */
+/* theater standby / military-intelligence overview */
 .theater-grid { position:absolute; z-index:426; pointer-events:none; left:50%; top:50%; width:min(58vw,720px); aspect-ratio:1.55; transform:translate(-50%,-50%); opacity:.24; }
 .theater-grid::before,.theater-grid::after { content:""; position:absolute; inset:0; border:1px solid rgba(205,176,107,.09); clip-path:polygon(0 0,18% 0,18% 1px,82% 1px,82% 0,100% 0,100% 20%,calc(100% - 1px) 20%,calc(100% - 1px) 80%,100% 80%,100% 100%,82% 100%,82% calc(100% - 1px),18% calc(100% - 1px),18% 100%,0 100%,0 80%,1px 80%,1px 20%,0 20%); }
 .theater-grid::after { inset:12%; border-color:rgba(205,176,107,.055); }
@@ -438,7 +438,7 @@ body::before {
   .theater-active::after,.theater-active .reticle span { animation:none!important; }
 }
 
-/* v0.8 NAV OPS / public speed enforcement / camera handoff */
+/* NAV OPS / public speed enforcement / camera handoff */
 .marker-speed { border-radius:2px; border:1px solid rgba(233,201,119,.92); background:#8e6f2f; box-shadow:0 0 0 4px rgba(0,0,0,.3),0 0 16px rgba(224,199,127,.34); transform:rotate(45deg); }
 .sig.speed { background:#e0c77f; box-shadow:0 0 8px rgba(224,199,127,.58); }
 .nav-start-btn { width:100%; margin-top:10px; border:1px solid rgba(224,199,127,.36); background:linear-gradient(90deg,rgba(205,176,107,.08),rgba(205,176,107,.025)); color:var(--gold-bright); padding:9px 10px; cursor:pointer; font:8px ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.16em; }
@@ -532,12 +532,12 @@ body::before {
   .nav-camera-copy small { display:block; }
 }
 
-/* v0.9 natural-language mission brief */
+/* natural-language mission brief */
 .voice-mission-answer { margin:0 0 10px; padding:11px 12px; border:1px solid rgba(224,199,127,.22); background:linear-gradient(135deg,rgba(205,176,107,.07),rgba(0,0,0,.18)); }
 .voice-mission-answer small { display:block; color:#766b50; font:6px ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.16em; }
 .voice-mission-answer b { display:block; margin-top:7px; color:#d8cfb6; font:500 10px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace; }
 
-/* v0.9 mobile command deck: keep all four mission modes visible without horizontal hunting */
+/* mobile command deck: keep all four mission modes visible without horizontal hunting */
 @media (max-width:520px) {
   .mission-deck { grid-template-columns:repeat(2,minmax(0,1fr)); overflow:visible; scroll-snap-type:none; gap:6px; }
   .mission-deck button { min-width:0; width:100%; }
@@ -598,7 +598,7 @@ body::before {
 @media (max-width:520px) { .threat-frame { padding:18px 15px; }.threat-reasons div { grid-template-columns:1fr; gap:4px; }.sensor-modes { grid-template-columns:repeat(3,1fr); }.ops-grid.six { grid-template-columns:repeat(2,minmax(0,1fr)); }.mission-deck { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (prefers-reduced-motion: reduce) { .threat-alert::before,.threat-alert::after,.threat-scan,.threat-code,.marker-quake { animation:none!important; } }
 
-/* v0.11 LIVE VISION ANALYTICS */
+/* LIVE VISION ANALYTICS */
 .camera-stage::after { content:""; position:absolute; inset:0; pointer-events:none; z-index:7; background:repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 4px); mix-blend-mode:screen; opacity:.55; }
 .vision-fusion { position:absolute; inset:0; z-index:8; pointer-events:none; color:#d5c58f; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; text-shadow:0 0 10px rgba(205,176,107,.18); }
 .vision-corners::before,.vision-corners::after,.vision-fusion::before,.vision-fusion::after { content:""; position:absolute; width:28px; height:28px; border-color:rgba(219,194,124,.68); }
@@ -643,7 +643,7 @@ body::before {
 }
 @media(prefers-reduced-motion:reduce){.vision-fusion *{animation:none!important}}
 
-/* v0.12 PRE-MISSION COMMAND CENTER */
+/* PRE-MISSION COMMAND CENTER */
 .poi-suggestions { margin-top:6px; max-height:min(310px,42vh); overflow:auto; border:1px solid rgba(205,176,107,.2); background:linear-gradient(180deg,rgba(7,8,9,.98),rgba(10,10,9,.96)); box-shadow:0 18px 40px rgba(0,0,0,.38),inset 0 0 28px rgba(205,176,107,.018); backdrop-filter:blur(10px); }
 .poi-suggestions[hidden]{display:none}.poi-suggestions button{position:relative;width:100%;display:grid;grid-template-columns:72px minmax(0,1fr);gap:2px 9px;padding:9px 10px;border:0;border-bottom:1px solid rgba(255,255,255,.035);background:transparent;color:#9d9d95;text-align:left;cursor:pointer}.poi-suggestions button:last-child{border-bottom:0}.poi-suggestions button:hover,.poi-suggestions button:focus{outline:0;background:linear-gradient(90deg,rgba(205,176,107,.1),transparent);box-shadow:inset 2px 0 0 rgba(224,199,127,.6)}.poi-suggestions span{grid-row:1/3;color:#746b53;font:6px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em}.poi-suggestions b{color:#c8c3b5;font:500 10px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.poi-suggestions em{color:#686a65;font:normal 7px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .map-modes{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:9px}.map-modes button{border:1px solid rgba(205,176,107,.15);background:rgba(255,255,255,.015);color:#74746d;padding:8px 4px;font:6px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em;cursor:pointer}.map-modes button.active{color:#d7c47f;border-color:rgba(224,199,127,.48);background:rgba(205,176,107,.08)}
@@ -654,7 +654,7 @@ body::before {
 .vision-safety{border-left:2px solid rgba(218,182,104,.48)!important}
 @media(max-width:520px){.poi-suggestions{max-height:32vh}.poi-suggestions button{grid-template-columns:58px minmax(0,1fr);padding:8px}.poi-suggestions span{font-size:5px}.poi-suggestions b{font-size:9px}.route-option.danger::after,.route-option.warning::after{display:none}}
 
-/* v0.13 AUTO COMMAND — one-search pre-mission workflow */
+/* AUTO COMMAND — one-search pre-mission workflow */
 .command-context { margin-top: 8px; display: grid; grid-template-columns: minmax(155px,.72fr) minmax(0,1.4fr); gap: 7px; align-items: stretch; }
 .origin-chip { min-width:0; display:grid; grid-template-columns:auto minmax(0,1fr); gap:2px 7px; align-items:center; padding:7px 9px; border:1px solid rgba(205,176,107,.18); background:rgba(4,5,6,.42); text-align:left; cursor:pointer; }
 .origin-chip span { color:#74694f; font:6px ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.16em; }
@@ -717,7 +717,7 @@ body::before {
   .inline-camera-choices { grid-template-columns:1fr 1fr; }
 }
 
-/* v0.14 LIVE FLOW MAP — freeway speed rendered directly on corridor */
+/* LIVE FLOW MAP — freeway speed rendered directly on corridor */
 .flow-legend { position:fixed; z-index:430; left:16px; top:calc(104px + var(--safe-top)); display:flex; align-items:center; gap:9px; padding:7px 9px; border:1px solid rgba(205,176,107,.14); background:linear-gradient(90deg,rgba(5,6,7,.82),rgba(8,9,10,.62)); backdrop-filter:blur(8px); box-shadow:0 8px 28px rgba(0,0,0,.22); pointer-events:none; }
 .flow-legend span { display:flex; align-items:center; gap:4px; color:#878982; font:7px/1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.02em; white-space:nowrap; }
 .flow-legend i { width:15px; height:3px; border-radius:4px; box-shadow:0 0 8px currentColor; }
@@ -732,7 +732,7 @@ body::before {
 @keyframes flowCriticalPulse { from{filter:brightness(.9)} to{filter:brightness(1.18)} }
 @media (max-width: 760px) { .flow-legend { left:10px; top:calc(100px + var(--safe-top)); max-width:calc(100vw - 20px); gap:6px; padding:6px 7px; flex-wrap:wrap; } .flow-legend span{font-size:6px}.flow-legend em{display:none}.flow-speed-badge{transform:scale(.88)} }
 
-/* v0.15 AUTO INTEL — one query reveals the full local picture */
+/* AUTO INTEL — one query reveals the full local picture */
 :root { --text:#f2eee4; --muted:#9a9b94; }
 .map-fx .leaflet-tile-pane img { filter: grayscale(.72) invert(.90) hue-rotate(175deg) brightness(.72) contrast(1.12) sepia(.08); }
 .map-vignette { background: radial-gradient(circle at 52% 48%, transparent 43%, rgba(2,3,4,.13) 74%, rgba(1,2,3,.38) 100%); }
@@ -819,7 +819,7 @@ body::before {
   .inline-camera-stage { min-height:190px; }
 }
 
-/* v0.15 route bar refinement */
+/* route bar refinement */
 .ab-route { grid-template-columns:minmax(0,1fr) 42px 34px minmax(0,1fr) auto; }
 .ab-locate { min-width:0; width:42px; height:40px; padding:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; text-align:center; }
 .ab-locate span { color:#cdb06b; font-size:15px; line-height:1; letter-spacing:0; }
@@ -836,7 +836,7 @@ body::before {
   .intel { max-height:48dvh; }
 }
 
-/* v0.16 INTEL UX — readability, map clarity, auto-first hierarchy */
+/* INTEL UX — readability, map clarity, auto-first hierarchy */
 :root { --text:#f5f1e7; --muted:#a4a59e; }
 .map-fx .leaflet-tile-pane img { filter: grayscale(.58) invert(.90) hue-rotate(176deg) brightness(.88) contrast(1.08) sepia(.06); }
 .map-satellite #map.map-fx .leaflet-tile-pane img { filter: grayscale(.34) sepia(.10) brightness(.64) contrast(1.28) saturate(.82); }
@@ -901,7 +901,7 @@ body::before {
   .map-telemetry { opacity:.82; }
 }
 
-/* v0.17 MOBILE VISIBILITY PASS — map-first, larger type, clearer hierarchy */
+/* MOBILE VISIBILITY PASS — map-first, larger type, clearer hierarchy */
 :root {
   --panel: rgba(10,11,12,.84);
   --panel-strong: rgba(12,13,14,.94);
@@ -1077,7 +1077,7 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
   .theater-standby { max-width:70vw; }
 }
 
-/* v0.18 SITUATION AWARENESS — automatic intelligence fusion */
+/* SITUATION AWARENESS — automatic intelligence fusion */
 .situation-card { border-color:rgba(201,172,101,.28); overflow:hidden; }
 .situation-brief { position:relative; display:grid; grid-template-columns:auto minmax(0,1fr); gap:4px 10px; padding:12px 13px; margin:8px 0 10px; background:rgba(4,6,7,.56); border:1px solid rgba(150,190,164,.22); box-shadow:inset 3px 0 0 #8fbea0; }
 .situation-brief::after { content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(90deg,transparent,rgba(255,255,255,.035),transparent); transform:translateX(-110%); animation:sitScan 6s linear infinite; }
@@ -1131,7 +1131,7 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
   .freshness-feed em { font-size:9px; }
 }
 
-/* v0.18 completion — visible threat / water / flow timeline */
+/* completion — visible threat / water / flow timeline */
 .situation-row.critical-row { border-left:2px solid rgba(218,104,88,.7); padding-left:8px; background:linear-gradient(90deg,rgba(218,104,88,.05),transparent 72%); }
 .route-time-machine { position:relative; overflow:hidden; }
 .route-time-machine::before { content:""; position:absolute; inset:0; pointer-events:none; opacity:0; background:linear-gradient(100deg,transparent 12%,rgba(213,93,76,.08) 48%,transparent 78%); transform:translateX(-110%); }
@@ -1151,7 +1151,7 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
 }
 .freshness-chip.aging { color:#d2b26c; border-color:rgba(210,178,108,.22); }
 
-/* v0.19 NATIONAL WATCH — Taiwan-first command overview */
+/* NATIONAL WATCH — Taiwan-first command overview */
 .national-overview { position:fixed; z-index:705; left:16px; bottom:18px; width:min(430px,calc(100vw - 410px)); padding:13px; border-radius:var(--radius); overflow:hidden; border-color:rgba(205,176,107,.30); background:linear-gradient(180deg,rgba(10,11,12,.94),rgba(6,7,8,.91)); }
 .national-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding-bottom:9px; border-bottom:1px solid rgba(255,255,255,.07); }
 .national-head div { min-width:0; }
@@ -1220,7 +1220,7 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
 .brand[role="button"] { cursor:pointer; }
 .brand[role="button"]:focus-visible { outline:1px solid rgba(224,199,127,.58); outline-offset:5px; }
 
-/* === v0.20 ORIGINAL PARITY === */
+/* === SOURCE TRANSPARENCY + ADVANCED OPS === */
 .track-hud{position:absolute;left:50%;top:92px;transform:translateX(-50%);z-index:870;width:min(620px,calc(100vw - 32px));padding:10px 12px;background:linear-gradient(180deg,rgba(8,10,10,.92),rgba(5,6,6,.82));border:1px solid rgba(215,190,112,.32);box-shadow:0 16px 48px rgba(0,0,0,.42),inset 0 0 28px rgba(202,174,95,.025);backdrop-filter:blur(14px)}
 .track-head{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#b3a77f;font:700 9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.13em}.track-head>div{display:flex;gap:6px}.track-core{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px;margin-top:9px}.track-core>div{padding:8px;border:1px solid rgba(205,176,107,.12);background:rgba(255,255,255,.018)}.track-core small,.track-core em{display:block;color:#73756f;font:7px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1em;font-style:normal}.track-core b{display:block;margin:5px 0 3px;color:#e2d39d;font:700 14px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.track-status{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid rgba(205,176,107,.1);font:8px ui-monospace,SFMono-Regular,Menlo,monospace}.track-status span{color:#887b59}.track-status b{color:#d7ceb2}.track-status em{color:#77ad8c;font-style:normal}
 .app-shell.cockpit-active .reticle{transform:scale(1.35);filter:drop-shadow(0 0 14px rgba(219,194,113,.38))}.app-shell.cockpit-active .theater-grid{opacity:.5}.app-shell.cockpit-active .map-vignette{opacity:.88}.app-shell.cockpit-active .map:after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.38),transparent 20%,transparent 72%,rgba(0,0,0,.48)),linear-gradient(90deg,rgba(0,0,0,.22),transparent 12%,transparent 88%,rgba(0,0,0,.22));z-index:420}.app-shell.cockpit-active #trackHud{border-color:rgba(220,195,115,.58);box-shadow:0 18px 60px rgba(0,0,0,.55),0 0 34px rgba(211,181,91,.08)}
@@ -1242,15 +1242,15 @@ body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; 
 
 .track-detail{display:flex;flex-wrap:wrap;gap:5px 10px;margin-top:7px;color:#85867f;font:7px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}.track-detail span{display:inline-flex;gap:4px;align-items:center}.track-detail b{color:#c4b98f;font-weight:600}.track-detail em{color:#6f726c;font-style:normal}
 
-/* v0.20 original-parity / source honesty */
+/* original-parity / source honesty */
 .src-observed,.source-state.observed{color:#8ec9c2;border-color:rgba(100,190,180,.28);background:rgba(62,133,125,.08)}.src-estimated,.source-state.estimated{color:#d3a878;border-color:rgba(211,168,120,.28);background:rgba(140,98,55,.08)}.src-visual,.source-state.visual{color:#b8a7d9;border-color:rgba(164,139,205,.28);background:rgba(104,79,143,.08)}.src-simulated,.source-state.simulated{color:#d7a2b0;border-color:rgba(213,137,160,.28);background:rgba(130,69,88,.08)}
 .track-details{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:7px}.track-details>div{min-width:0;padding:5px 6px;border-top:1px solid rgba(205,176,107,.09);background:rgba(255,255,255,.012)}.track-details small{display:block;color:#686b65;font:6px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em}.track-details b{display:block;margin-top:2px;color:#b9b4a7;font:8px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:920px){.layer-truth-strip{left:10px;right:10px;bottom:70px;transform:none;max-width:none;overflow-x:auto;justify-content:flex-start}.layer-truth-strip button{min-width:90px;flex:0 0 auto}.track-details{grid-template-columns:1fr 1fr}.cockpit-3d-top{grid-template-columns:1fr auto;gap:7px}.cockpit-3d-top span,.cockpit-3d-top em{display:none}.cockpit-3d-bottom{left:10px;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));gap:9px;flex-wrap:wrap}.cockpit-3d-bottom em{width:100%;margin-left:0}}
 @media(max-width:520px){.layer-truth-strip{bottom:64px}.layer-truth-strip button{min-width:84px;padding:4px 6px}.layer-truth-strip b{font-size:7px}.track-details b{font-size:7px}.cockpit-3d-top{left:10px;right:10px;top:calc(10px + env(safe-area-inset-top))}.cockpit-3d-top b{font-size:12px}}
 
 /* =========================================================
-   v0.21 CINEMATIC COMMAND UI
-   Visual pass based on the approved EYE // TAIWAN concept.
+   CINEMATIC COMMAND UI
+   Visual pass for the SENTINEL // TAIWAN command-grid concept.
    ========================================================= */
 :root{
   --v21-gold:#d2b66f;
@@ -1414,7 +1414,7 @@ body{font-size:15px;background:#030506;}
   .topbar-center{display:none}.command{left:118px;width:min(560px,calc(100vw - 548px));min-width:460px}.intel{width:380px}.provenance-ribbon,.sensor-rack{right:408px}.national-overview{left:118px;width:min(460px,calc(100vw - 548px));}.ops-rail{width:88px}.flow-legend{display:none}
 }
 
-/* v0.21 layout hardening */
+/* layout hardening */
 .search-row>*{min-width:0;}
 .search-box{min-width:0;overflow:hidden;}
 .search-box input{min-width:0;width:100%;}
@@ -1425,7 +1425,7 @@ body{font-size:15px;background:#030506;}
 
 
 /* =========================================================
-   v0.22 MAP-FIRST UX — simplify chrome, protect map visibility
+   MAP-FIRST UX — simplify chrome, protect map visibility
    ========================================================= */
 :root{--v22-panel-w:350px;--v22-rail-w:58px;}
 
@@ -1512,12 +1512,12 @@ body{font-size:15px;background:#030506;}
   .national-hotspot-list{grid-template-columns:1fr}.national-hotspot-card:nth-child(n+2){display:none}.national-overview{max-height:105px}.flow-legend{bottom:calc(183px + var(--safe-bottom));max-width:72vw}
 }
 
-/* v0.22 declutter follow-up: provenance is already represented in top status pills. */
+/* declutter follow-up: provenance is already represented in top status pills. */
 .provenance-ribbon{display:none!important;}
 @media (max-width:920px){.intel{max-height:38dvh;}}
 
 /* =========================================================
-   v0.23 CLEAR-MAP CCTV — map clarity + readable typography
+   CLEAR-MAP CCTV — map clarity + readable typography
    ========================================================= */
 
 /* The map is data, not decoration. Keep NORMAL mode natural and bright. */
@@ -1588,13 +1588,13 @@ body{font-size:17px;}
   .command{top:calc(70px + var(--safe-top))!important}.search-box input{font-size:17px!important}.ab-point input{font-size:12px!important}.panel-head h2{font-size:18px!important}.intel{max-height:35dvh!important}.inline-camera-stage{min-height:180px!important;}
   .national-overview{max-height:100px!important}.map-layer-dock button{min-width:44px;font-size:9px}.map-layer-source button{min-width:47px;}
 }
-/* v0.23 dock placement: never sit on top of the intelligence/result sheet. */
+/* dock placement: never sit on top of the intelligence/result sheet. */
 @media(min-width:921px){.map-layer-dock{right:calc(var(--v22-panel-w) + 30px);bottom:14px;}}
 @media(max-width:920px){.map-layer-dock{right:8px;left:auto;top:calc(178px + var(--safe-top));bottom:auto;}}
 @media(max-width:520px){.map-layer-dock{top:calc(174px + var(--safe-top));max-width:calc(100vw - 16px);}}
 
 /* ========================================================================
-   v0.24 CLEAN COMMAND — unobstructed map + right-side automatic intel
+   CLEAN COMMAND — unobstructed map + right-side automatic intel
    ======================================================================== */
 :root{
   --v24-side-w:392px;
@@ -1732,7 +1732,7 @@ body{font-size:17px;}
   .intel{max-height:39dvh!important;}
   .map-layer-dock button{height:40px!important;min-width:48px!important;font-size:10px!important;}
 }
-/* v0.24 geometry correction: cinematic map effects follow the map viewport, not the full browser. */
+/* geometry correction: cinematic map effects follow the map viewport, not the full browser. */
 @media(min-width:921px){
   .map-vignette,.scanline,.geo-transfer{left:var(--v24-rail-w)!important;right:calc(var(--v24-side-w) + var(--v24-gap) * 2)!important;}
   .reticle,.sweep-fx,.signal-trace,.target-lock,.theater-grid{
@@ -1744,7 +1744,7 @@ body{font-size:17px;}
 }
 
 /* =========================================================
-   v0.25.0 NATIONAL MONITOR — search modes + map-first markers
+   NATIONAL MONITOR — search modes + map-first markers
    ========================================================= */
 .command-headline{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;}
 .search-mode-tabs{display:flex;align-items:center;gap:4px;padding:3px;border:1px solid rgba(224,199,127,.18);border-radius:8px;background:rgba(3,7,9,.36);flex:0 0 auto;}
@@ -1784,7 +1784,7 @@ body{font-size:17px;}
   .command.search-nav .command-context{margin-top:7px!important;}
 }
 
-/* v0.25 privacy correction — never fog the full CCTV frame. */
+/* privacy correction — never fog the full CCTV frame. */
 .camera-stage.privacy-shield img,
 .camera-stage.privacy-shield video,
 .wall-main.privacy-shield img,
@@ -1836,7 +1836,7 @@ body{font-size:17px;}
 }
 
 /* =========================================================
-   v0.26 LIVE NAVIGATION — turn guidance + auto reroute
+   LIVE NAVIGATION — turn guidance + auto reroute
    ========================================================= */
 .nav-turn{
   display:grid;grid-template-columns:58px minmax(0,1fr);align-items:center;gap:12px;
@@ -1891,7 +1891,7 @@ body{font-size:17px;}
 #app.nav-driving #intelCollapse{display:none!important;}
 #app.nav-driving .ops-rail{opacity:.45;pointer-events:none;}
 
-/* v0.27 — zero-key immersive navigation */
+/* zero-key immersive navigation */
 .nav-head-actions{display:flex;align-items:center;gap:6px}.nav-head-actions .micro-btn[aria-pressed="true"]{border-color:rgba(239,211,124,.72);background:rgba(190,145,45,.16);color:#f1d77e;box-shadow:0 0 16px rgba(221,180,77,.12)}
 .nav-immersive{position:absolute;z-index:350;inset:0;overflow:hidden;pointer-events:none;background:linear-gradient(180deg,rgba(9,15,18,.35) 0%,rgba(8,13,15,.23) 38%,rgba(3,5,6,.72) 100%);--nav-heading:0deg}
 .nav-immersive[hidden]{display:none!important}.nav-immersive::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 34%,transparent 0 25%,rgba(1,3,4,.18) 60%,rgba(1,2,3,.55) 100%);pointer-events:none}.nav-immersive-horizon{position:absolute;left:0;right:0;top:41%;height:1px;background:linear-gradient(90deg,transparent,rgba(232,211,143,.35),transparent)}.nav-immersive-horizon span{position:absolute;left:50%;top:-18px;width:1px;height:36px;background:rgba(232,211,143,.25)}.nav-immersive-horizon i{position:absolute;left:50%;top:-5px;width:10px;height:10px;border:1px solid rgba(232,211,143,.55);transform:translateX(-50%) rotate(45deg)}
@@ -1905,7 +1905,7 @@ body{font-size:17px;}
 @media(max-width:430px){.nav-immersive-cctv{display:none!important}.nav-immersive-stats{left:12px;transform:none}.nav-immersive-stats>span{min-width:92px}.nav-immersive-heading em{display:none}.nav-immersive-guide{top:12%}}
 
 /* =========================================================
-   v0.28.0 TARGETED CCTV + NAV A/B + NATIONAL FLOW VISIBILITY
+   TARGETED CCTV + NAV A/B + NATIONAL FLOW VISIBILITY
    ========================================================= */
 .command.search-nav #searchForm,
 .command.search-nav #poiSuggestions,
@@ -1932,7 +1932,7 @@ body{font-size:17px;}
 .map-cctv-link{display:inline-flex;margin-top:5px;padding:5px 7px;border:1px solid rgba(180,145,55,.28);border-radius:5px;color:#8a6917!important;background:#fff9e8;text-decoration:none;font-weight:700;font-size:11px;cursor:pointer;font-family:inherit}
 
 /* =========================================================
-   v0.29.0 FULL OPS + INLINE CCTV
+   FULL OPS + INLINE CCTV
    Restore national congestion dashboard + direct CCTV preview
    ========================================================= */
 .national-mode .national-overview{
@@ -2031,7 +2031,7 @@ body{font-size:17px;}
 .camera-index-badge{position:absolute;left:8px;bottom:8px;z-index:8;padding:4px 6px;border:1px solid rgba(241,201,106,.28);background:rgba(6,8,9,.86);font-size:8px;letter-spacing:.1em;color:#e5c878;pointer-events:none;}
 
 /* =========================================================
-   v0.30.0 CLEAN NAV + FULL CCTV + VISION LAB + UX PASS
+   CLEAN NAV + FULL CCTV + VISION LAB + UX PASS
    ========================================================= */
 
 /* Navigation-only speed enforcement: never clutter monitor/national maps. */
@@ -2116,7 +2116,7 @@ body.camera-expanded-open{overflow:hidden!important;}
 }
 
 /* =========================================================
-   v0.31.1 MOBILE RECOVERY + FLOATING CCTV + LIVE VISION
+   MOBILE RECOVERY + FLOATING CCTV + LIVE VISION
    ========================================================= */
 
 /* Dedicated floating CCTV popup: independent from the intel bottom sheet. */
@@ -2202,7 +2202,7 @@ body.camera-expanded-open{overflow:auto!important;}
 }
 
 
-/* v0.31.1 mobile declutter: preserve an actually usable map viewport. */
+/* mobile declutter: preserve an actually usable map viewport. */
 @media(max-width:920px){
   .provenance-ribbon,.stage>.flow-legend{display:none!important;}
   .theater-standby{top:47%!important;max-width:72vw!important;padding:7px 10px!important;opacity:.68!important;pointer-events:none!important;}
@@ -2229,7 +2229,7 @@ body.camera-expanded-open{overflow:auto!important;}
 }
 
 /* =========================================================
-   v0.32.0 CCTV STABILITY + MOBILE CLEAN MODE
+   CCTV STABILITY + MOBILE CLEAN MODE
    ========================================================= */
 .camera-nearby-widget{background:#050708!important;}
 .camera-index-badge{pointer-events:none;}
@@ -2259,7 +2259,7 @@ body.camera-expanded-open{overflow:auto!important;}
 }
 
 /* =========================================================
-   v0.33.0 MAP CCTV + FLOW FIRST + DUAL ROUTE
+   MAP CCTV + FLOW FIRST + DUAL ROUTE
    ========================================================= */
 /* Search-result CCTV is visible on the map, but deliberately capped at 4/3 cards. */
 .map-live-cctv-card{
@@ -2300,7 +2300,7 @@ body.camera-expanded-open{overflow:auto!important;}
   /* On very narrow screens show only the two nearest map cards; remaining cameras stay as markers / in the CCTV panel. */
   .leaflet-cctvPreviewPane-pane .leaflet-marker-icon:nth-child(n+3){display:none!important}
 }
-\n\n/* v0.36 — navigation + live location + resilient mobile intel */\n.search-row{grid-template-columns:46px minmax(0,1fr) 42px 74px!important;}\n.search-locate-btn{height:46px;min-width:0;border:1px solid rgba(133,229,255,.28);border-radius:12px;background:rgba(5,22,32,.88);color:#c8f6ff;font:700 18px/1 ui-monospace,SFMono-Regular,Menlo,monospace;cursor:pointer;display:grid;place-items:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025);transition:.18s ease;}\n.search-locate-btn:hover,.search-locate-btn:focus-visible{border-color:rgba(90,236,255,.72);background:rgba(6,38,51,.96);outline:none;}\n.search-locate-btn.active,.search-locate-btn[aria-pressed="true"]{color:#061419;background:#71efff;border-color:#a8f6ff;box-shadow:0 0 0 3px rgba(113,239,255,.12),0 0 24px rgba(113,239,255,.16);}\n@media(max-width:920px){\n  .search-row{grid-template-columns:42px minmax(0,1fr) 40px 58px!important;gap:6px!important;}\n  .search-locate-btn{height:42px;border-radius:10px;font-size:17px;}\n  .intel{overflow:hidden!important;display:flex!important;flex-direction:column!important;}\n  .intel>.panel-head{flex:0 0 auto!important;position:relative!important;z-index:8!important;background:linear-gradient(180deg,rgba(7,21,29,.98),rgba(7,21,29,.94))!important;}\n  .intel>.intel-tabs{flex:0 0 auto!important;}\n  .intel>.intel-body{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}\n  .intel:not(.open)>.intel-tabs,.intel:not(.open)>.intel-body{visibility:hidden!important;pointer-events:none!important;}\n}\n@media(max-width:520px){\n  .search-row{grid-template-columns:40px minmax(0,1fr) 38px 54px!important;gap:5px!important;}\n  .search-locate-btn{height:40px;font-size:16px;}\n}\n\n\n/* =========================================================\n   v0.37.0 MAP OPS + SIDE INTELLIGENCE\n   Map keeps live CCTV/spy interactions; fused intelligence lives outside it.\n   ========================================================= */\n:root{--v37-side-w:clamp(360px,29vw,410px);--v37-side-gap:0px}\n.side-intel-mode{display:flex;align-items:center;gap:7px;margin:8px 0 2px;color:#7f827c;font:700 8px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em}.side-intel-mode i{height:1px;flex:1;background:linear-gradient(90deg,rgba(219,193,117,.42),rgba(255,255,255,.05))}.side-intel-mode span:first-child{color:#d4bc72}\n\n@media (min-width:921px){\n  #app.intel-results-open #map{right:var(--v37-side-w)!important}\n  #app.intel-results-open .map-vignette,#app.intel-results-open .scanline,#app.intel-results-open .theater-grid{right:var(--v37-side-w)!important}\n  #app.intel-results-open .reticle{left:calc((100vw - var(--v37-side-w))/2)!important}\n  #app.intel-results-open .theater-standby{left:calc((100vw - var(--v37-side-w))/2)!important}\n  #app.intel-results-open .map-telemetry.telemetry-right{right:calc(var(--v37-side-w) + 16px)!important}\n  #app.intel-results-open .map-layer-dock{right:calc(var(--v37-side-w) + 14px)!important}\n  #app.intel-results-open .flow-legend{right:calc(var(--v37-side-w) + 14px)!important}\n  #app.intel-results-open .provenance-ribbon,#app.intel-results-open .sensor-rack{display:none!important}\n  .intel{top:calc(80px + var(--safe-top))!important;right:0!important;bottom:0!important;width:var(--v37-side-w)!important;max-height:none!important;height:calc(100dvh - 80px - var(--safe-top))!important;border-radius:0!important;border-right:0!important;border-bottom:0!important;padding:13px 14px 14px!important;overflow:hidden!important;display:flex!important;flex-direction:column!important;background:linear-gradient(180deg,rgba(7,9,10,.985),rgba(4,6,7,.975))!important;box-shadow:-16px 0 44px rgba(0,0,0,.42),inset 1px 0 rgba(255,255,255,.018)!important;transform:translateX(calc(100% + 6px));opacity:0;pointer-events:none;transition:transform .23s ease,opacity .18s ease!important}\n  .intel.open{transform:translateX(0)!important;opacity:1!important;pointer-events:auto!important}\n  .intel .panel-head{flex:0 0 auto;min-height:62px}\n  .intel-tabs,.side-intel-mode{flex:0 0 auto}\n  .intel-body{flex:1 1 auto;min-height:0;overflow-y:auto!important;overscroll-behavior:contain;padding-right:3px}\n  #app.intel-results-open .command{width:min(620px,calc(100vw - var(--v37-side-w) - 116px))!important}\n  #app.intel-results-open .national-overview{max-width:calc(100vw - var(--v37-side-w) - 96px)!important}\n}\n\n/* The map CCTV wall remains the primary visual layer after a place search. */\n.map-live-cctv-card{outline:1px solid rgba(232,205,126,.12);backdrop-filter:blur(6px);}\n.map-live-cctv-card:before{content:'';position:absolute;inset:3px;z-index:7;pointer-events:none;border:1px solid transparent;border-top-color:rgba(235,211,144,.24);border-left-color:rgba(235,211,144,.18);clip-path:polygon(0 0,28px 0,28px 1px,1px 1px,1px 22px,0 22px);}\n.map-live-cctv-head span:before{content:'●';font-size:7px;margin-right:4px;color:#94d5b1;text-shadow:0 0 7px rgba(90,205,140,.8)}\n\n/* Mobile: side intel is a dedicated right drawer; map CCTV stays untouched until the user asks for intel. */\n@media (max-width:920px){\n  .intel{top:calc(64px + var(--safe-top))!important;right:0!important;left:auto!important;bottom:calc(70px + var(--safe-bottom))!important;width:min(88vw,390px)!important;height:auto!important;max-height:none!important;padding:11px 11px 12px!important;border-radius:12px 0 0 12px!important;overflow:hidden!important;display:flex!important;flex-direction:column!important;transform:translateX(calc(100% + 12px))!important;opacity:0;pointer-events:none;box-shadow:-20px 0 55px rgba(0,0,0,.62)!important}\n  .intel.open{transform:translateX(0)!important;opacity:1!important;pointer-events:auto!important}\n  .intel .panel-head{flex:0 0 auto;min-height:54px!important}.intel-tabs,.side-intel-mode{flex:0 0 auto}.intel-body{flex:1 1 auto;min-height:0;overflow-y:auto!important;overscroll-behavior:contain!important}\n  .mobile-dock{grid-template-columns:repeat(4,1fr)!important}\n  #app.intel-results-open .map-layer-dock{opacity:.35;pointer-events:none}\n}\n/* v0.38 original-source scenic CCTV */
+\n\n/* navigation + live location + resilient mobile intel */\n.search-row{grid-template-columns:46px minmax(0,1fr) 42px 74px!important;}\n.search-locate-btn{height:46px;min-width:0;border:1px solid rgba(133,229,255,.28);border-radius:12px;background:rgba(5,22,32,.88);color:#c8f6ff;font:700 18px/1 ui-monospace,SFMono-Regular,Menlo,monospace;cursor:pointer;display:grid;place-items:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.025);transition:.18s ease;}\n.search-locate-btn:hover,.search-locate-btn:focus-visible{border-color:rgba(90,236,255,.72);background:rgba(6,38,51,.96);outline:none;}\n.search-locate-btn.active,.search-locate-btn[aria-pressed="true"]{color:#061419;background:#71efff;border-color:#a8f6ff;box-shadow:0 0 0 3px rgba(113,239,255,.12),0 0 24px rgba(113,239,255,.16);}\n@media(max-width:920px){\n  .search-row{grid-template-columns:42px minmax(0,1fr) 40px 58px!important;gap:6px!important;}\n  .search-locate-btn{height:42px;border-radius:10px;font-size:17px;}\n  .intel{overflow:hidden!important;display:flex!important;flex-direction:column!important;}\n  .intel>.panel-head{flex:0 0 auto!important;position:relative!important;z-index:8!important;background:linear-gradient(180deg,rgba(7,21,29,.98),rgba(7,21,29,.94))!important;}\n  .intel>.intel-tabs{flex:0 0 auto!important;}\n  .intel>.intel-body{flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}\n  .intel:not(.open)>.intel-tabs,.intel:not(.open)>.intel-body{visibility:hidden!important;pointer-events:none!important;}\n}\n@media(max-width:520px){\n  .search-row{grid-template-columns:40px minmax(0,1fr) 38px 54px!important;gap:5px!important;}\n  .search-locate-btn{height:40px;font-size:16px;}\n}\n\n\n/* =========================================================\n   MAP OPS + SIDE INTELLIGENCE\n   Map keeps live CCTV/spy interactions; fused intelligence lives outside it.\n   ========================================================= */\n:root{--v37-side-w:clamp(360px,29vw,410px);--v37-side-gap:0px}\n.side-intel-mode{display:flex;align-items:center;gap:7px;margin:8px 0 2px;color:#7f827c;font:700 8px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em}.side-intel-mode i{height:1px;flex:1;background:linear-gradient(90deg,rgba(219,193,117,.42),rgba(255,255,255,.05))}.side-intel-mode span:first-child{color:#d4bc72}\n\n@media (min-width:921px){\n  #app.intel-results-open #map{right:var(--v37-side-w)!important}\n  #app.intel-results-open .map-vignette,#app.intel-results-open .scanline,#app.intel-results-open .theater-grid{right:var(--v37-side-w)!important}\n  #app.intel-results-open .reticle{left:calc((100vw - var(--v37-side-w))/2)!important}\n  #app.intel-results-open .theater-standby{left:calc((100vw - var(--v37-side-w))/2)!important}\n  #app.intel-results-open .map-telemetry.telemetry-right{right:calc(var(--v37-side-w) + 16px)!important}\n  #app.intel-results-open .map-layer-dock{right:calc(var(--v37-side-w) + 14px)!important}\n  #app.intel-results-open .flow-legend{right:calc(var(--v37-side-w) + 14px)!important}\n  #app.intel-results-open .provenance-ribbon,#app.intel-results-open .sensor-rack{display:none!important}\n  .intel{top:calc(80px + var(--safe-top))!important;right:0!important;bottom:0!important;width:var(--v37-side-w)!important;max-height:none!important;height:calc(100dvh - 80px - var(--safe-top))!important;border-radius:0!important;border-right:0!important;border-bottom:0!important;padding:13px 14px 14px!important;overflow:hidden!important;display:flex!important;flex-direction:column!important;background:linear-gradient(180deg,rgba(7,9,10,.985),rgba(4,6,7,.975))!important;box-shadow:-16px 0 44px rgba(0,0,0,.42),inset 1px 0 rgba(255,255,255,.018)!important;transform:translateX(calc(100% + 6px));opacity:0;pointer-events:none;transition:transform .23s ease,opacity .18s ease!important}\n  .intel.open{transform:translateX(0)!important;opacity:1!important;pointer-events:auto!important}\n  .intel .panel-head{flex:0 0 auto;min-height:62px}\n  .intel-tabs,.side-intel-mode{flex:0 0 auto}\n  .intel-body{flex:1 1 auto;min-height:0;overflow-y:auto!important;overscroll-behavior:contain;padding-right:3px}\n  #app.intel-results-open .command{width:min(620px,calc(100vw - var(--v37-side-w) - 116px))!important}\n  #app.intel-results-open .national-overview{max-width:calc(100vw - var(--v37-side-w) - 96px)!important}\n}\n\n/* The map CCTV wall remains the primary visual layer after a place search. */\n.map-live-cctv-card{outline:1px solid rgba(232,205,126,.12);backdrop-filter:blur(6px);}\n.map-live-cctv-card:before{content:'';position:absolute;inset:3px;z-index:7;pointer-events:none;border:1px solid transparent;border-top-color:rgba(235,211,144,.24);border-left-color:rgba(235,211,144,.18);clip-path:polygon(0 0,28px 0,28px 1px,1px 1px,1px 22px,0 22px);}\n.map-live-cctv-head span:before{content:'●';font-size:7px;margin-right:4px;color:#94d5b1;text-shadow:0 0 7px rgba(90,205,140,.8)}\n\n/* Mobile: side intel is a dedicated right drawer; map CCTV stays untouched until the user asks for intel. */\n@media (max-width:920px){\n  .intel{top:calc(64px + var(--safe-top))!important;right:0!important;left:auto!important;bottom:calc(70px + var(--safe-bottom))!important;width:min(88vw,390px)!important;height:auto!important;max-height:none!important;padding:11px 11px 12px!important;border-radius:12px 0 0 12px!important;overflow:hidden!important;display:flex!important;flex-direction:column!important;transform:translateX(calc(100% + 12px))!important;opacity:0;pointer-events:none;box-shadow:-20px 0 55px rgba(0,0,0,.62)!important}\n  .intel.open{transform:translateX(0)!important;opacity:1!important;pointer-events:auto!important}\n  .intel .panel-head{flex:0 0 auto;min-height:54px!important}.intel-tabs,.side-intel-mode{flex:0 0 auto}.intel-body{flex:1 1 auto;min-height:0;overflow-y:auto!important;overscroll-behavior:contain!important}\n  .mobile-dock{grid-template-columns:repeat(4,1fr)!important}\n  #app.intel-results-open .map-layer-dock{opacity:.35;pointer-events:none}\n}\n/* original-source scenic CCTV */
 .marker-camera.scenic{box-shadow:0 0 0 2px rgba(113,216,192,.2),0 0 16px rgba(113,216,192,.55)!important}
 .map-live-cctv-card.scenic{border-color:rgba(113,216,192,.72)!important;box-shadow:0 0 20px rgba(35,153,133,.2)}
 .map-live-cctv-card.scenic .map-live-cctv-head span{color:#86e8d2!important}
@@ -2308,7 +2308,7 @@ body.camera-expanded-open{overflow:auto!important;}
 .camera-official-frame{width:100%;height:100%;border:0;display:block;background:#050807}
 
 /* =========================================================
-   v0.39.0 — HIGHWAY LIVE + DIRECT CCTV + NAV VISION HUD
+   HIGHWAY LIVE + DIRECT CCTV + NAV VISION HUD
    ========================================================= */
 /* Location follow stays tactical-dark instead of turning into a bright white/cyan tile. */
 .search-locate-btn.active,.search-locate-btn[aria-pressed="true"]{
@@ -2346,7 +2346,7 @@ body.camera-expanded-open{overflow:auto!important;}
 
 
 /* =========================================================
-   v0.40.0 — FAST NATIONAL FLOW + PROGRESSIVE CCTV
+   FAST NATIONAL FLOW + PROGRESSIVE CCTV
    ========================================================= */
 /* Search controls must stay legible in every state; no bright white tiles. */
 .search-row .voice-btn,.search-row .go-btn,.search-row .search-locate-btn{
@@ -2390,8 +2390,104 @@ body.camera-expanded-open{overflow:auto!important;}
   #app.freeway-mode .national-network-summary>span{min-width:84px;padding:5px 6px}
 }
 
-/* v0.40.1 — CCTV visibility first: official point cards remain visible while streams resolve. */
+/* CCTV visibility first: official point cards remain visible while streams resolve. */
 .map-live-cctv-card.point-only{border-style:dashed;border-color:rgba(124,185,205,.62);background:rgba(5,11,14,.94)}
 .map-live-cctv-card.point-only .map-live-cctv-head span{color:#a7e5f2}
 .map-live-cctv-card.point-only .map-live-cctv-stage .camera-placeholder{color:#a9c6cf;background:linear-gradient(135deg,rgba(9,27,34,.96),rgba(4,12,16,.96));font-size:7px!important}
 @media(max-width:420px){.leaflet-cctvPreviewPane-pane .leaflet-marker-icon:nth-child(n+3){display:block!important}}
+
+/* SENTINEL v1.0 Tactical Boot — data-aware military/intelligence startup */
+.boot-sequence.tactical-boot{
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 46%,rgba(57,114,91,.13),transparent 30%),
+    linear-gradient(180deg,#020706 0%,#050a09 46%,#020504 100%);
+  animation:bootFailsafe .01s linear 10.5s forwards;
+  color:#c8d8cc;
+}
+.boot-sequence.tactical-boot::before{
+  background:
+    repeating-linear-gradient(0deg,transparent 0 3px,rgba(148,196,171,.025) 4px),
+    repeating-linear-gradient(90deg,rgba(126,169,147,.022) 0 1px,transparent 1px 48px),
+    repeating-linear-gradient(0deg,rgba(126,169,147,.018) 0 1px,transparent 1px 48px),
+    radial-gradient(circle at 50% 47%,rgba(98,161,125,.09),transparent 42%);
+  opacity:1;
+}
+.boot-sequence.tactical-boot::after{
+  content:"";position:absolute;inset:-25%;pointer-events:none;
+  background:conic-gradient(from 0deg at 50% 50%,transparent 0 79%,rgba(114,205,157,.07) 82%,transparent 85% 100%);
+  animation:bootGlobalSweep 4.6s linear infinite;
+}
+@keyframes bootGlobalSweep{to{transform:rotate(360deg)}}
+.boot-classification,.boot-footer{position:absolute;z-index:4;left:30px;right:30px;display:flex;align-items:center;justify-content:space-between;gap:18px;font:700 8px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.19em;color:#658675;text-transform:uppercase}
+.boot-classification{top:22px;padding-bottom:10px;border-bottom:1px solid rgba(107,154,128,.13)}
+.boot-classification b{font-weight:700;color:#91ad9c}
+.boot-footer{bottom:20px;padding-top:10px;border-top:1px solid rgba(107,154,128,.13)}
+.boot-corner{position:absolute;z-index:4;width:52px;height:52px;opacity:.75}
+.boot-corner::before,.boot-corner::after{content:"";position:absolute;background:#587967}
+.boot-corner::before{width:34px;height:1px}.boot-corner::after{width:1px;height:34px}
+.boot-corner-a{left:20px;top:56px}.boot-corner-b{right:20px;top:56px;transform:rotate(90deg)}.boot-corner-c{right:20px;bottom:55px;transform:rotate(180deg)}.boot-corner-d{left:20px;bottom:55px;transform:rotate(270deg)}
+.boot-frame{z-index:3;width:min(900px,92vw)!important;padding:22px 24px 18px;box-sizing:border-box}
+.boot-kicker{margin-bottom:8px;color:#607b6c;font:700 8px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.27em;text-transform:uppercase}
+.boot-planet-sequence{width:286px;height:286px;margin:0 auto 10px;filter:drop-shadow(0 0 32px rgba(65,130,97,.08))}
+.boot-radar{position:absolute;inset:12px;border:1px solid rgba(119,171,143,.16);border-radius:50%;opacity:.8}
+.boot-radar::before,.boot-radar::after{content:"";position:absolute;inset:13%;border:1px solid rgba(119,171,143,.12);border-radius:50%}
+.boot-radar::after{inset:29%}
+.boot-radar i:nth-child(1){position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(119,171,143,.10)}
+.boot-radar i:nth-child(2){position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(119,171,143,.10)}
+.boot-radar i:nth-child(3){position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 78%,rgba(105,208,150,.20) 90%,transparent 100%);animation:bootRadarSweep 2.5s linear infinite}
+.boot-radar span{position:absolute;width:5px;height:5px;border-radius:50%;background:#7bca9f;right:22%;top:30%;box-shadow:0 0 11px 3px rgba(123,202,159,.34);animation:bootPing 1.4s ease-out infinite}
+@keyframes bootRadarSweep{to{transform:rotate(360deg)}}
+@keyframes bootPing{0%,35%{opacity:.25;transform:scale(.7)}55%{opacity:1;transform:scale(1.25)}100%{opacity:.2;transform:scale(.7)}}
+.boot-earth{width:198px;height:198px;background:radial-gradient(circle at 35% 30%,rgba(145,192,168,.16),transparent 12%),radial-gradient(circle at 47% 48%,rgba(38,86,67,.95),rgba(7,24,18,.98) 58%,rgba(1,7,5,.99) 75%);box-shadow:0 0 0 1px rgba(108,161,132,.24),0 0 64px rgba(38,106,73,.15),inset -30px -20px 46px rgba(0,0,0,.72)}
+.boot-earth::before{filter:grayscale(.5) sepia(.2) hue-rotate(75deg) blur(.4px);opacity:.72}
+.boot-earth::after{background:linear-gradient(110deg,transparent 42%,rgba(133,208,166,.11) 48%,transparent 54%)}
+.earth-grid{background:repeating-radial-gradient(circle at 50% 50%,transparent 0 18px,rgba(118,174,143,.08) 19px 20px)}
+.earth-orbit{border-color:rgba(110,167,135,.23)}
+.earth-lock{border-color:#79bf94;box-shadow:0 0 20px rgba(94,191,133,.62)}
+.boot-taiwan-focus{width:132px;height:184px}
+.boot-taiwan-focus img{width:92px;height:150px;filter:brightness(.72) sepia(.22) hue-rotate(65deg) saturate(1.1) drop-shadow(0 0 26px rgba(85,169,117,.42))}
+.boot-taiwan-focus span{border-color:rgba(92,178,126,.46)}
+.boot-taiwan-focus i{background:#83d2a2;box-shadow:0 0 26px 7px rgba(83,191,128,.36)}
+.boot-taiwan-focus b{position:absolute;right:-28px;bottom:26px;color:#6fa887;font:700 7px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em}
+.boot-crosshair{position:absolute;inset:0;pointer-events:none;opacity:.55}
+.boot-crosshair i:first-child{position:absolute;left:50%;top:-8px;bottom:-8px;width:1px;background:linear-gradient(transparent,rgba(103,161,129,.14),transparent)}
+.boot-crosshair i:last-child{position:absolute;top:50%;left:-8px;right:-8px;height:1px;background:linear-gradient(90deg,transparent,rgba(103,161,129,.14),transparent)}
+.boot-sequence.phase-taiwan .boot-earth{transform:scale(2.7);opacity:.06;filter:blur(1.5px)}
+.boot-sequence.phase-taiwan .boot-taiwan-focus{opacity:1;transform:scale(1)}
+.boot-sequence.phase-flow .boot-taiwan-focus::after{content:"FLOW GRID";position:absolute;bottom:-21px;color:#77b98d;font:700 8px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.2em}
+.boot-sequence.phase-signals .boot-radar{opacity:1;filter:drop-shadow(0 0 15px rgba(77,159,112,.16))}
+.boot-sequence.phase-fusion .boot-taiwan-focus{filter:drop-shadow(0 0 16px rgba(72,147,103,.20))}
+.boot-sequence.phase-ready .boot-taiwan-focus{transform:scale(1.06)}
+.boot-sequence.boot-complete .boot-frame{animation:bootReadyPulse .62s ease both}
+@keyframes bootReadyPulse{50%{filter:brightness(1.22)}100%{filter:brightness(1)}}
+.boot-title{font-size:34px!important;letter-spacing:.23em!important;color:#d8e1d9;text-shadow:0 0 24px rgba(81,150,108,.13)}
+.boot-sub{margin-top:10px;font-size:9px!important;letter-spacing:.24em!important;color:#63796d}
+.boot-module-grid{width:min(660px,82vw);margin:24px auto 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.boot-module{position:relative;min-width:0;padding:9px 10px 8px;text-align:left;border:1px solid rgba(111,153,131,.15);background:rgba(5,13,9,.74);box-shadow:inset 0 0 18px rgba(47,100,72,.035)}
+.boot-module::before{content:"";position:absolute;left:-1px;top:-1px;width:9px;height:1px;background:#547463}
+.boot-module span{display:block;color:#61776b;font:700 7px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.14em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.boot-module b{display:block;margin-top:5px;color:#91a297;font:800 9px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em}
+.boot-module i{position:absolute;right:9px;top:50%;width:5px;height:5px;border-radius:50%;background:#6d786f;transform:translateY(-50%);box-shadow:0 0 0 3px rgba(109,120,111,.07)}
+.boot-module.syncing i{animation:bootModuleBlink .85s ease-in-out infinite}.boot-module.online{border-color:rgba(90,182,128,.28);background:rgba(7,22,14,.78)}.boot-module.online b{color:#79c99a}.boot-module.online i{background:#6ed091;box-shadow:0 0 12px 3px rgba(81,196,126,.25)}.boot-module.standby b{color:#b09d68}.boot-module.standby i{background:#ad9556}
+@keyframes bootModuleBlink{50%{opacity:.25}}
+.boot-progress-meta{width:min(660px,82vw);margin:0 auto 7px;display:flex;justify-content:space-between;gap:14px;color:#61776b;font:700 7px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.13em}
+.boot-progress-meta #bootProgressText{color:#82bb96;font-size:9px}
+.boot-track{position:relative;margin:0 auto 11px;width:min(660px,82vw);height:4px;border:1px solid rgba(94,137,114,.15);background:#07100b;overflow:hidden}
+.boot-track i{display:block;width:2%;height:100%;background:linear-gradient(90deg,#395c49,#69b383,#8bcca2);box-shadow:0 0 14px rgba(88,183,127,.22);transition:width .18s linear;animation:none}
+.boot-track em{position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 19px,rgba(1,6,3,.65) 20px 21px);pointer-events:none}
+.boot-status{font-size:9px!important;letter-spacing:.17em!important;min-height:15px;color:#819c8c}
+.boot-codes{margin-top:16px;gap:20px;font-size:7px!important;color:#53675b}
+.boot-codes span::before{content:"// ";color:#3e5549}
+
+@media(max-width:700px){
+  .boot-classification,.boot-footer{left:15px;right:15px;font-size:6px;letter-spacing:.11em}.boot-classification b{display:none}.boot-corner{width:32px;height:32px}.boot-corner::before{width:24px}.boot-corner::after{height:24px}
+  .boot-frame{width:96vw!important;padding:10px 12px}.boot-kicker{font-size:6px;letter-spacing:.18em}.boot-planet-sequence{width:205px;height:205px;margin-bottom:5px}.boot-earth{width:148px;height:148px}.boot-taiwan-focus{width:96px;height:138px}.boot-taiwan-focus img{width:68px;height:112px}.boot-taiwan-focus b{right:-22px;bottom:20px;font-size:6px}
+  .boot-title{font-size:26px!important;letter-spacing:.14em!important}.boot-sub{font-size:7px!important;letter-spacing:.15em!important;line-height:1.55}
+  .boot-module-grid{width:88vw;grid-template-columns:repeat(2,1fr);margin-top:18px;gap:6px}.boot-module{padding:8px 9px}.boot-module span{font-size:6px}.boot-module b{font-size:8px}
+  .boot-progress-meta,.boot-track{width:88vw}.boot-progress-meta{font-size:6px}.boot-status{font-size:7px!important;letter-spacing:.11em!important}.boot-codes{gap:8px;font-size:6px!important;flex-wrap:wrap}.boot-footer span:nth-child(2){display:none}
+}
+@media(max-height:700px){
+  .boot-planet-sequence{width:175px;height:175px}.boot-earth{width:126px;height:126px}.boot-taiwan-focus{width:84px;height:118px}.boot-taiwan-focus img{width:60px;height:96px}.boot-module-grid{margin-top:12px}.boot-codes{margin-top:9px}.boot-title{font-size:24px!important}
+}
+.boot-sequence.tactical-boot.done{animation:none!important;pointer-events:none}

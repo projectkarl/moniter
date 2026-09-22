@@ -210,12 +210,12 @@
     { id:'air', name:'航空訊號', source:'adsb.lol public ADS-B', mode:'LIVE', note:'公開 ADS-B；位置刷新有網路與接收延遲。' },
     { id:'quake', name:'地震', source:'USGS recent seismic feed', mode:'LIVE', note:'近期事件資料；並非地震預測。' },
     { id:'news', name:'區域新聞', source:'公開新聞來源', mode:'LIVE', note:'發布時間依各媒體而異。' },
-    { id:'alert', name:'壅塞／威脅判斷', source:'EYE local sensor fusion', mode:'DERIVED', note:'由官方事件、流速、天氣等融合；原因不確定時會標示未確認。' },
+    { id:'alert', name:'壅塞／威脅判斷', source:'SENTINEL local sensor fusion', mode:'DERIVED', note:'由官方事件、流速、天氣等融合；原因不確定時會標示未確認。' },
     { id:'cockpit', name:'Cockpit Follow', source:'ADS-B + CesiumJS / OSM', mode:'DERIVED', note:'公開 ADS-B 為 live；3D Cockpit 為按需載入的 OSM + WGS84 ellipsoid 視覺化，不是原版 Google Photorealistic 3D Tiles。' },
-    { id:'cockpit-camera', name:'Cockpit Camera Framing', source:'EYE camera transform', mode:'ESTIMATED', note:'由公開航空位置、航向、高度推導追蹤視角；不是機上真實攝影機或真實駕駛艙畫面。' },
+    { id:'cockpit-camera', name:'Cockpit Camera Framing', source:'SENTINEL camera transform', mode:'ESTIMATED', note:'由公開航空位置、航向、高度推導追蹤視角；不是機上真實攝影機或真實駕駛艙畫面。' },
     { id:'voice', name:'語音控制／標註', source:'Browser SpeechRecognition + local command parser', mode:'DERIVED', note:'Zero-Key 本地指令；不是原版需要 OpenAI key 的 Realtime AI agent。' },
-    { id:'sensor', name:'NVG / FLIR / CRT / NOIR / SNOW', source:'EYE display shader / CSS visual treatment', mode:'VISUAL', note:'只改畫面觀感，不改原始資料，也不是熱感測器或夜視硬體的真實量測。' },
-    { id:'detection', name:'Detection Overlay', source:'EYE map-entity overlay', mode:'VISUAL', note:'只框選已載入的公開地圖實體；不是電腦視覺人臉／車牌偵測。' },
+    { id:'sensor', name:'NVG / FLIR / CRT / NOIR / SNOW', source:'SENTINEL display shader / CSS visual treatment', mode:'VISUAL', note:'只改畫面觀感，不改原始資料，也不是熱感測器或夜視硬體的真實量測。' },
+    { id:'detection', name:'Detection Overlay', source:'SENTINEL map-entity overlay', mode:'VISUAL', note:'只框選已載入的公開地圖實體；不是電腦視覺人臉／車牌偵測。' },
     { id:'simulation', name:'原版模擬交通／粗估軌跡', source:'Original GEV parity note', mode:'UNAVAILABLE', note:'台灣版國道流速改用官方 LIVE；目前沒有火箭圖層，因此不製造模擬交通或粗估火箭軌跡。' },
   ];
 
@@ -468,21 +468,85 @@
     }, 1650);
   }
 
-  function runBootSequence() {
+  function runBootSequence(initialLoadPromise = Promise.resolve()) {
     const boot = $('bootSequence');
     if (!boot || !state.motion) { if (boot) boot.classList.add('done'); return; }
     const status = $('bootStatus');
+    const progressBar = $('bootProgressBar');
+    const progressText = $('bootProgressText');
+    const telemetry = $('bootTelemetry');
+    const bootClock = $('bootClock');
+    const started = performance.now();
+    const minDuration = 5800;
+    const maxDuration = 9500;
+    let dataSettled = false;
+    let finished = false;
+
+    const setModule = (id, mode, text) => {
+      const el = $(id);
+      if (!el) return;
+      el.classList.remove('online','standby','syncing');
+      el.classList.add(mode);
+      const value = el.querySelector('b');
+      if (value) value.textContent = text;
+    };
+    const refreshModules = (settled = false) => {
+      setModule('bootModuleLink', 'online', navigator.onLine ? 'SECURE' : 'OFFLINE');
+      setModule('bootModuleFlow', state.latestFlow?.length ? 'online' : settled ? 'standby' : 'syncing', state.latestFlow?.length ? 'LIVE' : settled ? 'STANDBY' : 'SYNC');
+      setModule('bootModuleCctv', state.latestCctv?.length ? 'online' : settled ? 'standby' : 'syncing', state.latestCctv?.length ? 'LIVE' : settled ? 'STANDBY' : 'SYNC');
+      setModule('bootModuleEvent', state.latestTraffic?.length ? 'online' : settled ? 'standby' : 'syncing', state.latestTraffic?.length ? 'LIVE' : settled ? 'STANDBY' : 'SYNC');
+    };
     const timeline = [
-      [0, 'ORBITAL LINK ACQUIRING TAIWAN', 'phase-earth'],
-      [720, 'TAIWAN SIGNAL LOCK', 'phase-taiwan'],
-      [1500, 'NATIONAL FLOW GRID ONLINE', 'phase-flow'],
-      [2250, 'PUBLIC SIGNAL BUS READY', 'phase-ready'],
+      [0, 'AUTHENTICATING PUBLIC SIGNAL CHANNELS', 'phase-earth'],
+      [850, 'SATELLITE GRID LOCK // TAIWAN THEATER', 'phase-taiwan'],
+      [1900, 'SYNCHRONIZING NATIONAL FLOW NETWORK', 'phase-flow'],
+      [3150, 'HANDSHAKE // CCTV + TRAFFIC EVENT BUS', 'phase-signals'],
+      [4550, 'FUSING NATIONAL SITUATION PICTURE', 'phase-fusion'],
     ];
     timeline.forEach(([delay, text, cls]) => setTimeout(() => {
+      if (finished) return;
       if (status) status.textContent = text;
       boot.classList.add(cls);
     }, delay));
-    setTimeout(() => boot.classList.add('done'), 3050);
+
+    const moduleTimer = setInterval(() => refreshModules(dataSettled), 220);
+    refreshModules(false);
+    Promise.resolve(initialLoadPromise).catch(() => null).finally(() => {
+      dataSettled = true;
+      refreshModules(true);
+      boot.classList.add('phase-ready');
+      if (status) status.textContent = (state.latestFlow?.length || state.latestCctv?.length || state.latestTraffic?.length)
+        ? 'MISSION READY // NATIONAL GRID STABLE'
+        : 'MISSION READY // PUBLIC SOURCES DEGRADED';
+    });
+
+    const finishBoot = () => {
+      if (finished) return;
+      finished = true;
+      clearInterval(moduleTimer);
+      refreshModules(true);
+      if (progressBar) progressBar.style.width = '100%';
+      if (progressText) progressText.textContent = '100%';
+      boot.classList.add('phase-ready','boot-complete');
+      setTimeout(() => boot.classList.add('done'), 620);
+    };
+
+    const tick = (now) => {
+      if (finished) return;
+      const elapsed = now - started;
+      const base = Math.min(84, (elapsed / minDuration) * 84);
+      const liveCount = Number(!!state.latestFlow?.length) + Number(!!state.latestCctv?.length) + Number(!!state.latestTraffic?.length);
+      let pct = Math.min(92, base + liveCount * 2.5 + (dataSettled ? 4 : 0));
+      if (dataSettled && elapsed >= minDuration) pct = 100;
+      if (elapsed >= maxDuration) pct = 100;
+      if (progressBar) progressBar.style.width = `${Math.max(2, pct).toFixed(0)}%`;
+      if (progressText) progressText.textContent = `${Math.max(0, Math.min(100, Math.round(pct)))}%`;
+      if (telemetry) telemetry.textContent = `FLOW ${state.latestFlow?.length || 0} // CCTV ${state.latestCctv?.length || 0} // EVT ${state.latestTraffic?.length || 0}`;
+      if (bootClock) bootClock.textContent = new Intl.DateTimeFormat('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date());
+      if (pct >= 100) return finishBoot();
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   function updateClock() {
@@ -1201,11 +1265,11 @@
   }
 
   function getWatchZones() {
-    try { const v=JSON.parse(localStorage.getItem('eye-watch-zones-v1')||'[]'); return Array.isArray(v)?v:[]; } catch { return []; }
+    try { const v=JSON.parse(localStorage.getItem('sentinel-watch-zones-v1')||'[]'); return Array.isArray(v)?v:[]; } catch { return []; }
   }
   function saveWatchZones(zones) {
     state.watchedZones=(zones||[]).slice(0,6);
-    try { localStorage.setItem('eye-watch-zones-v1', JSON.stringify(state.watchedZones)); } catch (_) {}
+    try { localStorage.setItem('sentinel-watch-zones-v1', JSON.stringify(state.watchedZones)); } catch (_) {}
     renderWatchZones();
   }
   function watchKey(p={}) { return `${Number(p.lat).toFixed(3)},${Number(p.lon).toFixed(3)}`; }
@@ -1260,7 +1324,7 @@
     return { aqi:v(0,{nearest:null,items:[]}), parking:v(1,{items:[]}), construction:v(2,{items:[]}), flood:v(3,{items:[]}) };
   }
 
-  const FLOW_HISTORY_KEY='eye-flow-history-v1';
+  const FLOW_HISTORY_KEY='sentinel-flow-history-v1';
   function flowHistoryStore() { try { const v=JSON.parse(localStorage.getItem(FLOW_HISTORY_KEY)||'{}'); return v&&typeof v==='object'?v:{}; } catch { return {}; } }
   function flowHistoryKey(place={}) { return `${Math.round(Number(place.lat)*50)/50},${Math.round(Number(place.lon)*50)/50}`; }
   function recordFlowHistory(place, flow=[]) {
@@ -3217,7 +3281,7 @@
       stage.innerHTML = `<iframe class="camera-official-frame" src="${escapeAttr(yt)}" title="${escapeAttr(cam.name || '景點官方即時影像')}" loading="eager" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="camera-index-badge">SCENIC · OFFICIAL SOURCE</div>`;
       return true;
     }
-    // v0.39: never fall back to embedding a whole scenic/reference webpage.
+    // : never fall back to embedding a whole scenic/reference webpage.
     // Only actual media URLs or verified official YouTube embeds are rendered.
     return false;
   }
@@ -3935,7 +3999,7 @@
         line.bindPopup(`<b>${escapeHtml(segment.road || segment.name || '國道路段')}</b><br>${escapeHtml(segment.start || '')} → ${escapeHtml(segment.end || '')}<br><span style="color:${visual.color}">● ${escapeHtml(label)}</span> · ${escapeHtml(speed)}`);
         line.on('click', () => lockMapContact({ ...segment, name:segment.road || segment.name || 'FREEWAY FLOW', source:'高速公路局 LiveTraffic' }, 'FLOW SEGMENT', { zoom:12 }));
 
-        // v0.24 map-first: speed values stay off the map.
+        // map-first: speed values stay off the map.
         // Click/tap a colored road segment to reveal speed and congestion metadata.
       });
       const avg = Number(data.avgSpeed);
@@ -4525,13 +4589,17 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    runBootSequence(); initMap(); bindUi(); bootPwa(); updateClock(); setInterval(updateClock, 1000); updateNetworkState(); updateOriginUi(); renderWatchZones();
+    initMap(); bindUi(); bootPwa(); updateClock(); setInterval(updateClock, 1000); updateNetworkState(); updateOriginUi(); renderWatchZones();
     const params = new URLSearchParams(location.search);
     const shared = params.get('view') === 'shared' && params.has('lat') && params.has('lon');
     setTheaterStandby(!shared); restoreSharedView();
+    let initialLoadPromise = Promise.resolve();
     if (!shared) {
-      setTimeout(() => bootstrapDefaultCenter().catch(() => {}), 260);
-      setTimeout(() => { if (state.nationalMode) resetNationalMapView({ animate:false }); }, 3200);
+      initialLoadPromise = new Promise((resolve) => setTimeout(resolve, 180))
+        .then(() => bootstrapDefaultCenter())
+        .catch(() => null);
+      setTimeout(() => { if (state.nationalMode) resetNationalMapView({ animate:false }); }, 5900);
     }
+    runBootSequence(initialLoadPromise);
   });
 })();

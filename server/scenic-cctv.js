@@ -206,7 +206,7 @@ function scenicTitleMatches(query = '', title = '') {
 
 async function fetchReferenceScenic(query, lat, lon, maxItems = 4) {
   const url = `${REFERENCE_ORIGIN}/search?q=${encodeURIComponent(query)}`;
-  const headers = { Accept:'text/html,application/xhtml+xml', 'Accept-Language':'zh-TW,zh;q=0.9', 'User-Agent':'Mozilla/5.0 (compatible; EYE-Taiwan/0.38; source-resolution-only)' };
+  const headers = { Accept:'text/html,application/xhtml+xml', 'Accept-Language':'zh-TW,zh;q=0.9', 'User-Agent':'Mozilla/5.0 (compatible; SENTINEL-Taiwan/1.0; source-resolution-only)' };
   let searchHtml = '';
   try { searchHtml = await fetchText(url, { headers }, 3600); } catch (_) { return []; }
   const links = extractArticleLinks(searchHtml).slice(0, Math.max(2, Math.min(8, maxItems * 2)));

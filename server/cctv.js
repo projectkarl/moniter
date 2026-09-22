@@ -1,5 +1,5 @@
 const { json, distanceKm } = require('./_utils');
-const { loadRegistry, searchRegistry, resolveCameraRegion } = require('./cctv-registry');
+const { loadRegistry, searchRegistry, resolveCameraRegion, OFFICIAL_FAST_SEEDS } = require('./cctv-registry');
 const { loadScenicForQuery, shouldSearchScenic } = require('./scenic-cctv');
 
 function mergeCameras(primary = [], extra = []) {
@@ -30,6 +30,17 @@ function localSourceIds(lat, lon) {
   return ['freeway','highway'];
 }
 
+
+
+function officialFastSeedsNear(lat, lon, radius = 35) {
+  const y=Number(lat), x=Number(lon), r=Math.min(8, Math.max(0.5, Number(radius)||35));
+  if (!Number.isFinite(y) || !Number.isFinite(x)) return [];
+  return OFFICIAL_FAST_SEEDS
+    .map((cam)=>({ ...cam, distance:distanceKm(y,x,cam.lat,cam.lon) }))
+    .filter((cam)=>cam.distance <= r)
+    .sort((a,b)=>a.distance-b.distance);
+}
+
 function deadline(promise, ms, fallback) {
   let timer;
   return Promise.race([
@@ -51,22 +62,35 @@ module.exports = async (req, res) => {
   if (!hasCoords && !q) return json(res, 400, { error: 'Coordinates or q is required' });
 
   try {
-    // v0.40: national mode only needs national road cameras; local mode returns partial
+    // : national mode only needs national road cameras; local mode returns partial
     // source results quickly instead of waiting for every municipal endpoint.
     const localIds = hasCoords ? localSourceIds(lat, lon) : null;
     const fastLocalIds = Array.isArray(localIds) ? localIds.filter((id) => !['freeway','highway'].includes(id)) : null;
     const sourceIds = national ? ['freeway','highway'] : (fast && fastLocalIds?.length ? fastLocalIds : localIds);
-    const registryPromise = loadRegistry({
+    const registryLoad = loadRegistry({
       liveOnly:national,
       sourceIds,
       timeoutCap:national ? 4200 : (fast ? 3600 : 9000),
     });
+    // A fast nearby lookup must never spend several seconds waiting for a municipal
+    // CSV/XML on a cold Vercel function. Return the verified official quick index first;
+    // the frontend immediately starts a second, fuller official-registry enrichment.
+    const registryPromise = fast && !national
+      ? deadline(registryLoad, 1200, { items:[], sourceStatus:[{ id:'fast-timeout', name:'官方 CCTV 即時清單', region:'附近', ok:false, count:0, access:'live', error:'FAST WINDOW EXCEEDED · background enrichment continues' }] })
+      : registryLoad;
     // Scenic discovery is intentionally decoupled from the fast nearby-road request.
     const scenicPromise = !fast && hasCoords && q && !national && shouldSearchScenic(q)
       ? deadline(loadScenicForQuery(q, lat, lon, 5), 4600, [])
       : Promise.resolve([]);
 
-    const [{ items:registry, sourceStatus }, scenicResult] = await Promise.all([registryPromise, scenicPromise]);
+    const [registryResult, scenicResult] = await Promise.all([registryPromise, scenicPromise]);
+    const sourceStatus = Array.isArray(registryResult?.sourceStatus) ? [...registryResult.sourceStatus] : [];
+    const quickSeeds = hasCoords && !national ? officialFastSeedsNear(lat, lon, radius) : [];
+    const registry = mergeCameras(quickSeeds, Array.isArray(registryResult?.items) ? registryResult.items : []);
+    if (quickSeeds.length) sourceStatus.unshift({
+      id:'taipei-official-fast-index', name:'臺北市交通管制工程處（快速索引）', region:'臺北市', ok:true,
+      count:quickSeeds.length, access:'live-wrapper', note:'官方設備快速索引；即時清單在背景補齊。'
+    });
     const scenic = Array.isArray(scenicResult) ? scenicResult : [];
     if (q && hasCoords && !national && shouldSearchScenic(q)) {
       sourceStatus.push({
@@ -105,6 +129,9 @@ module.exports = async (req, res) => {
     const liveCount = items.filter((x) => x.streamUrl).length;
     const scenicCount = items.filter((x) => x.scenic).length;
     const positionOnlyCount = items.filter((x) => !x.streamUrl).length;
+    const cacheControl = items.length
+      ? (fast ? 's-maxage=120, stale-while-revalidate=900' : 's-maxage=900, stale-while-revalidate=7200')
+      : 'no-store';
     return json(res, 200, {
       zeroKey:true,
       query:q || undefined,
@@ -129,7 +156,7 @@ module.exports = async (req, res) => {
       note: national
         ? '全台模式使用高速公路局、公路局與已整合地方政府原始公開來源。'
         : '區域模式融合道路 CCTV 與景點官方直播；第三方網站只作來源辨識參考，實際播放一律連原始公開來源。',
-    }, 's-maxage=900, stale-while-revalidate=7200');
+    }, cacheControl);
   } catch (e) {
     return json(res, 502, { error:`CCTV 資料暫時無法取得：${e.message}` }, 'no-store');
   }

@@ -85,6 +85,29 @@ const SOURCES = [
   },
 ];
 
+
+// verified official quick index around Taipei 101. These records only
+// contain official device metadata and original Taipei City player URLs; no
+// third-party playback page is used. Coordinates are retained from the previously
+// verified nearby-camera index to make cold-start map rendering deterministic.
+const OFFICIAL_FAST_SEEDS = [
+  { id:'taipei-fast:277', cameraId:'277', lat:25.0338, lon:121.5647, road:'信義路五段7號（台北101大樓）', name:'CCTV 277 · 台北101大樓' },
+  { id:'taipei-fast:128', cameraId:'128', lat:25.0329, lon:121.5655, road:'信義松智東南角', name:'CCTV 128 · 信義松智東南角' },
+  { id:'taipei-fast:138', cameraId:'138', lat:25.0361, lon:121.5652, road:'市府東南（松壽松智）', name:'CCTV 138 · 市府東南（松壽松智）' },
+  { id:'taipei-fast:284', cameraId:'284', lat:25.0330, lon:121.5613, road:'信義路－莊敬路口', name:'CCTV 284 · 信義路－莊敬路口' },
+  { id:'taipei-fast:075', cameraId:'075', lat:25.0326, lon:121.5682, road:'信義松仁', name:'CCTV 075 · 信義松仁' },
+].map((cam) => ({
+  ...cam,
+  streamUrl:`https://hls.bote.gov.taipei/live/index.html?id=${encodeURIComponent(cam.cameraId)}`,
+  direction:'', start:'', end:'', mile:'', status:'',
+  source:'臺北市交通管制工程處',
+  sourceDatasetUrl:'https://bote.gov.taipei/cp.aspx?n=9E503DCE3584EE2A',
+  originalSource:true,
+  region:'臺北市', regionResolvedBy:'verified-fast-index', regionConfidence:'high',
+  access:'live-wrapper', quickIndex:true,
+  note:'臺北市官方 CCTV 快速索引；播放器仍由站內代理解析背後原始媒體。',
+}));
+
 function decodeXmlUrl(v = '') {
   return String(v).replace(/&amp;/g, '&').replace(/&#38;/g, '&').trim();
 }
@@ -483,6 +506,8 @@ function searchRegistry(items, query, limit = 120) {
 
 async function resolveCamera(id) {
   const rawId = String(id || '');
+  const fastSeed = OFFICIAL_FAST_SEEDS.find((item) => String(item.id) === rawId);
+  if (fastSeed) return { ...fastSeed };
   const prefix = rawId.split(':')[0];
   const source = SOURCES.find((item) => item.id === prefix);
   if (!source) throw new Error('Unknown CCTV source');
@@ -494,6 +519,7 @@ async function resolveCamera(id) {
 
 module.exports = {
   SOURCES,
+  OFFICIAL_FAST_SEEDS,
   csvRows,
   jsonRows,
   parseSourceText,
