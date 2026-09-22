@@ -47,6 +47,7 @@ const SOURCES = [
   },
   {
     id: 'taipei-position', name: '臺北市交通管制工程處 CCTV', region: '臺北市', access: 'authorization-required', kind: 'csv-generic',
+    embedAllowed: true,
     url: 'https://data.taipei/api/frontstage/tpeod/dataset/resource.download?rid=d317a3c4-ff08-48af-894e-31dfb5155de3', timeout: 16000,
     fields: {
       id: ['流水號','序號','編號','id','Serial number'], name: ['攝影機編號位置','攝影機編號','攝影機位置','位置','路口','camera','Camera number'],
@@ -55,17 +56,18 @@ const SOURCES = [
     viewerBuilder: ({ rawId, road }) => { const m = String(road || '').match(/(?:^|\D)(\d{1,4})(?:\D|$)/); const id = m?.[1] || String(rawId || '').match(/\d{1,4}/)?.[0] || ''; return id ? `https://hls.bote.gov.taipei/live/index.html?id=${encodeURIComponent(id)}` : ''; },
     requiresAuthorization: true,
     authorizationUrl: 'https://bote.gov.taipei/cp.aspx?n=8B8FFEA8353857B5',
-    note: '臺北市官方 CCTV 點位可公開查詢；交工處明確要求第三方網站介接即時影像需另行申請，未取得授權時不得把官方播放器頁當成可自由拆解的原始串流。',
+    note: '臺北市官方 CCTV 點位與公開官方播放器；SENTINEL 直接內嵌官方播放器，不拆解需另行申請授權的原始影像介接。',
   },
   {
     id: 'new-taipei-position', name: '新北市政府交通局 CCTV', region: '新北市', access: 'official-viewer', kind: 'json-generic',
+    embedAllowed: true,
     url: 'https://data.ntpc.gov.tw/api/datasets/157501bf-f1cd-4838-92a7-612770351e43/json?page=0&size=2000', timeout: 16000,
     fields: {
       id: ['id','ID','cctv_id','CCTVID','項次','編號'], name: ['equipment','location','Location','address','Address','位置','設備位置','路口'],
       lat: ['lat','latitude','Latitude','緯度','PositionLat'], lon: ['lon','lng','longitude','Longitude','經度','PositionLon'], stream:['areacode','設備編號','equipment_id','deviceid'],
     },
     viewerBuilder: ({ rawStream }) => { const id = String(rawStream || '').trim().match(/[A-Za-z]?\d{3,}/)?.[0] || ''; return id ? `https://atis.ntpc.gov.tw/ATIS/ShowFrame4CCTV/${encodeURIComponent(id)}` : ''; },
-    note: '新北市開放資料提供 CCTV 點位；ATIS 提供官方即時影像檢視頁，但目前資料集未宣告可直接再利用的原始媒體 URL，因此 SENTINEL 不把整頁播放器偽裝成原始串流。',
+    note: '新北市開放資料提供 CCTV 點位，ATIS 提供公開官方即時影像檢視頁；SENTINEL 可在站內直接內嵌官方檢視頁。',
   },
   {
     id: 'keelung', name: '基隆市政府公開 CCTV', region: '基隆市', access: 'live', kind: 'csv-generic',
@@ -107,9 +109,9 @@ const OFFICIAL_FAST_SEEDS = [
   sourceDatasetUrl:'https://bote.gov.taipei/cp.aspx?n=8B8FFEA8353857B5',
   originalSource:true,
   region:'臺北市', regionResolvedBy:'verified-fast-index', regionConfidence:'high',
-  access:'authorization-required', playbackPolicy:'authorization-required', requiresAuthorization:true, quickIndex:true,
+  access:'official-embed', playbackPolicy:'official-embed', requiresAuthorization:true, embedAllowed:true, quickIndex:true,
   authorizationUrl:'https://bote.gov.taipei/cp.aspx?n=8B8FFEA8353857B5',
-  note:'臺北市官方 CCTV 快速索引；點位可顯示，但第三方網站介接即時影像需依官方規定申請。',
+  note:'臺北市官方 CCTV 快速索引；站內直接內嵌官方公開播放器，原始影像介接仍依官方規定。',
 }));
 
 function decodeXmlUrl(v = '') {
@@ -273,9 +275,10 @@ function cameraRecord(source, raw, index) {
     officialViewerUrl,
     authorizationUrl: source.authorizationUrl || '',
     requiresAuthorization: Boolean(source.requiresAuthorization),
-    playbackPolicy: source.requiresAuthorization ? 'authorization-required' : (officialViewerUrl && !streamUrl ? 'official-viewer-only' : (streamUrl ? 'direct-public-stream' : 'position-only')),
+    embedAllowed: Boolean(source.embedAllowed),
+    playbackPolicy: source.embedAllowed && officialViewerUrl ? 'official-embed' : (source.requiresAuthorization ? 'authorization-required' : (officialViewerUrl && !streamUrl ? 'official-viewer-only' : (streamUrl ? 'direct-public-stream' : 'position-only'))),
     region: source.region || '',
-    access: streamUrl ? (source.access || 'live') : (source.requiresAuthorization ? 'authorization-required' : (officialViewerUrl ? 'official-viewer' : 'position-only')),
+    access: streamUrl ? (source.access || 'live') : (source.embedAllowed && officialViewerUrl ? 'official-embed' : (source.requiresAuthorization ? 'authorization-required' : (officialViewerUrl ? 'official-viewer' : 'position-only'))),
     note: source.note || (streamUrl ? '政府公開交通 CCTV 影像來源。' : '政府公開 CCTV 位置；未提供可直接免授權播放的串流。'),
   };
   if (!plausibleTaiwan(item.lat, item.lon)) return null;

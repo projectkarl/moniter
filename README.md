@@ -1,6 +1,6 @@
 # SENTINEL // TAIWAN
 
-**Version 1.0.2 · Public Signal Command Grid**
+**Version 1.0.3 · Public Signal Command Grid**
 
 SENTINEL // TAIWAN 是一個以台灣公開資料為基礎的地圖型戰情／導航實驗專案。核心目標是把即時車流、公開 CCTV、交通事件、天氣、環境資訊與導航整合在同一張地圖，同時清楚標示資料來源與即時性。
 
@@ -33,7 +33,7 @@ SENTINEL // TAIWAN 是一個以台灣公開資料為基礎的地圖型戰情／�
 - 臺北市交工處目前明確要求第三方網站介接 CCTV 即時影像需依官方程序申請；未取得授權前，SENTINEL 只顯示官方點位與介接說明。
 
 ## 版本
-**SENTINEL // TAIWAN v1.0.2** 為第一版的 CCTV 播放政策與解析修正版。
+**SENTINEL // TAIWAN v1.0.3** 將公開官方 CCTV 播放器直接內嵌在地圖與放大視窗中；國道／省道仍優先使用官方原始串流。只有真正沒有公開播放器或媒體端點的點位才退回 POINT 狀態。
 
 
 ## CCTV playback resilience

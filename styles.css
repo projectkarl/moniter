@@ -2502,3 +2502,10 @@ body.camera-expanded-open{overflow:auto!important;}
 .map-live-cctv-card.auth-required .map-live-cctv-stage,.map-live-cctv-card.viewer-only .map-live-cctv-stage{background:linear-gradient(135deg,rgba(18,25,22,.97),rgba(8,13,14,.98))}
 
 .camera-snapshot-badge{border-color:rgba(116,220,174,.34)!important;color:#9ee7c3!important;background:rgba(4,18,14,.9)!important;}
+/* v1.0.3: public official CCTV viewers stay inside SENTINEL instead of opening a new page. */
+.marker-camera.official-embed{border-color:#69e3c1!important;box-shadow:0 0 0 1px rgba(105,227,193,.25),0 0 12px rgba(105,227,193,.45)!important}
+.map-live-cctv-card.official-embed{border-color:rgba(105,227,193,.58)!important}
+.map-live-cctv-card.official-embed .map-live-cctv-head span{color:#75f0ce!important}
+.map-live-cctv-stage .camera-official-frame{pointer-events:none}
+.cctv-popup-stage .camera-official-frame,.inline-camera-stage .camera-official-frame,.camera-stage .camera-official-frame{pointer-events:auto}
+.camera-official-frame{width:100%;height:100%;border:0;display:block;background:#030605}

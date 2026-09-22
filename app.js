@@ -1411,7 +1411,7 @@
     return (items || [])
       .filter((cam) => Number.isFinite(Number(cam?.lat)) && Number.isFinite(Number(cam?.lon)))
       .map((cam) => ({ ...cam, _targetDistance: Number.isFinite(lat) && Number.isFinite(lon) ? haversineKm(lat, lon, Number(cam.lat), Number(cam.lon)) : Number(cam.distance || 999) }))
-      .sort((a,b) => Number(Boolean(b.scenic))-Number(Boolean(a.scenic)) || Number(Boolean(b.streamUrl))-Number(Boolean(a.streamUrl)) || a._targetDistance-b._targetDistance)
+      .sort((a,b) => Number(Boolean(b.scenic))-Number(Boolean(a.scenic)) || Number(Boolean(b.streamUrl || canEmbedOfficialViewer(b)))-Number(Boolean(a.streamUrl || canEmbedOfficialViewer(a))) || a._targetDistance-b._targetDistance)
       .filter((cam) => {
         const key = cam.id || `${Number(cam.lat).toFixed(5)},${Number(cam.lon).toFixed(5)}`;
         if (seen.has(key)) return false;
@@ -1457,7 +1457,7 @@
 
   function openMapCctvPreview(cam) {
     if (!cam) return;
-    if (!cam.streamUrl) { openCctvPosition(cam); return; }
+    if (!(cam.streamUrl || canEmbedOfficialViewer(cam))) { openCctvPosition(cam); return; }
     state.activeCamera = cam;
     state.inlineCamera = cam;
     openCctvPopup();
@@ -1476,10 +1476,10 @@
       const title = shortName(cam.road || cam.name || 'PUBLIC CCTV');
       const distance = Number.isFinite(Number(cam._targetDistance)) ? `${Math.max(0,Number(cam._targetDistance)).toFixed(1)} km` : 'NEARBY';
       const region = cam.region && !/^(?:臺灣|Taiwan|全台)/i.test(String(cam.region)) ? shortName(cam.region) : '';
-      const hasStream = Boolean(cam.streamUrl);
+      const hasStream = Boolean(cam.streamUrl || canEmbedOfficialViewer(cam));
       const icon = L.divIcon({
         className:'',
-        html:`<div class="map-live-cctv-card ${cam.scenic?'scenic':cam.indexed?'indexed':''} ${hasStream?'':'point-only'} ${cam?.requiresAuthorization?'auth-required':cam?.officialViewerUrl?'viewer-only':''}" style="--cctv-dx:12px;--cctv-dy:-112px"><div class="map-live-cctv-head"><span>${cam.scenic?'SCENIC':hasStream?(cam.indexed?'PUBLIC':'LIVE'):(cam?.requiresAuthorization?'AUTH':cam?.officialViewerUrl?'VIEW':'POINT')}</span><b>${escapeHtml(title)}</b><em>${escapeHtml(region || distance)}</em></div><div class="map-live-cctv-stage" id="${escapeAttr(stageId)}"><div class="map-live-cctv-loading">${hasStream?'LIVE…':cam?.requiresAuthorization?'AUTH REQUIRED':cam?.officialViewerUrl?'OFFICIAL VIEW':'OFFICIAL CCTV'}</div></div></div>`,
+        html:`<div class="map-live-cctv-card ${cam.scenic?'scenic':cam.indexed?'indexed':''} ${hasStream?'':'point-only'} ${canEmbedOfficialViewer(cam)?'official-embed':cam?.requiresAuthorization?'auth-required':cam?.officialViewerUrl?'viewer-only':''}" style="--cctv-dx:12px;--cctv-dy:-112px"><div class="map-live-cctv-head"><span>${cam.scenic?'SCENIC':canEmbedOfficialViewer(cam)?'OFFICIAL':hasStream?(cam.indexed?'PUBLIC':'LIVE'):(cam?.requiresAuthorization?'AUTH':cam?.officialViewerUrl?'VIEW':'POINT')}</span><b>${escapeHtml(title)}</b><em>${escapeHtml(region || distance)}</em></div><div class="map-live-cctv-stage" id="${escapeAttr(stageId)}"><div class="map-live-cctv-loading">${canEmbedOfficialViewer(cam)?'OFFICIAL LIVE…':hasStream?'LIVE…':cam?.requiresAuthorization?'AUTH REQUIRED':cam?.officialViewerUrl?'OFFICIAL VIEW':'OFFICIAL CCTV'}</div></div></div>`,
         iconSize: mobile ? [116,82] : [154,108],
         iconAnchor: [0,0],
       });
@@ -1490,7 +1490,7 @@
         layoutTargetCctvPreviews();
         const stage = $(stageId);
         if (!stage || !state.cctvPreviewLayer?.hasLayer?.(marker)) return;
-        if (cam.streamUrl) renderCameraMedia(stage, cam, { fast:true, preview:true }).catch?.(() => {});
+        if (cam.streamUrl || canEmbedOfficialViewer(cam)) renderCameraMedia(stage, cam, { fast:true, preview:true }).catch?.(() => {});
         else renderOriginalSourceUnavailable(stage, cam);
       }, index * 45);
     });
@@ -1656,7 +1656,7 @@
     renderInlineCctvResults(merged, place, state.latestCityFlow || []);
     if ($('cameraCount')) $('cameraCount').textContent = String(merged.length);
     if ($('inlineCameraMeta')) {
-      const live = exact.filter((x) => x.streamUrl).length;
+      const live = exact.filter((x) => x.streamUrl || canEmbedOfficialViewer(x)).length;
       $('inlineCameraMeta').textContent = `CCTV 命中 ${exact.length} · 可觀看 ${live} · 官方點位 ${Math.max(0, exact.length-live)}`;
     }
     if (!first.streamUrl) openCctvPosition(first);
@@ -3175,39 +3175,58 @@
   }
 
   function cameraMapIcon(cam = {}, national = false) {
-    const live = Boolean(cam.streamUrl);
+    const live = Boolean(cam.streamUrl || canEmbedOfficialViewer(cam));
     const size = national ? (live ? 7 : 6) : (live ? 11 : 9);
     return L.divIcon({
       className: '',
-      html: `<div class="marker-camera ${live ? 'live' : 'location-only'} ${cam?.requiresAuthorization ? 'auth-required' : cam?.officialViewerUrl ? 'viewer-only' : ''} ${cam.scenic ? 'scenic' : ''}" style="--cam-size:${size}px"><span></span></div>`,
+      html: `<div class="marker-camera ${live ? 'live' : 'location-only'} ${canEmbedOfficialViewer(cam) ? 'official-embed' : cam?.requiresAuthorization ? 'auth-required' : cam?.officialViewerUrl ? 'viewer-only' : ''} ${cam.scenic ? 'scenic' : ''}" style="--cam-size:${size}px"><span></span></div>`,
       iconSize: [Math.max(10,size+6), Math.max(10,size+6)],
       iconAnchor: [Math.max(5,(size+6)/2), Math.max(5,(size+6)/2)],
     });
   }
 
+  function canEmbedOfficialViewer(cam = {}) {
+    const raw = String(cam?.officialViewerUrl || '');
+    if (!/^https?:\/\//i.test(raw)) return false;
+    try {
+      const host = new URL(raw).hostname.toLowerCase();
+      return host === 'hls.bote.gov.taipei' || host === 'atis.ntpc.gov.tw';
+    } catch (_) { return false; }
+  }
+
   function cameraPointPolicy(cam = {}) {
+    if (canEmbedOfficialViewer(cam)) return {
+      code:'LIVE', title:'OFFICIAL LIVE PLAYER', signal:'OFFICIAL LIVE // EMBEDDED',
+      text:'此鏡頭使用提供機關公開的官方即時影像播放器，直接顯示在 SENTINEL 內，不跳轉第三方網站。',
+    };
     if (cam?.requiresAuthorization || cam?.playbackPolicy === 'authorization-required') return {
       code:'AUTH', title:'OFFICIAL ACCESS CONTROLLED', signal:'OFFICIAL POINT // INTERFACE AUTH REQUIRED',
-      text:'此官方 CCTV 點位可公開查詢，但第三方網站介接即時影像需依提供機關規定申請授權。SENTINEL 不繞過官方介接限制。',
+      text:'此官方 CCTV 點位可公開查詢，但原始影像介接需依提供機關規定申請授權。',
     };
     if (cam?.officialViewerUrl || cam?.playbackPolicy === 'official-viewer-only') return {
       code:'VIEW', title:'OFFICIAL VIEWER ONLY', signal:'OFFICIAL POINT // VIEWER ONLY',
-      text:'官方提供即時影像檢視頁，但目前開放資料未宣告可直接再利用的原始媒體 URL；SENTINEL 不把整頁播放器偽裝成串流。',
+      text:'官方提供影像檢視頁，但目前無法確認可內嵌或可直接使用的公開媒體來源。',
     };
     return {
       code:'POINT', title:'OFFICIAL POINT ONLY', signal:'OFFICIAL POINT // NO PUBLIC STREAM',
-      text:'目前只有官方 CCTV 點位，沒有可直接使用的原始公開串流；不使用第三方轉播。',
+      text:'目前只有官方 CCTV 點位，沒有可直接使用的公開影像。',
     };
+  }
+
+  function renderOfficialViewerEmbed(stage, cam = {}, options = {}) {
+    if (!stage || !canEmbedOfficialViewer(cam)) return false;
+    const src = String(cam.officialViewerUrl || '');
+    clearCameraStage(stage);
+    stage.classList.add('official-embed-active');
+    stage.innerHTML = `<iframe class="camera-official-frame" src="${escapeAttr(src)}" title="${escapeAttr(cam.name || cam.road || '官方 CCTV 即時影像')}" loading="${options.preview ? 'eager' : 'eager'}" allow="autoplay; encrypted-media; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"></iframe><div class="camera-index-badge">OFFICIAL LIVE</div>`;
+    return true;
   }
 
   function renderOriginalSourceUnavailable(stage, cam = {}) {
     if (!stage) return;
     clearCameraStage(stage);
     const policy = cameraPointPolicy(cam);
-    const links = [];
-    if (cam?.officialViewerUrl) links.push(`<a class="camera-official-link" href="${escapeAttr(cam.officialViewerUrl)}" target="_blank" rel="noopener noreferrer">官方影像頁 ↗</a>`);
-    if (cam?.authorizationUrl) links.push(`<a class="camera-official-link secondary" href="${escapeAttr(cam.authorizationUrl)}" target="_blank" rel="noopener noreferrer">介接規範 ↗</a>`);
-    stage.innerHTML = `<div class="camera-placeholder official-policy"><b>${policy.title}</b><span>${escapeHtml(cam.road || cam.name || '此 CCTV')} · ${policy.text}</span>${links.length ? `<div class="camera-policy-links">${links.join('')}</div>` : ''}</div>`;
+    stage.innerHTML = `<div class="camera-placeholder official-policy"><b>${policy.title}</b><span>${escapeHtml(cam.road || cam.name || '此 CCTV')} · ${policy.text}</span><small>來源資訊保留於 SENTINEL 情報面板；播放區不再跳轉外站。</small></div>`;
   }
 
   async function openCctvPosition(cam = {}) {
@@ -3232,7 +3251,7 @@
     if (!state.cameraLayer || !state.map) return;
     state.cameraLayer.clearLayers();
     const valid = (items || []).filter((cam) => Number.isFinite(Number(cam?.lat)) && Number.isFinite(Number(cam?.lon)));
-    const viewable = valid.filter((cam) => cam?.streamUrl);
+    const viewable = valid.filter((cam) => cam?.streamUrl || canEmbedOfficialViewer(cam));
     const drawItems = national ? viewable : valid.slice(0, 240);
     drawItems.forEach((cam) => {
       const title = cam.name || cam.road || '公開 CCTV';
@@ -3246,9 +3265,9 @@
       } else {
         marker = L.marker([cam.lat, cam.lon], { icon:cameraMapIcon(cam, false), zIndexOffset:260 }).addTo(state.cameraLayer);
       }
-      const pointLabel = cam?.requiresAuthorization ? 'AUTH' : cam?.officialViewerUrl ? 'VIEW' : 'CCTV';
+      const pointLabel = canEmbedOfficialViewer(cam) ? 'LIVE' : cam?.requiresAuthorization ? 'AUTH' : cam?.officialViewerUrl ? 'VIEW' : 'CCTV';
       marker.bindTooltip(`${cam.scenic ? 'SCENIC' : cam.streamUrl ? 'LIVE' : pointLabel} · ${escapeHtml(shortName(title))}`, { direction:'top', offset:[0,-5], opacity:.94 });
-      marker.on('click', () => cam.streamUrl ? openCamera(cam) : openCctvPosition(cam));
+      marker.on('click', () => (cam.streamUrl || canEmbedOfficialViewer(cam)) ? openCamera(cam) : openCctvPosition(cam));
     });
   }
 
@@ -3267,7 +3286,7 @@
       state.latestCctv = items;
       state.cctvCoverage = data.coverage || null;
       if (draw) renderCctvMapMarkers(items, { national:Boolean(options.national) });
-      const viewable = items.filter((x) => x?.streamUrl).length;
+      const viewable = items.filter((x) => x?.streamUrl || canEmbedOfficialViewer(x)).length;
       const positions = Math.max(0, items.length - viewable);
       $('cameraCount').textContent = String(items.length);
       if ($('cameraCount')) $('cameraCount').title = `附近 CCTV ${items.length} · 可觀看 ${viewable} · 官方點位 ${positions}`;
@@ -3512,6 +3531,7 @@
   async function renderCameraMedia(stage, cam, options = {}) {
     if (!stage) return;
     if (cam?.scenic && renderScenicOriginal(stage, cam)) return;
+    if (canEmbedOfficialViewer(cam) && renderOfficialViewerEmbed(stage, cam, options)) return;
     const token = `${Date.now()}-${Math.random()}`;
     stage.dataset.renderToken = token;
     clearCameraStage(stage);
@@ -3795,11 +3815,11 @@
   }
 
   function selectInlineCamera(cam, cityFlow = []) {
-    if (!cam || !$('inlineCameraStage') || !cam.streamUrl) return;
+    if (!cam || !$('inlineCameraStage') || !(cam.streamUrl || canEmbedOfficialViewer(cam))) return;
     state.inlineCamera = cam;
     $('inlineCameraCard').hidden = false;
     $('inlineCameraTitle').textContent = shortName(cam.name || cam.road || 'PUBLIC CCTV');
-    $('inlineCameraSignal').textContent = cam.scenic ? 'SCENIC // ORIGINAL' : 'LIVE // DIRECT';
+    $('inlineCameraSignal').textContent = cam.scenic ? 'SCENIC // ORIGINAL' : canEmbedOfficialViewer(cam) ? 'LIVE // OFFICIAL PLAYER' : 'LIVE // DIRECT';
     $('inlineCameraMeta').textContent = `${cam.region ? `${cam.region} · ` : ''}${cam.road || ''} ${cam.direction || ''} · ${cam.source || 'PUBLIC DATA'}`.trim();
     renderCameraMedia($('inlineCameraStage'), cam);
     syncLocalPrivacyMask($('inlineCameraStage'));
@@ -3826,8 +3846,8 @@
         if (!focus) return Number(a.distance || 0) - Number(b.distance || 0);
         return Number(Boolean(b.scenic))-Number(Boolean(a.scenic)) || haversineKm(focus.lat, focus.lon, a.lat, a.lon) - haversineKm(focus.lat, focus.lon, b.lat, b.lon);
       });
-    const cameras = valid.filter((x)=>x?.streamUrl).slice(0,12);
-    const positions = valid.filter((x)=>!x?.streamUrl).slice(0,12);
+    const cameras = valid.filter((x)=>x?.streamUrl || canEmbedOfficialViewer(x)).slice(0,12);
+    const positions = valid.filter((x)=>!(x?.streamUrl || canEmbedOfficialViewer(x))).slice(0,12);
     card.hidden = false;
 
     if (!cameras.length) {
@@ -3854,7 +3874,7 @@
     stage.innerHTML = '<div class="camera-loading"><i></i><b>SELECTING LIVE CAMERA</b><span>正在檢查附近公開鏡頭可播放訊號…</span></div>';
     (async () => {
       for (const cam of cameras) {
-        if (cam.scenic) { selectInlineCamera(cam, cityFlow); return; }
+        if (cam.scenic || canEmbedOfficialViewer(cam)) { selectInlineCamera(cam, cityFlow); return; }
         try {
           const probe = await probeCameraFeed(cam);
           if (['hls','image','mjpeg','video'].includes(probe?.kind)) { cam._probe = probe; selectInlineCamera(cam, cityFlow); return; }
