@@ -1,6 +1,118 @@
-const { json, distanceKm } = require('./_utils');
+const { json, distanceKm, fetchText } = require('./_utils');
 const { loadRegistry, searchRegistry, resolveCameraRegion, OFFICIAL_FAST_SEEDS } = require('./cctv-registry');
 const { loadScenicForQuery, shouldSearchScenic } = require('./scenic-cctv');
+
+
+const bridgeCache = new Map();
+
+function decodeHtml(value = '') {
+  return String(value)
+    .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'").replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)));
+}
+
+function htmlToText(html = '') {
+  return decodeHtml(String(html)
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' '))
+    .replace(/[ \t]+/g, ' ').replace(/\n\s+/g, '\n').trim();
+}
+
+function parsePublicIndexLinks(html = '') {
+  const out = [], seen = new Set();
+  const re = /<a\b[^>]*href=["'](?:https?:\/\/(?:www\.)?twipcam\.com)?\/?cam\/([^"'?#/]+)[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m;
+  while ((m = re.exec(String(html || '')))) {
+    let slug = '';
+    try { slug = decodeURIComponent(m[1]).trim(); } catch (_) { slug = String(m[1] || '').trim(); }
+    if (!slug || seen.has(slug.toLowerCase())) continue;
+    seen.add(slug.toLowerCase());
+    out.push({ slug, label:htmlToText(m[2]).replace(/\s+/g, ' ').trim() });
+  }
+  return out;
+}
+
+function parsePublicIndexDetail(html = '', slug = '') {
+  const raw = String(html || '');
+  const text = htmlToText(raw);
+  const h1 = raw.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
+  const name = h1 ? htmlToText(h1[1]).replace(/\s*即時影像\s*$/,'').trim() : '';
+  const lonMatch = text.match(/經度\s*[:：]?\s*(1(?:1[89]|2[0-3])(?:\.\d+)?)/);
+  const latMatch = text.match(/緯度\s*[:：]?\s*(2[0-6](?:\.\d+)?)/);
+  const lon = Number(lonMatch?.[1]), lat = Number(latMatch?.[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < 20.5 || lat > 26.7 || lon < 118 || lon > 123.8) return null;
+  const region = text.match(/(臺北市|台北市|新北市|桃園市|臺中市|台中市|臺南市|台南市|高雄市|基隆市|新竹市|嘉義市|新竹縣|苗栗縣|彰化縣|南投縣|雲林縣|嘉義縣|屏東縣|宜蘭縣|花蓮縣|臺東縣|台東縣|澎湖縣|金門縣|連江縣)/)?.[1] || '';
+  return {
+    id:`twipcam:${slug}`,
+    streamUrl:`https://www.twipcam.com/cam/${encodeURIComponent(slug)}`,
+    resolverBridge:true,
+    pageUrl:'',
+    lat, lon, road:name || slug, name:name || slug,
+    direction:'', start:'', end:'', mile:'', status:'',
+    source:'公開 CCTV 索引解析橋接', region, access:'live-wrapper', indexed:true,
+    originalSource:true, playbackPolicy:'public-wrapper',
+    note:'僅以公開索引定位原始公開媒體；SENTINEL 不顯示或跳轉索引頁。',
+  };
+}
+
+async function loadPublicIndexNearby(lat, lon, maxItems = 14) {
+  const key = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`;
+  const cached = bridgeCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.items;
+  const lat6 = Number(lat).toFixed(6), lon6 = Number(lon).toFixed(6);
+  const discoveryUrls = [
+    `https://www.twipcam.com/widget/v1/query-cam-list-by-coordinate?lat=${lat6}&lon=${lon6}`,
+    `https://www.twipcam.com/nearby?lat=${lat6}&lon=${lon6}`,
+  ];
+  const headers = {
+    Accept:'text/html,application/xhtml+xml',
+    'Accept-Language':'zh-TW,zh;q=0.9,en;q=0.6',
+    'User-Agent':'Mozilla/5.0 (compatible; SENTINEL-Taiwan/1.0.6; public-cctv-discovery)',
+    Referer:'https://www.twipcam.com/',
+  };
+  let links = [];
+  for (const url of discoveryUrls) {
+    try {
+      const html = await fetchText(url, { headers }, 5200);
+      links = parsePublicIndexLinks(html);
+      if (links.length) break;
+    } catch (_) {}
+  }
+  links = links.slice(0, Math.max(4, Math.min(16, maxItems)));
+  const settled = await Promise.allSettled(links.map(async (link) => {
+    const url = `https://www.twipcam.com/cam/${encodeURIComponent(link.slug)}`;
+    const html = await fetchText(url, { headers }, 5200);
+    return parsePublicIndexDetail(html, link.slug);
+  }));
+  const items = settled.filter((x) => x.status === 'fulfilled' && x.value).map((x) => x.value)
+    .map((cam) => ({ ...cam, distance:distanceKm(lat, lon, cam.lat, cam.lon) }))
+    .sort((a,b) => a.distance-b.distance);
+  bridgeCache.set(key, { items, expiresAt:Date.now() + 12 * 60 * 1000 });
+  return items;
+}
+
+const TAIPEI_101_PLAYBACK_SEEDS = [
+  ['tpe-000277',25.0338,121.5647,'台北市道路 277-信義路五段7號(台北101大樓)'],
+  ['tpe-000128',25.0329,121.5655,'台北市道路 128-信義松智東南角'],
+  ['tpe-000138',25.0361,121.5652,'台北市道路 138-市府東南(松壽松智)'],
+  ['tpe-000284',25.0330,121.5613,'台北市道路 284-信義路-莊敬路口'],
+  ['tpe-000075',25.0326,121.5682,'台北市道路 075-信義松仁'],
+].map(([slug,lat,lon,name]) => ({
+  id:`twipcam:${slug}`, streamUrl:`https://www.twipcam.com/cam/${slug}`, resolverBridge:true,
+  lat, lon, name, road:name, direction:'', start:'', end:'', mile:'', status:'',
+  source:'公開 CCTV 索引解析橋接', region:'臺北市', access:'live-wrapper', indexed:true, originalSource:true,
+  playbackPolicy:'public-wrapper', verifiedFallback:true,
+  note:'快速播放種子只作原始媒體解析，不顯示第三方頁面。',
+}));
+
+function playbackSeedsNear(lat, lon) {
+  if (distanceKm(Number(lat), Number(lon), 25.033968, 121.564468) > 2.6) return [];
+  return TAIPEI_101_PLAYBACK_SEEDS.map((cam) => ({ ...cam, distance:distanceKm(Number(lat), Number(lon), cam.lat, cam.lon) }));
+}
 
 function mergeCameras(primary = [], extra = []) {
   const map = new Map();
@@ -82,11 +194,20 @@ module.exports = async (req, res) => {
     const scenicPromise = !fast && hasCoords && q && !national && shouldSearchScenic(q)
       ? deadline(loadScenicForQuery(q, lat, lon, 5), 4600, [])
       : Promise.resolve([]);
+    const playbackSeeds = hasCoords && !national ? playbackSeedsNear(lat, lon) : [];
+    const bridgePromise = hasCoords && !national && String(req.query.bridge || '1') !== '0'
+      ? (playbackSeeds.length ? Promise.resolve(playbackSeeds) : deadline(loadPublicIndexNearby(lat, lon, Math.min(12, limit)), fast ? 2200 : 4200, []))
+      : Promise.resolve([]);
 
-    const [registryResult, scenicResult] = await Promise.all([registryPromise, scenicPromise]);
+    const [registryResult, scenicResult, bridgeResult] = await Promise.all([registryPromise, scenicPromise, bridgePromise]);
     const sourceStatus = Array.isArray(registryResult?.sourceStatus) ? [...registryResult.sourceStatus] : [];
     const quickSeeds = hasCoords && !national ? officialFastSeedsNear(lat, lon, radius) : [];
+    const bridgeItems = Array.isArray(bridgeResult) ? bridgeResult : [];
     const registry = mergeCameras(quickSeeds, Array.isArray(registryResult?.items) ? registryResult.items : []);
+    if (bridgeItems.length) sourceStatus.unshift({
+      id:'public-playback-bridge', name:'公開 CCTV 原始媒體解析', region:'座標附近', ok:true,
+      count:bridgeItems.length, access:'resolver-bridge', note:'索引只在後端協助定位公開媒體；前端不顯示或跳轉索引站。'
+    });
     if (quickSeeds.length) sourceStatus.unshift({
       id:'taipei-official-fast-index', name:'臺北市交通管制工程處（快速索引）', region:'臺北市', ok:true,
       count:quickSeeds.length, access:'point-index', note:'官方設備快速索引；先顯示點位，只有取得公開媒體端點時才升級為 LIVE。'
@@ -100,7 +221,7 @@ module.exports = async (req, res) => {
       });
     }
 
-    const combined = mergeCameras(registry, scenic);
+    const combined = mergeCameras(mergeCameras(registry, bridgeItems), scenic);
     let items = q ? combined.map((camera) => ({
       ...camera,
       matchScore: camera.scenic ? 1800 : (searchRegistry([camera], q, 1)[0]?.matchScore || 0),
@@ -152,15 +273,16 @@ module.exports = async (req, res) => {
         officialViewerCount,
         positionOnlyCount, officialEmbedCount,
         referencePlaybackCount:0,
+        resolverBridgeCount:items.filter((x)=>x.resolverBridge).length,
       },
       items,
-      discovery: hasCoords ? { provider:'official-original', referencePlayback:false, fast } : undefined,
+      discovery: hasCoords ? { provider:'official-original+resolver-bridge', referencePlayback:false, resolverBridge:true, fast } : undefined,
       message: items.length ? undefined : (q
         ? '目前未找到此景點／路口可直接使用的原始公開 CCTV；只保留官方可驗證來源，不嵌入第三方參考站。'
         : '此範圍目前沒有取得 CCTV 點位或可直接播放影像。'),
       note: national
         ? '全台模式使用高速公路局、公路局與已整合地方政府原始公開來源。'
-        : '區域模式融合道路 CCTV 與景點官方直播；第三方網站只作來源辨識參考，實際播放一律連原始公開來源。',
+        : '區域模式融合道路 CCTV 與景點官方直播；公開索引僅在後端解析原始媒體，前端不顯示、不跳轉索引頁。',
     }, cacheControl);
   } catch (e) {
     return json(res, 502, { error:`CCTV 資料暫時無法取得：${e.message}` }, 'no-store');

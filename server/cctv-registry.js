@@ -534,9 +534,21 @@ function searchRegistry(items, query, limit = 120) {
 
 async function resolveCamera(id) {
   const rawId = String(id || '');
+  const prefix = rawId.split(':')[0];
+  if (prefix === 'twipcam') {
+    const slug = rawId.slice('twipcam:'.length).trim();
+    if (!/^[A-Za-z0-9._-]{2,120}$/.test(slug)) throw new Error('Invalid CCTV resolver id');
+    return {
+      id:rawId,
+      streamUrl:`https://www.twipcam.com/cam/${encodeURIComponent(slug)}`,
+      resolverBridge:true,
+      source:'公開 CCTV 原始媒體解析',
+      access:'live-wrapper', playbackPolicy:'public-wrapper', originalSource:true,
+      road:slug, region:'Taiwan',
+    };
+  }
   const fastSeed = OFFICIAL_FAST_SEEDS.find((item) => String(item.id) === rawId);
   if (fastSeed) return { ...fastSeed };
-  const prefix = rawId.split(':')[0];
   const source = SOURCES.find((item) => item.id === prefix);
   if (!source) throw new Error('Unknown CCTV source');
   const items = await fetchSource(source);

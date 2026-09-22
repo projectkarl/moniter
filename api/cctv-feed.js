@@ -119,12 +119,12 @@ async function fetchWithTimeout(url, opts = {}, timeout = 12000) {
 
 async function fetchProbeTarget(url, timeout = 6500) {
   let response = await fetchWithTimeout(url, {
-    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'SENTINEL-Taiwan/1.0.5 public-cctv-probe' },
+    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'SENTINEL-Taiwan/1.0.6 public-cctv-probe' },
   }, timeout);
   if (!response.ok && [400,403,405,416].includes(response.status)) {
     try { await response.body?.cancel?.(); } catch (_) {}
     response = await fetchWithTimeout(url, {
-      headers: { Accept: '*/*', 'User-Agent': 'SENTINEL-Taiwan/1.0.5 public-cctv-probe' },
+      headers: { Accept: '*/*', 'User-Agent': 'SENTINEL-Taiwan/1.0.6 public-cctv-probe' },
     }, timeout);
   }
   return response;
@@ -183,7 +183,7 @@ async function proxySnapshot(camera, res) {
   const upstream = await fetchWithTimeout(target.toString(), {
     headers: {
       Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-      'User-Agent': 'SENTINEL-Taiwan/1.0.5 public-cctv-snapshot',
+      'User-Agent': 'SENTINEL-Taiwan/1.0.6 public-cctv-snapshot',
       'Cache-Control': 'no-cache',
     },
   }, 9000);
@@ -269,7 +269,7 @@ module.exports = async (req, res) => {
 
     const headers = {
       Accept: '*/*',
-      'User-Agent': 'SENTINEL-Taiwan/1.0.5 public-cctv-inline-proxy',
+      'User-Agent': 'SENTINEL-Taiwan/1.0.6 public-cctv-inline-proxy',
     };
     if (req.headers?.range) headers.Range = req.headers.range;
     const upstream = await fetchWithTimeout(target.toString(), { headers }, 12000);
