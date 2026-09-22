@@ -60,14 +60,15 @@ const SOURCES = [
   },
   {
     id: 'new-taipei-position', name: '新北市政府交通局 CCTV', region: '新北市', access: 'official-viewer', kind: 'json-generic',
-    embedAllowed: true,
+    publicWrapper: true,
+    embedAllowed: false,
     url: 'https://data.ntpc.gov.tw/api/datasets/157501bf-f1cd-4838-92a7-612770351e43/json?page=0&size=2000', timeout: 16000,
     fields: {
       id: ['id','ID','cctv_id','CCTVID','項次','編號'], name: ['equipment','location','Location','address','Address','位置','設備位置','路口'],
       lat: ['lat','latitude','Latitude','緯度','PositionLat'], lon: ['lon','lng','longitude','Longitude','經度','PositionLon'], stream:['areacode','設備編號','equipment_id','deviceid'],
     },
     viewerBuilder: ({ rawStream }) => { const id = String(rawStream || '').trim().match(/[A-Za-z]?\d{3,}/)?.[0] || ''; return id ? `https://atis.ntpc.gov.tw/ATIS/ShowFrame4CCTV/${encodeURIComponent(id)}` : ''; },
-    note: '新北市開放資料提供 CCTV 點位，ATIS 提供公開官方即時影像檢視頁；SENTINEL 可在站內直接內嵌官方檢視頁。',
+    note: '新北市開放資料提供 CCTV 點位與公開官方檢視頁；SENTINEL 會由伺服器端解析檢視頁中實際公開媒體，成功後才標示為 LIVE，不再直接 iframe 整頁。',
   },
   {
     id: 'keelung', name: '基隆市政府公開 CCTV', region: '基隆市', access: 'live', kind: 'csv-generic',
@@ -109,9 +110,9 @@ const OFFICIAL_FAST_SEEDS = [
   sourceDatasetUrl:'https://bote.gov.taipei/cp.aspx?n=8B8FFEA8353857B5',
   originalSource:true,
   region:'臺北市', regionResolvedBy:'verified-fast-index', regionConfidence:'high',
-  access:'official-embed', playbackPolicy:'official-embed', requiresAuthorization:true, embedAllowed:true, quickIndex:true,
+  access:'authorization-required', playbackPolicy:'authorization-required', requiresAuthorization:true, embedAllowed:false, quickIndex:true,
   authorizationUrl:'https://bote.gov.taipei/cp.aspx?n=8B8FFEA8353857B5',
-  note:'臺北市官方 CCTV 快速索引；站內直接內嵌官方公開播放器，原始影像介接仍依官方規定。',
+  note:'臺北市官方 CCTV 快速索引；保留官方點位與檢視頁資訊，但未取得可免授權直連的原始媒體端點時不標示為 LIVE。',
 }));
 
 function decodeXmlUrl(v = '') {
@@ -258,6 +259,11 @@ function cameraRecord(source, raw, index) {
   if (typeof source.viewerBuilder === 'function') {
     try { officialViewerUrl = source.viewerBuilder({ rawId, rawStream, road, raw, index }) || ''; } catch (_) { officialViewerUrl = ''; }
   }
+  // Some agencies expose a public viewer page whose HTML declares the actual media URL.
+  // Treat that page as a server-side wrapper candidate, never as an iframe LIVE source.
+  if (!streamUrl && source.publicWrapper && officialViewerUrl && !source.requiresAuthorization) {
+    streamUrl = officialViewerUrl;
+  }
   const direction = String(fieldValue(raw, f.direction || ['RoadDirection','Direction','direction','方向']) || '').trim();
   const status = String(fieldValue(raw, f.status || ['status','Status','狀態']) || '').trim();
   const item = {
@@ -276,9 +282,9 @@ function cameraRecord(source, raw, index) {
     authorizationUrl: source.authorizationUrl || '',
     requiresAuthorization: Boolean(source.requiresAuthorization),
     embedAllowed: Boolean(source.embedAllowed),
-    playbackPolicy: source.embedAllowed && officialViewerUrl ? 'official-embed' : (source.requiresAuthorization ? 'authorization-required' : (officialViewerUrl && !streamUrl ? 'official-viewer-only' : (streamUrl ? 'direct-public-stream' : 'position-only'))),
+    playbackPolicy: source.requiresAuthorization ? 'authorization-required' : (source.publicWrapper && streamUrl ? 'public-wrapper' : (officialViewerUrl && !streamUrl ? 'official-viewer-only' : (streamUrl ? 'direct-public-stream' : 'position-only'))),
     region: source.region || '',
-    access: streamUrl ? (source.access || 'live') : (source.embedAllowed && officialViewerUrl ? 'official-embed' : (source.requiresAuthorization ? 'authorization-required' : (officialViewerUrl ? 'official-viewer' : 'position-only'))),
+    access: streamUrl ? (source.publicWrapper ? 'live-wrapper' : (source.access || 'live')) : (source.requiresAuthorization ? 'authorization-required' : (officialViewerUrl ? 'official-viewer' : 'position-only')),
     note: source.note || (streamUrl ? '政府公開交通 CCTV 影像來源。' : '政府公開 CCTV 位置；未提供可直接免授權播放的串流。'),
   };
   if (!plausibleTaiwan(item.lat, item.lon)) return null;

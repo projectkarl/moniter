@@ -10,8 +10,20 @@ function safeHttpUrl(value) {
   return url;
 }
 
+function agencySite(hostname = '') {
+  const host = String(hostname || '').toLowerCase().replace(/^www\./, '');
+  const parts = host.split('.').filter(Boolean);
+  if (parts.length >= 3 && parts.slice(-2).join('.') === 'gov.tw') return parts.slice(-3).join('.');
+  return host;
+}
+
 function sameStreamHost(base, candidate) {
-  return base.hostname.toLowerCase() === candidate.hostname.toLowerCase();
+  const a = base.hostname.toLowerCase();
+  const b = candidate.hostname.toLowerCase();
+  if (a === b) return true;
+  // HLS master/variant playlists from the same government agency may use sibling subdomains.
+  // Keep this narrow: same agency site only, never arbitrary cross-site proxying.
+  return agencySite(a) === agencySite(b) && agencySite(a).endsWith('.gov.tw');
 }
 
 function proxyUrl(id, value) {
@@ -107,12 +119,12 @@ async function fetchWithTimeout(url, opts = {}, timeout = 12000) {
 
 async function fetchProbeTarget(url, timeout = 6500) {
   let response = await fetchWithTimeout(url, {
-    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'SENTINEL-Taiwan/1.0.3 public-cctv-probe' },
+    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'SENTINEL-Taiwan/1.0.4 public-cctv-probe' },
   }, timeout);
   if (!response.ok && [400,403,405,416].includes(response.status)) {
     try { await response.body?.cancel?.(); } catch (_) {}
     response = await fetchWithTimeout(url, {
-      headers: { Accept: '*/*', 'User-Agent': 'SENTINEL-Taiwan/1.0.3 public-cctv-probe' },
+      headers: { Accept: '*/*', 'User-Agent': 'SENTINEL-Taiwan/1.0.4 public-cctv-probe' },
     }, timeout);
   }
   return response;
@@ -171,7 +183,7 @@ async function proxySnapshot(camera, res) {
   const upstream = await fetchWithTimeout(target.toString(), {
     headers: {
       Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-      'User-Agent': 'SENTINEL-Taiwan/1.0.3 public-cctv-snapshot',
+      'User-Agent': 'SENTINEL-Taiwan/1.0.4 public-cctv-snapshot',
       'Cache-Control': 'no-cache',
     },
   }, 9000);
@@ -257,7 +269,7 @@ module.exports = async (req, res) => {
 
     const headers = {
       Accept: '*/*',
-      'User-Agent': 'SENTINEL-Taiwan/1.0.3 public-cctv-inline-proxy',
+      'User-Agent': 'SENTINEL-Taiwan/1.0.4 public-cctv-inline-proxy',
     };
     if (req.headers?.range) headers.Range = req.headers.range;
     const upstream = await fetchWithTimeout(target.toString(), { headers }, 12000);
