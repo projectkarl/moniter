@@ -2233,7 +2233,7 @@ body.camera-expanded-open{overflow:auto!important;}
    ========================================================= */
 .camera-nearby-widget{background:#050708!important;}
 .camera-index-badge{pointer-events:none;}
-.marker-camera.location-only{opacity:.74;filter:saturate(.65);}
+.marker-camera.location-only{opacity:.96;filter:saturate(.85);}
 .marker-camera.location-only span{background:#9b8d69!important;box-shadow:0 0 0 2px rgba(155,141,105,.18)!important;}
 
 @media(max-width:920px){
@@ -2502,4 +2502,6 @@ body.camera-expanded-open{overflow:auto!important;}
 .map-live-cctv-card.auth-required .map-live-cctv-stage,.map-live-cctv-card.viewer-only .map-live-cctv-stage{background:linear-gradient(135deg,rgba(18,25,22,.97),rgba(8,13,14,.98))}
 
 .camera-snapshot-badge{border-color:rgba(116,220,174,.34)!important;color:#9ee7c3!important;background:rgba(4,18,14,.9)!important;}
-/* v1.0.4: public official CCTV viewers stay inside SENTINEL instead of opening a new page. */
+/* CCTV point visibility is independent from media playback capability. */
+
+.map-live-cctv-card.point-only::after{content:'點擊查看'!important;}

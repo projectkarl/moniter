@@ -89,7 +89,7 @@ module.exports = async (req, res) => {
     const registry = mergeCameras(quickSeeds, Array.isArray(registryResult?.items) ? registryResult.items : []);
     if (quickSeeds.length) sourceStatus.unshift({
       id:'taipei-official-fast-index', name:'臺北市交通管制工程處（快速索引）', region:'臺北市', ok:true,
-      count:quickSeeds.length, access:'official-embed', note:'官方設備快速索引；站內直接內嵌官方公開播放器，原始介接仍依官方規定。'
+      count:quickSeeds.length, access:'point-index', note:'官方設備快速索引；先顯示點位，只有取得公開媒體端點時才升級為 LIVE。'
     });
     const scenic = Array.isArray(scenicResult) ? scenicResult : [];
     if (q && hasCoords && !national && shouldSearchScenic(q)) {
@@ -126,11 +126,11 @@ module.exports = async (req, res) => {
     });
     items = items.slice(0, limit);
 
-    const liveCount = items.filter((x) => x.streamUrl || x.playbackPolicy === 'official-embed').length;
+    const liveCount = items.filter((x) => x.streamUrl || x.imageUrl || x.scenic).length;
     const scenicCount = items.filter((x) => x.scenic).length;
-    const authorizationRequiredCount = items.filter((x) => (x.requiresAuthorization || x.playbackPolicy === 'authorization-required') && x.playbackPolicy !== 'official-embed').length;
-    const officialViewerCount = items.filter((x) => x.officialViewerUrl && !x.streamUrl && x.playbackPolicy !== 'official-embed' && !x.requiresAuthorization).length;
-    const officialEmbedCount = items.filter((x) => x.playbackPolicy === 'official-embed').length;
+    const authorizationRequiredCount = items.filter((x) => (x.requiresAuthorization || x.playbackPolicy === 'authorization-required')).length;
+    const officialViewerCount = items.filter((x) => x.officialViewerUrl && !x.streamUrl && !x.requiresAuthorization).length;
+    const officialEmbedCount = 0;
     const positionOnlyCount = items.filter((x) => !x.streamUrl).length;
     const cacheControl = items.length
       ? (fast ? 's-maxage=120, stale-while-revalidate=900' : 's-maxage=900, stale-while-revalidate=7200')

@@ -1468,7 +1468,7 @@
     state.cctvPreviewLayer.clearLayers();
     state.cctvPreviewCards = [];
     if (!place || state.nationalMode || state.navigation.active) return;
-    const cameras = targetCctvPreviewCandidates(place, items).filter(hasDirectCameraMedia);
+    const cameras = targetCctvPreviewCandidates(place, items);
     if (!cameras.length) return;
     const mobile = window.innerWidth <= 760;
     cameras.forEach((cam, index) => {
@@ -1534,6 +1534,9 @@
     exitNationalMode();
     state.target = place;
     state.cctvPreviewLayer?.clearLayers?.();
+    state.cameraLayer?.clearLayers?.();
+    state.cctvPreviewCards = [];
+    state.latestCctv = [];
     setTheaterStandby(false);
     if (state.targetMarker) state.targetMarker.remove();
     state.targetMarker = L.marker([place.lat, place.lon], { icon: markerIcon('target', 13), zIndexOffset: 900 }).addTo(state.map).bindPopup(`<b>${escapeHtml(place.name || '目標位置')}</b><br><button type="button" class="map-cctv-link" id="targetNearbyCctvBtn">附近公開 CCTV</button>`);
@@ -1549,6 +1552,7 @@
     const cctvPromise = loadCctv(place.lat, place.lon, false, 35, { requestSeq, fast:true });
     cctvPromise.then((items) => {
       if (requestSeq !== state.targetRequestSeq || state.target !== place) return;
+      renderCctvMapMarkers(items || []);
       renderTargetCctvPreviews(place, items || []);
       // Fast local CCTV appears first. Slower official road registries enrich in the background.
       enrichTargetRoadCctv(place, requestSeq).catch(() => {});
@@ -1572,6 +1576,7 @@
     renderTargetBrief(place, { weather: value(0, null), traffic: value(1, []), flow: value(2, []), cityFlow:value(3,[]), cctv: value(4, []), speedCameras: value(5, []) });
     renderAutoIntel(place, { traffic: value(1, []), flow: value(2, []), cityFlow:value(3,[]), cctv: value(4, []), speedCameras: value(5, []), news: value(6, []), flights: value(7, []), quakes: value(8, []) });
     renderSituationIntel(place, { weather:value(0,null), traffic:value(1,[]), flow:value(2,[]), ...(value(9,{})) });
+    renderCctvMapMarkers(value(4, []));
     renderTargetCctvPreviews(place, value(4, []));
     renderInlineCctvResults(value(4, []), place, value(3,[]));
     updateIntelSync('TARGET AUTO');
@@ -3178,7 +3183,7 @@
 
   function cameraMapIcon(cam = {}, national = false) {
     const live = hasDirectCameraMedia(cam);
-    const size = national ? (live ? 7 : 6) : (live ? 11 : 9);
+    const size = national ? (live ? 7 : 6) : 11;
     return L.divIcon({
       className: '',
       html: `<div class="marker-camera ${live ? 'live' : 'location-only'} ${cam?.requiresAuthorization ? 'auth-required' : cam?.officialViewerUrl ? 'viewer-only' : ''} ${cam.scenic ? 'scenic' : ''}" style="--cam-size:${size}px"><span></span></div>`,
@@ -3263,7 +3268,6 @@
   async function loadCctv(lat, lon, focus = false, radius = 40, options = {}) {
     if (!state.map) return [];
     const draw = options.draw !== false;
-    if (draw) state.cameraLayer.clearLayers();
     $('cameraCount').textContent = '…';
     try {
       const nationalQuery = options.national ? '&national=1&limit=8000' : '';
@@ -3272,9 +3276,9 @@
       const data = await jsonFetch(`/api/data?action=cctv&lat=${lat}&lon=${lon}&radius=${Math.round(radius)}${nationalQuery}${fastQuery}${targetQuery}`);
       const items = data.items || [];
       if (options.requestSeq && options.requestSeq !== state.targetRequestSeq) return items;
-      state.latestCctv = items;
+      if (items.length || options.national) state.latestCctv = items;
       state.cctvCoverage = data.coverage || null;
-      if (draw) renderCctvMapMarkers(items, { national:Boolean(options.national) });
+      if (draw && (items.length || options.national || options.clearOnEmpty)) renderCctvMapMarkers(items, { national:Boolean(options.national) });
       const viewable = items.filter(hasDirectCameraMedia).length;
       const positions = Math.max(0, items.length - viewable);
       $('cameraCount').textContent = String(items.length);

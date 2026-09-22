@@ -56,7 +56,7 @@ const SOURCES = [
     viewerBuilder: ({ rawId, road }) => { const m = String(road || '').match(/(?:^|\D)(\d{1,4})(?:\D|$)/); const id = m?.[1] || String(rawId || '').match(/\d{1,4}/)?.[0] || ''; return id ? `https://hls.bote.gov.taipei/live/index.html?id=${encodeURIComponent(id)}` : ''; },
     requiresAuthorization: true,
     authorizationUrl: 'https://bote.gov.taipei/cp.aspx?n=8B8FFEA8353857B5',
-    note: '臺北市官方 CCTV 點位與公開官方播放器；SENTINEL 直接內嵌官方播放器，不拆解需另行申請授權的原始影像介接。',
+    note: '臺北市官方 CCTV 點位；SENTINEL 先顯示攝影機位置，僅在取得可公開使用的媒體端點時才顯示 LIVE。',
   },
   {
     id: 'new-taipei-position', name: '新北市政府交通局 CCTV', region: '新北市', access: 'official-viewer', kind: 'json-generic',
