@@ -28,6 +28,8 @@
     currentWeather: null,
     latestCctv: [],
     cctvCoverage: null,
+    cctvDiscoveryUrl: '',
+    cctvDiscoveryWidgetUrl: '',
     targetRequestSeq: 0,
     mapProgrammaticUntil: 0,
     mapUserMovedAt: 0,
@@ -3223,19 +3225,43 @@
     stage.innerHTML = `<div class="camera-placeholder official-policy"><b>${policy.title}</b><span>${escapeHtml(cam.road || cam.name || '此 CCTV')} · ${policy.text}</span><small>來源資訊保留於 SENTINEL 情報面板；播放區不再跳轉外站。</small></div>`;
   }
 
+  function publicCctvNearbyUrl(place = {}) {
+    const lat = Number(place?.lat), lon = Number(place?.lon ?? place?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+    return `https://www.twipcam.com/nearby?lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}`;
+  }
+
+  function publicCctvWidgetUrl(place = {}) {
+    const lat = Number(place?.lat), lon = Number(place?.lon ?? place?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+    return `https://www.twipcam.com/widget/v1/query-cam-list-by-coordinate?lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}`;
+  }
+
+  function renderNearbyCctvWidget(stage, place = {}, label = '附近公開 CCTV') {
+    if (!stage) return false;
+    const src = publicCctvWidgetUrl(place) || state.cctvDiscoveryWidgetUrl;
+    clearCameraStage(stage);
+    if (!src) {
+      stage.innerHTML = '<div class="camera-placeholder"><b>PUBLIC CCTV INDEX UNAVAILABLE</b><span>此位置目前沒有可使用的附近公開影像索引。</span></div>';
+      return false;
+    }
+    stage.innerHTML = `<iframe class="camera-index-frame camera-nearby-widget" src="${escapeAttr(src)}" title="${escapeAttr(label)}" loading="eager" referrerpolicy="no-referrer-when-downgrade" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe><div class="camera-index-badge">NEARBY PUBLIC CCTV · IN-APP</div>`;
+    syncLocalPrivacyMask(stage);
+    return true;
+  }
+
   async function openCctvPosition(cam = {}) {
     if (!Number.isFinite(Number(cam?.lat)) || !Number.isFinite(Number(cam?.lon))) return;
-    const policy = cameraPointPolicy(cam);
-    state.inlineCamera = null;
+    state.inlineCamera = cam;
     if ($('inlineCameraCard')) $('inlineCameraCard').hidden = false;
     if ($('inlineCameraTitle')) $('inlineCameraTitle').textContent = shortName(cam.name || cam.road || 'OFFICIAL CCTV POINT');
-    if ($('inlineCameraSignal')) $('inlineCameraSignal').textContent = policy.signal;
-    if ($('inlineCameraMeta')) $('inlineCameraMeta').textContent = `${cam.road || cam.name || ''} · ${policy.text}`;
-    renderOriginalSourceUnavailable($('inlineCameraStage'), cam);
+    if ($('inlineCameraSignal')) $('inlineCameraSignal').textContent = 'NEARBY PUBLIC CCTV // IN-APP';
+    if ($('inlineCameraMeta')) $('inlineCameraMeta').textContent = `${cam.road || cam.name || ''} · 官方點位無法直連時，自動切換該座標附近可播放公開 CCTV。`;
+    renderNearbyCctvWidget($('inlineCameraStage'), cam, cam.name || cam.road || '附近公開 CCTV');
     if ($('cctvPopup') && !$('cctvPopup').hidden) {
       $('cctvPopupTitle').textContent = shortName(cam.name || cam.road || 'OFFICIAL CCTV POINT');
-      $('cctvPopupMeta').textContent = policy.signal;
-      renderOriginalSourceUnavailable($('cctvPopupStage'), cam);
+      $('cctvPopupMeta').textContent = 'OFFICIAL POSITION · NEARBY LIVE CCTV';
+      renderNearbyCctvWidget($('cctvPopupStage'), cam, cam.name || cam.road || '附近公開 CCTV');
     }
     openIntelResults();
     jumpIntelCard('inlineCameraCard');
@@ -3278,6 +3304,8 @@
       if (options.requestSeq && options.requestSeq !== state.targetRequestSeq) return items;
       if (items.length || options.national) state.latestCctv = items;
       state.cctvCoverage = data.coverage || null;
+      state.cctvDiscoveryUrl = data.discovery?.nearbyUrl || publicCctvNearbyUrl({ lat, lon });
+      state.cctvDiscoveryWidgetUrl = data.discovery?.widgetUrl || publicCctvWidgetUrl({ lat, lon });
       if (draw && (items.length || options.national || options.clearOnEmpty)) renderCctvMapMarkers(items, { national:Boolean(options.national) });
       const viewable = items.filter(hasDirectCameraMedia).length;
       const positions = Math.max(0, items.length - viewable);
@@ -3553,14 +3581,18 @@
     clearTimeout(timer);
     if (stage.dataset.renderToken !== token) return;
     clearCameraStage(stage);
+    if (!probe && (cam?.indexed || cam?.resolverBridge || cam?.officialViewerUrl || cam?.requiresAuthorization)) {
+      renderNearbyCctvWidget(stage, cam, cam.name || cam.road || '附近公開 CCTV');
+      return;
+    }
     const kind = probe?.kind || 'unknown';
     if (renderKnown(kind)) return;
     if (cameraSnapshotUrl(cam)) {
       renderCameraSnapshotFallback(stage, cam, 'STREAM FORMAT UNKNOWN · OFFICIAL SNAPSHOT');
       return;
     }
-    if (cam?.access === 'live-wrapper' || cam?.officialViewerUrl || cam?.requiresAuthorization) {
-      renderOriginalSourceUnavailable(stage, cam);
+    if (cam?.access === 'live-wrapper' || cam?.resolverBridge || cam?.indexed || cam?.officialViewerUrl || cam?.requiresAuthorization) {
+      renderNearbyCctvWidget(stage, cam, cam.name || cam.road || '附近公開 CCTV');
       return;
     }
     // Unknown direct endpoints are commonly live snapshots without a useful extension.

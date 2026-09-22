@@ -71,7 +71,7 @@ async function loadPublicIndexNearby(lat, lon, maxItems = 14) {
   const headers = {
     Accept:'text/html,application/xhtml+xml',
     'Accept-Language':'zh-TW,zh;q=0.9,en;q=0.6',
-    'User-Agent':'Mozilla/5.0 (compatible; SENTINEL-Taiwan/1.0.6; public-cctv-discovery)',
+    'User-Agent':'Mozilla/5.0 (compatible; SENTINEL-Taiwan/1.0.7; public-cctv-discovery)',
     Referer:'https://www.twipcam.com/',
   };
   let links = [];
@@ -272,11 +272,15 @@ module.exports = async (req, res) => {
         authorizationRequiredCount,
         officialViewerCount,
         positionOnlyCount, officialEmbedCount,
-        referencePlaybackCount:0,
+        referencePlaybackCount:items.filter((x)=>x.resolverBridge || x.indexed).length,
         resolverBridgeCount:items.filter((x)=>x.resolverBridge).length,
       },
       items,
-      discovery: hasCoords ? { provider:'official-original+resolver-bridge', referencePlayback:false, resolverBridge:true, fast } : undefined,
+      discovery: hasCoords ? {
+        provider:'official-original+resolver-bridge+in-app-fallback', referencePlayback:true, resolverBridge:true, fast,
+        nearbyUrl:`https://www.twipcam.com/nearby?lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}`,
+        widgetUrl:`https://www.twipcam.com/widget/v1/query-cam-list-by-coordinate?lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}`
+      } : undefined,
       message: items.length ? undefined : (q
         ? '目前未找到此景點／路口可直接使用的原始公開 CCTV；只保留官方可驗證來源，不嵌入第三方參考站。'
         : '此範圍目前沒有取得 CCTV 點位或可直接播放影像。'),
