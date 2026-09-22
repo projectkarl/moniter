@@ -1,6 +1,6 @@
 # SENTINEL // TAIWAN
 
-**Version 1.0.6 · Public Signal Command Grid**
+**Version 1.0.8 · Public Signal Command Grid**
 
 SENTINEL // TAIWAN 是一個以台灣公開資料為基礎的地圖型戰情／導航實驗專案。核心目標是把即時車流、公開 CCTV、交通事件、天氣、環境資訊與導航整合在同一張地圖，同時清楚標示資料來源與即時性。
 
@@ -28,21 +28,12 @@ SENTINEL // TAIWAN 是一個以台灣公開資料為基礎的地圖型戰情／�
 不需要前端付費 API Key。
 
 ## CCTV 播放政策
-- 高速公路局、公路局等官方開放資料若直接提供 `VideoStreamURL`，SENTINEL 會以原始公開串流播放。
-- 官方只提供點位或官方檢視頁時，不把整個網頁偽裝成原始串流。
-- 臺北市交工處目前明確要求第三方網站介接 CCTV 即時影像需依官方程序申請；未取得授權前，SENTINEL 只顯示官方點位與介接說明。
+- CCTV 播放區不另開外站，也不再嵌入第三方 CCTV 網頁或附近影像 widget。
+- 高速公路局、公路局等來源直接使用官方 `VideoStreamURL` / `VideoImageURL`。
+- 地方政府只有播放器頁或公開索引時，後端只把該頁當解析入口：遞迴找出 HLS / MJPEG / JPEG / MP4 / WebM 後，統一由 `/api/cctv-feed` 代理給 SENTINEL 自己的播放器。
+- 解析器會保留必要的 Referer / Cookie，並支援巢狀播放器頁與 HLS 子播放清單。
+- 解析不到直接媒體時仍保留官方 CCTV 點位；不跳轉外站、不用整頁 iframe 假裝直播。
+- 景點官方 YouTube 直播仍直接在 SENTINEL 內播放。
 
 ## 版本
-**SENTINEL // TAIWAN v1.0.6** 恢復「可直接播放優先」的 CCTV 架構：官方 registry 提供點位與原始公開串流；當地方政府只提供點位/播放器資訊時，後端可使用公開 CCTV 索引作解析橋接，定位真正的公開 HLS／MJPEG／JPEG／MP4，再由 SENTINEL 自己的 `/api/cctv-feed` 代理播放。索引頁不會顯示在前端，也不會讓使用者跳轉。
-
-
-## CCTV playback resilience
-
-公開交通 CCTV 若同時提供 `VideoStreamURL` 與 `VideoImageURL`，SENTINEL 會優先播放動態串流；若瀏覽器無法解碼、HLS 發生 fatal error、或指定時間內沒有產生影格，會自動切換到官方 `VideoImageURL`，並依 `ImageRefreshRate` 更新。
-
-
-## CCTV direct-play policy
-- `LIVE` 僅代表已提供或已解析到可在站內播放的 HLS / MJPEG / JPEG / MP4 / WebM / 官方景點直播。
-- 官方 viewer 頁與 quick-index 點位不再直接 iframe 成 LIVE，避免黑畫面。
-- 公開 wrapper（例如部分地方政府檢視頁）由伺服器端辨識其公開媒體端點；辨識失敗時保留為官方點位，不跳轉、不黑屏。
-- 需要提供機關授權的原始影像介接不嘗試繞過限制。
+**SENTINEL // TAIWAN v1.0.8** 將道路 CCTV 收斂為單一「站內直接播放」鏈：公開來源／解析橋接 → `/api/cctv-feed` → SENTINEL video/img/HLS player。移除外部 CCTV widget 與官方整頁 viewer fallback。

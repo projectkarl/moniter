@@ -10,20 +10,8 @@ function safeHttpUrl(value) {
   return url;
 }
 
-function agencySite(hostname = '') {
-  const host = String(hostname || '').toLowerCase().replace(/^www\./, '');
-  const parts = host.split('.').filter(Boolean);
-  if (parts.length >= 3 && parts.slice(-2).join('.') === 'gov.tw') return parts.slice(-3).join('.');
-  return host;
-}
-
 function sameStreamHost(base, candidate) {
-  const a = base.hostname.toLowerCase();
-  const b = candidate.hostname.toLowerCase();
-  if (a === b) return true;
-  // HLS master/variant playlists from the same government agency may use sibling subdomains.
-  // Keep this narrow: same agency site only, never arbitrary cross-site proxying.
-  return agencySite(a) === agencySite(b) && agencySite(a).endsWith('.gov.tw');
+  return base.hostname.toLowerCase() === candidate.hostname.toLowerCase();
 }
 
 function proxyUrl(id, value) {
@@ -69,21 +57,12 @@ function sniffKind(bytes) {
 
 function discoverMediaFromHtml(html, baseUrl) {
   const base = new URL(baseUrl);
-  const normalizedHtml = String(html || '')
-    .replace(/\\\//g, '/')
-    .replace(/\\u0026/gi, '&')
-    .replace(/&amp;/g, '&');
   const candidates = [];
   const attrRe = /(?:src|href|data-src|data-url|data-stream|poster)\s*=\s*["']([^"']+)["']/ig;
   let m;
-  while ((m = attrRe.exec(normalizedHtml))) candidates.push(m[1]);
+  while ((m = attrRe.exec(html))) candidates.push(m[1]);
   const rawRe = /(https?:\/\/[^"'\s<>\\]+(?:\.m3u8|\.mp4|\.webm|\.mjpg|\.mjpeg|\.jpg|\.jpeg|\.png)(?:\?[^"'\s<>\\]*)?)/ig;
-  while ((m = rawRe.exec(normalizedHtml))) candidates.push(m[1]);
-  const jsPatterns = [
-    /(?:loadSource|file|streamUrl|videoUrl|url)\s*\(?\s*[:=,]?\s*["']([^"']+)["']/ig,
-    /<source[^>]+src=["']([^"']+)["']/ig,
-  ];
-  for (const re of jsPatterns) while ((m = re.exec(normalizedHtml))) candidates.push(m[1]);
+  while ((m = rawRe.exec(html))) candidates.push(m[1]);
   const scored = [];
   for (const item of candidates) {
     try {
@@ -99,7 +78,6 @@ function discoverMediaFromHtml(html, baseUrl) {
       else if (/\.png(?:\?|$)/i.test(url)) score += 25;
       if (/(?:cctv|camera|cam|stream|snapshot|live|traffic|video)/i.test(url)) score += 45;
       if (/(?:logo|icon|favicon|avatar|banner|ads?|sprite|brand)/i.test(url)) score -= 120;
-      if (/(?:comment|comments|guest|guestbook|board|message|forum|reply|chat|留言|討論)/i.test(url)) score -= 500;
       scored.push({ abs, score });
     } catch (_) {}
   }
@@ -117,28 +95,9 @@ async function fetchWithTimeout(url, opts = {}, timeout = 12000) {
   }
 }
 
-async function fetchProbeTarget(url, timeout = 6500) {
-  let response = await fetchWithTimeout(url, {
-    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'SENTINEL-Taiwan/1.0.7 public-cctv-probe' },
-  }, timeout);
-  if (!response.ok && [400,403,405,416].includes(response.status)) {
-    try { await response.body?.cancel?.(); } catch (_) {}
-    response = await fetchWithTimeout(url, {
-      headers: { Accept: '*/*', 'User-Agent': 'SENTINEL-Taiwan/1.0.7 public-cctv-probe' },
-    }, timeout);
-  }
-  return response;
-}
-
 async function resolveMediaTarget(camera) {
   const cached = mediaCache.get(camera.id);
   if (cached && cached.expiresAt > Date.now()) return cached;
-  if (camera?.requiresAuthorization || camera?.playbackPolicy === 'authorization-required') {
-    throw new Error('Official CCTV interface authorization required');
-  }
-  if (!camera?.streamUrl) {
-    throw new Error(camera?.officialViewerUrl ? 'Official viewer available but no public raw stream is declared' : 'No public CCTV stream URL');
-  }
   const original = safeHttpUrl(camera.streamUrl);
   const obviousKind = mediaKind('', original.toString());
   if (obviousKind !== 'unknown' && obviousKind !== 'html') {
@@ -146,7 +105,9 @@ async function resolveMediaTarget(camera) {
     mediaCache.set(camera.id, direct);
     return direct;
   }
-  let response = await fetchProbeTarget(original.toString(), 6500);
+  let response = await fetchWithTimeout(original.toString(), {
+    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'SENTINEL-Taiwan/1.0.8 public-cctv-probe' },
+  }, 6500);
   if (!response.ok) throw new Error(`CCTV upstream HTTP ${response.status}`);
   const finalUrl = safeHttpUrl(response.url || original.toString());
   const contentType = response.headers.get('content-type') || '';
@@ -160,7 +121,9 @@ async function resolveMediaTarget(camera) {
     const discovered = discoverMediaFromHtml(html, finalUrl);
     if (!discovered) throw new Error('No playable media found in CCTV wrapper');
     target = safeHttpUrl(discovered.toString());
-    response = await fetchProbeTarget(target.toString(), 6000);
+    response = await fetchWithTimeout(target.toString(), {
+      headers: { Accept: '*/*', Range: 'bytes=0-4095', 'User-Agent': 'SENTINEL-Taiwan/1.0.8 public-cctv-probe' },
+    }, 6000);
     if (!response.ok) throw new Error(`CCTV media HTTP ${response.status}`);
     kind = mediaKind(response.headers.get('content-type') || '', response.url || target.toString());
     target = safeHttpUrl(response.url || target.toString());
@@ -175,30 +138,6 @@ async function resolveMediaTarget(camera) {
   const out = { url: target, kind, contentType: response.headers.get('content-type') || contentType, expiresAt: Date.now() + 30 * 60 * 1000 };
   mediaCache.set(camera.id, out);
   return out;
-}
-
-async function proxySnapshot(camera, res) {
-  if (!camera?.imageUrl) return false;
-  const target = safeHttpUrl(camera.imageUrl);
-  const upstream = await fetchWithTimeout(target.toString(), {
-    headers: {
-      Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-      'User-Agent': 'SENTINEL-Taiwan/1.0.7 public-cctv-snapshot',
-      'Cache-Control': 'no-cache',
-    },
-  }, 9000);
-  if (!upstream.ok || !upstream.body) throw new Error(`CCTV snapshot HTTP ${upstream.status}`);
-  const finalUrl = safeHttpUrl(upstream.url || target.toString());
-  const contentType = upstream.headers.get('content-type') || 'image/jpeg';
-  if (!/^image\//i.test(contentType) && mediaKind(contentType, finalUrl.toString()) !== 'image') {
-    throw new Error(`CCTV snapshot returned ${contentType || 'unknown format'}`);
-  }
-  res.setHeader('Content-Type', /^image\//i.test(contentType) ? contentType : 'image/jpeg');
-  res.setHeader('Cache-Control', 'no-store, max-age=0');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  Readable.fromWeb(upstream.body).pipe(res);
-  return true;
 }
 
 function sendJson(res, code, value) {
@@ -218,35 +157,7 @@ module.exports = async (req, res) => {
 
   try {
     const camera = await resolveCamera(id);
-    if (camera?.requiresAuthorization || camera?.playbackPolicy === 'authorization-required') {
-      if (String(req.query.probe || '') === '1') return sendJson(res, 403, { id, kind:'authorization-required', authorizationUrl:camera.authorizationUrl || '', officialViewerUrl:camera.officialViewerUrl || '' });
-      return res.status(403).send('Official CCTV image interface requires provider authorization');
-    }
-    if (String(req.query.snapshot || '') === '1') {
-      if (!camera?.imageUrl) return res.status(404).send('No official CCTV snapshot URL');
-      await proxySnapshot(camera, res);
-      return;
-    }
-    if (!camera?.streamUrl) {
-      if (camera?.imageUrl) {
-        if (String(req.query.probe || '') === '1') return sendJson(res, 200, { id, kind:'image', contentType:'image/*', proxied:true, snapshotAvailable:true, imageRefreshRate:Math.max(1, Number(camera.imageRefreshRate) || 5), fallback:'official-snapshot' });
-        await proxySnapshot(camera, res);
-        return;
-      }
-      if (String(req.query.probe || '') === '1') return sendJson(res, 409, { id, kind:'official-viewer-only', officialViewerUrl:camera.officialViewerUrl || '' });
-      return res.status(409).send('Official CCTV point has no declared public raw stream URL');
-    }
-    let resolved;
-    try {
-      resolved = await resolveMediaTarget(camera);
-    } catch (streamError) {
-      if (camera?.imageUrl) {
-        if (String(req.query.probe || '') === '1') return sendJson(res, 200, { id, kind:'image', contentType:'image/*', proxied:true, snapshotAvailable:true, imageRefreshRate:Math.max(1, Number(camera.imageRefreshRate) || 5), fallback:'official-snapshot', streamError:String(streamError?.message || streamError).slice(0,140) });
-        await proxySnapshot(camera, res);
-        return;
-      }
-      throw streamError;
-    }
+    const resolved = await resolveMediaTarget(camera);
     const base = safeHttpUrl(resolved.url.toString());
 
     if (String(req.query.probe || '') === '1') {
@@ -255,8 +166,6 @@ module.exports = async (req, res) => {
         kind: resolved.kind,
         contentType: resolved.contentType,
         proxied: true,
-        snapshotAvailable: Boolean(camera.imageUrl),
-        imageRefreshRate: Math.max(1, Number(camera.imageRefreshRate) || 5),
       });
     }
 
@@ -269,7 +178,7 @@ module.exports = async (req, res) => {
 
     const headers = {
       Accept: '*/*',
-      'User-Agent': 'SENTINEL-Taiwan/1.0.7 public-cctv-inline-proxy',
+      'User-Agent': 'SENTINEL-Taiwan/1.0.8 public-cctv-inline-proxy',
     };
     if (req.headers?.range) headers.Range = req.headers.range;
     const upstream = await fetchWithTimeout(target.toString(), { headers }, 12000);

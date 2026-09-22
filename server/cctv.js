@@ -71,7 +71,7 @@ async function loadPublicIndexNearby(lat, lon, maxItems = 14) {
   const headers = {
     Accept:'text/html,application/xhtml+xml',
     'Accept-Language':'zh-TW,zh;q=0.9,en;q=0.6',
-    'User-Agent':'Mozilla/5.0 (compatible; SENTINEL-Taiwan/1.0.7; public-cctv-discovery)',
+    'User-Agent':'Mozilla/5.0 (compatible; SENTINEL-Taiwan/1.0.8; public-cctv-discovery)',
     Referer:'https://www.twipcam.com/',
   };
   let links = [];
