@@ -1479,7 +1479,7 @@
       const hasStream = Boolean(cam.streamUrl);
       const icon = L.divIcon({
         className:'',
-        html:`<div class="map-live-cctv-card ${cam.scenic?'scenic':cam.indexed?'indexed':''} ${hasStream?'':'point-only'}" style="--cctv-dx:12px;--cctv-dy:-112px"><div class="map-live-cctv-head"><span>${cam.scenic?'SCENIC':hasStream?(cam.indexed?'PUBLIC':'LIVE'):'POINT'}</span><b>${escapeHtml(title)}</b><em>${escapeHtml(region || distance)}</em></div><div class="map-live-cctv-stage" id="${escapeAttr(stageId)}"><div class="map-live-cctv-loading">${hasStream?'LIVE…':'OFFICIAL CCTV'}</div></div></div>`,
+        html:`<div class="map-live-cctv-card ${cam.scenic?'scenic':cam.indexed?'indexed':''} ${hasStream?'':'point-only'} ${cam?.requiresAuthorization?'auth-required':cam?.officialViewerUrl?'viewer-only':''}" style="--cctv-dx:12px;--cctv-dy:-112px"><div class="map-live-cctv-head"><span>${cam.scenic?'SCENIC':hasStream?(cam.indexed?'PUBLIC':'LIVE'):(cam?.requiresAuthorization?'AUTH':cam?.officialViewerUrl?'VIEW':'POINT')}</span><b>${escapeHtml(title)}</b><em>${escapeHtml(region || distance)}</em></div><div class="map-live-cctv-stage" id="${escapeAttr(stageId)}"><div class="map-live-cctv-loading">${hasStream?'LIVE…':cam?.requiresAuthorization?'AUTH REQUIRED':cam?.officialViewerUrl?'OFFICIAL VIEW':'OFFICIAL CCTV'}</div></div></div>`,
         iconSize: mobile ? [116,82] : [154,108],
         iconAnchor: [0,0],
       });
@@ -3179,29 +3179,49 @@
     const size = national ? (live ? 7 : 6) : (live ? 11 : 9);
     return L.divIcon({
       className: '',
-      html: `<div class="marker-camera ${live ? 'live' : 'location-only'} ${cam.scenic ? 'scenic' : ''}" style="--cam-size:${size}px"><span></span></div>`,
+      html: `<div class="marker-camera ${live ? 'live' : 'location-only'} ${cam?.requiresAuthorization ? 'auth-required' : cam?.officialViewerUrl ? 'viewer-only' : ''} ${cam.scenic ? 'scenic' : ''}" style="--cam-size:${size}px"><span></span></div>`,
       iconSize: [Math.max(10,size+6), Math.max(10,size+6)],
       iconAnchor: [Math.max(5,(size+6)/2), Math.max(5,(size+6)/2)],
     });
   }
 
+  function cameraPointPolicy(cam = {}) {
+    if (cam?.requiresAuthorization || cam?.playbackPolicy === 'authorization-required') return {
+      code:'AUTH', title:'OFFICIAL ACCESS CONTROLLED', signal:'OFFICIAL POINT // INTERFACE AUTH REQUIRED',
+      text:'此官方 CCTV 點位可公開查詢，但第三方網站介接即時影像需依提供機關規定申請授權。SENTINEL 不繞過官方介接限制。',
+    };
+    if (cam?.officialViewerUrl || cam?.playbackPolicy === 'official-viewer-only') return {
+      code:'VIEW', title:'OFFICIAL VIEWER ONLY', signal:'OFFICIAL POINT // VIEWER ONLY',
+      text:'官方提供即時影像檢視頁，但目前開放資料未宣告可直接再利用的原始媒體 URL；SENTINEL 不把整頁播放器偽裝成串流。',
+    };
+    return {
+      code:'POINT', title:'OFFICIAL POINT ONLY', signal:'OFFICIAL POINT // NO PUBLIC STREAM',
+      text:'目前只有官方 CCTV 點位，沒有可直接使用的原始公開串流；不使用第三方轉播。',
+    };
+  }
+
   function renderOriginalSourceUnavailable(stage, cam = {}) {
     if (!stage) return;
     clearCameraStage(stage);
-    stage.innerHTML = `<div class="camera-placeholder"><b>OFFICIAL POINT ONLY</b><span>${escapeHtml(cam.road || cam.name || '此 CCTV')} 目前只有官方點位，沒有可直接使用的原始公開串流；不再嵌入第三方參考站。</span></div>`;
+    const policy = cameraPointPolicy(cam);
+    const links = [];
+    if (cam?.officialViewerUrl) links.push(`<a class="camera-official-link" href="${escapeAttr(cam.officialViewerUrl)}" target="_blank" rel="noopener noreferrer">官方影像頁 ↗</a>`);
+    if (cam?.authorizationUrl) links.push(`<a class="camera-official-link secondary" href="${escapeAttr(cam.authorizationUrl)}" target="_blank" rel="noopener noreferrer">介接規範 ↗</a>`);
+    stage.innerHTML = `<div class="camera-placeholder official-policy"><b>${policy.title}</b><span>${escapeHtml(cam.road || cam.name || '此 CCTV')} · ${policy.text}</span>${links.length ? `<div class="camera-policy-links">${links.join('')}</div>` : ''}</div>`;
   }
 
   async function openCctvPosition(cam = {}) {
     if (!Number.isFinite(Number(cam?.lat)) || !Number.isFinite(Number(cam?.lon))) return;
+    const policy = cameraPointPolicy(cam);
     state.inlineCamera = null;
     if ($('inlineCameraCard')) $('inlineCameraCard').hidden = false;
     if ($('inlineCameraTitle')) $('inlineCameraTitle').textContent = shortName(cam.name || cam.road || 'OFFICIAL CCTV POINT');
-    if ($('inlineCameraSignal')) $('inlineCameraSignal').textContent = 'OFFICIAL POINT // NO PUBLIC STREAM';
-    if ($('inlineCameraMeta')) $('inlineCameraMeta').textContent = `${cam.road || cam.name || ''} · 官方 CCTV 點位；未取得原始公開串流，不使用第三方轉播。`;
+    if ($('inlineCameraSignal')) $('inlineCameraSignal').textContent = policy.signal;
+    if ($('inlineCameraMeta')) $('inlineCameraMeta').textContent = `${cam.road || cam.name || ''} · ${policy.text}`;
     renderOriginalSourceUnavailable($('inlineCameraStage'), cam);
     if ($('cctvPopup') && !$('cctvPopup').hidden) {
       $('cctvPopupTitle').textContent = shortName(cam.name || cam.road || 'OFFICIAL CCTV POINT');
-      $('cctvPopupMeta').textContent = 'OFFICIAL POSITION · NO PUBLIC STREAM';
+      $('cctvPopupMeta').textContent = policy.signal;
       renderOriginalSourceUnavailable($('cctvPopupStage'), cam);
     }
     openIntelResults();
@@ -3226,7 +3246,8 @@
       } else {
         marker = L.marker([cam.lat, cam.lon], { icon:cameraMapIcon(cam, false), zIndexOffset:260 }).addTo(state.cameraLayer);
       }
-      marker.bindTooltip(`${cam.scenic ? 'SCENIC' : cam.streamUrl ? 'LIVE' : 'CCTV'} · ${escapeHtml(shortName(title))}`, { direction:'top', offset:[0,-5], opacity:.94 });
+      const pointLabel = cam?.requiresAuthorization ? 'AUTH' : cam?.officialViewerUrl ? 'VIEW' : 'CCTV';
+      marker.bindTooltip(`${cam.scenic ? 'SCENIC' : cam.streamUrl ? 'LIVE' : pointLabel} · ${escapeHtml(shortName(title))}`, { direction:'top', offset:[0,-5], opacity:.94 });
       marker.on('click', () => cam.streamUrl ? openCamera(cam) : openCctvPosition(cam));
     });
   }
@@ -3459,8 +3480,8 @@
     clearCameraStage(stage);
     const kind = probe?.kind || 'unknown';
     if (renderKnown(kind)) return;
-    if (cam?.access === 'live-wrapper') {
-      stage.innerHTML = '<div class="camera-placeholder"><b>DIRECT STREAM UNAVAILABLE</b><span>官方攝影機點位存在，但目前無法解析到原始影像串流；不再嵌入整個網頁或留言頁。</span></div>';
+    if (cam?.access === 'live-wrapper' || cam?.officialViewerUrl || cam?.requiresAuthorization) {
+      renderOriginalSourceUnavailable(stage, cam);
       return;
     }
     // Unknown direct endpoints are commonly live snapshots without a useful extension.

@@ -2491,3 +2491,12 @@ body.camera-expanded-open{overflow:auto!important;}
   .boot-planet-sequence{width:175px;height:175px}.boot-earth{width:126px;height:126px}.boot-taiwan-focus{width:84px;height:118px}.boot-taiwan-focus img{width:60px;height:96px}.boot-module-grid{margin-top:12px}.boot-codes{margin-top:9px}.boot-title{font-size:24px!important}
 }
 .boot-sequence.tactical-boot.done{animation:none!important;pointer-events:none}
+
+/* v1.0.1 CCTV source-policy states */
+.camera-policy-links{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+.camera-official-link{display:inline-flex;align-items:center;justify-content:center;min-height:30px;padding:6px 10px;border:1px solid rgba(108,214,190,.35);border-radius:6px;background:rgba(14,52,49,.72);color:#bdeee1!important;text-decoration:none!important;font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.05em}
+.camera-official-link.secondary{border-color:rgba(218,185,99,.3);background:rgba(55,46,20,.58);color:#e4d39d!important}
+.camera-placeholder.official-policy b{color:#e3d492}
+.map-live-cctv-card.auth-required .map-live-cctv-head>span,.marker-camera.auth-required span{color:#e3c26e}
+.map-live-cctv-card.viewer-only .map-live-cctv-head>span,.marker-camera.viewer-only span{color:#8ec9d8}
+.map-live-cctv-card.auth-required .map-live-cctv-stage,.map-live-cctv-card.viewer-only .map-live-cctv-stage{background:linear-gradient(135deg,rgba(18,25,22,.97),rgba(8,13,14,.98))}

@@ -57,12 +57,21 @@ function sniffKind(bytes) {
 
 function discoverMediaFromHtml(html, baseUrl) {
   const base = new URL(baseUrl);
+  const normalizedHtml = String(html || '')
+    .replace(/\\\//g, '/')
+    .replace(/\\u0026/gi, '&')
+    .replace(/&amp;/g, '&');
   const candidates = [];
   const attrRe = /(?:src|href|data-src|data-url|data-stream|poster)\s*=\s*["']([^"']+)["']/ig;
   let m;
-  while ((m = attrRe.exec(html))) candidates.push(m[1]);
+  while ((m = attrRe.exec(normalizedHtml))) candidates.push(m[1]);
   const rawRe = /(https?:\/\/[^"'\s<>\\]+(?:\.m3u8|\.mp4|\.webm|\.mjpg|\.mjpeg|\.jpg|\.jpeg|\.png)(?:\?[^"'\s<>\\]*)?)/ig;
-  while ((m = rawRe.exec(html))) candidates.push(m[1]);
+  while ((m = rawRe.exec(normalizedHtml))) candidates.push(m[1]);
+  const jsPatterns = [
+    /(?:loadSource|file|streamUrl|videoUrl|url)\s*\(?\s*[:=,]?\s*["']([^"']+)["']/ig,
+    /<source[^>]+src=["']([^"']+)["']/ig,
+  ];
+  for (const re of jsPatterns) while ((m = re.exec(normalizedHtml))) candidates.push(m[1]);
   const scored = [];
   for (const item of candidates) {
     try {
@@ -96,9 +105,28 @@ async function fetchWithTimeout(url, opts = {}, timeout = 12000) {
   }
 }
 
+async function fetchProbeTarget(url, timeout = 6500) {
+  let response = await fetchWithTimeout(url, {
+    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'SENTINEL-Taiwan/1.0.1 public-cctv-probe' },
+  }, timeout);
+  if (!response.ok && [400,403,405,416].includes(response.status)) {
+    try { await response.body?.cancel?.(); } catch (_) {}
+    response = await fetchWithTimeout(url, {
+      headers: { Accept: '*/*', 'User-Agent': 'SENTINEL-Taiwan/1.0.1 public-cctv-probe' },
+    }, timeout);
+  }
+  return response;
+}
+
 async function resolveMediaTarget(camera) {
   const cached = mediaCache.get(camera.id);
   if (cached && cached.expiresAt > Date.now()) return cached;
+  if (camera?.requiresAuthorization || camera?.playbackPolicy === 'authorization-required') {
+    throw new Error('Official CCTV interface authorization required');
+  }
+  if (!camera?.streamUrl) {
+    throw new Error(camera?.officialViewerUrl ? 'Official viewer available but no public raw stream is declared' : 'No public CCTV stream URL');
+  }
   const original = safeHttpUrl(camera.streamUrl);
   const obviousKind = mediaKind('', original.toString());
   if (obviousKind !== 'unknown' && obviousKind !== 'html') {
@@ -106,9 +134,7 @@ async function resolveMediaTarget(camera) {
     mediaCache.set(camera.id, direct);
     return direct;
   }
-  let response = await fetchWithTimeout(original.toString(), {
-    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'SENTINEL-Taiwan/1.0 public-cctv-probe' },
-  }, 6500);
+  let response = await fetchProbeTarget(original.toString(), 6500);
   if (!response.ok) throw new Error(`CCTV upstream HTTP ${response.status}`);
   const finalUrl = safeHttpUrl(response.url || original.toString());
   const contentType = response.headers.get('content-type') || '';
@@ -122,9 +148,7 @@ async function resolveMediaTarget(camera) {
     const discovered = discoverMediaFromHtml(html, finalUrl);
     if (!discovered) throw new Error('No playable media found in CCTV wrapper');
     target = safeHttpUrl(discovered.toString());
-    response = await fetchWithTimeout(target.toString(), {
-      headers: { Accept: '*/*', Range: 'bytes=0-4095', 'User-Agent': 'SENTINEL-Taiwan/1.0 public-cctv-probe' },
-    }, 6000);
+    response = await fetchProbeTarget(target.toString(), 6000);
     if (!response.ok) throw new Error(`CCTV media HTTP ${response.status}`);
     kind = mediaKind(response.headers.get('content-type') || '', response.url || target.toString());
     target = safeHttpUrl(response.url || target.toString());
@@ -158,6 +182,14 @@ module.exports = async (req, res) => {
 
   try {
     const camera = await resolveCamera(id);
+    if (camera?.requiresAuthorization || camera?.playbackPolicy === 'authorization-required') {
+      if (String(req.query.probe || '') === '1') return sendJson(res, 403, { id, kind:'authorization-required', authorizationUrl:camera.authorizationUrl || '', officialViewerUrl:camera.officialViewerUrl || '' });
+      return res.status(403).send('Official CCTV image interface requires provider authorization');
+    }
+    if (!camera?.streamUrl) {
+      if (String(req.query.probe || '') === '1') return sendJson(res, 409, { id, kind:'official-viewer-only', officialViewerUrl:camera.officialViewerUrl || '' });
+      return res.status(409).send('Official CCTV point has no declared public raw stream URL');
+    }
     const resolved = await resolveMediaTarget(camera);
     const base = safeHttpUrl(resolved.url.toString());
 
@@ -179,7 +211,7 @@ module.exports = async (req, res) => {
 
     const headers = {
       Accept: '*/*',
-      'User-Agent': 'SENTINEL-Taiwan/1.0 public-cctv-inline-proxy',
+      'User-Agent': 'SENTINEL-Taiwan/1.0.1 public-cctv-inline-proxy',
     };
     if (req.headers?.range) headers.Range = req.headers.range;
     const upstream = await fetchWithTimeout(target.toString(), { headers }, 12000);

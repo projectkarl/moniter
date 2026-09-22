@@ -46,24 +46,26 @@ const SOURCES = [
     },
   },
   {
-    id: 'taipei-position', name: '臺北市交通管制工程處 CCTV', region: '臺北市', access: 'live-wrapper', kind: 'csv-generic',
+    id: 'taipei-position', name: '臺北市交通管制工程處 CCTV', region: '臺北市', access: 'authorization-required', kind: 'csv-generic',
     url: 'https://data.taipei/api/frontstage/tpeod/dataset/resource.download?rid=d317a3c4-ff08-48af-894e-31dfb5155de3', timeout: 16000,
     fields: {
       id: ['流水號','序號','編號','id','Serial number'], name: ['攝影機編號位置','攝影機編號','攝影機位置','位置','路口','camera','Camera number'],
       lat: ['WGSYWGS84緯度座標','WGSY','WGS84Y','緯度','latitude'], lon: ['WGSXWGS84經度座標','WGSX','WGS84X','經度','longitude'],
     },
-    streamBuilder: ({ rawId, road }) => { const m = String(road || '').match(/(?:^|\D)(\d{1,4})(?:\D|$)/); const id = m?.[1] || String(rawId || '').match(/\d{1,4}/)?.[0] || ''; return id ? `https://hls.bote.gov.taipei/live/index.html?id=${encodeURIComponent(id)}` : ''; },
-    note: '原始公開來源：臺北市交通管制工程處 hls.bote.gov.taipei；若無法解析攝影機編號則僅保留點位。',
+    viewerBuilder: ({ rawId, road }) => { const m = String(road || '').match(/(?:^|\D)(\d{1,4})(?:\D|$)/); const id = m?.[1] || String(rawId || '').match(/\d{1,4}/)?.[0] || ''; return id ? `https://hls.bote.gov.taipei/live/index.html?id=${encodeURIComponent(id)}` : ''; },
+    requiresAuthorization: true,
+    authorizationUrl: 'https://bote.gov.taipei/cp.aspx?n=8B8FFEA8353857B5',
+    note: '臺北市官方 CCTV 點位可公開查詢；交工處明確要求第三方網站介接即時影像需另行申請，未取得授權時不得把官方播放器頁當成可自由拆解的原始串流。',
   },
   {
-    id: 'new-taipei-position', name: '新北市政府交通局 CCTV', region: '新北市', access: 'live-wrapper', kind: 'json-generic',
+    id: 'new-taipei-position', name: '新北市政府交通局 CCTV', region: '新北市', access: 'official-viewer', kind: 'json-generic',
     url: 'https://data.ntpc.gov.tw/api/datasets/157501bf-f1cd-4838-92a7-612770351e43/json?page=0&size=2000', timeout: 16000,
     fields: {
       id: ['id','ID','cctv_id','CCTVID','項次','編號'], name: ['equipment','location','Location','address','Address','位置','設備位置','路口'],
       lat: ['lat','latitude','Latitude','緯度','PositionLat'], lon: ['lon','lng','longitude','Longitude','經度','PositionLon'], stream:['areacode','設備編號','equipment_id','deviceid'],
     },
-    streamBuilder: ({ rawStream }) => { const id = String(rawStream || '').trim().match(/[A-Za-z]?\d{3,}/)?.[0] || ''; return id ? `https://atis.ntpc.gov.tw/ATIS/ShowFrame4CCTV/${encodeURIComponent(id)}` : ''; },
-    note: '原始公開來源：新北市即時交通資訊網 ATIS；設備編號可解析時直接使用官方 CCTV 頁。',
+    viewerBuilder: ({ rawStream }) => { const id = String(rawStream || '').trim().match(/[A-Za-z]?\d{3,}/)?.[0] || ''; return id ? `https://atis.ntpc.gov.tw/ATIS/ShowFrame4CCTV/${encodeURIComponent(id)}` : ''; },
+    note: '新北市開放資料提供 CCTV 點位；ATIS 提供官方即時影像檢視頁，但目前資料集未宣告可直接再利用的原始媒體 URL，因此 SENTINEL 不把整頁播放器偽裝成原始串流。',
   },
   {
     id: 'keelung', name: '基隆市政府公開 CCTV', region: '基隆市', access: 'live', kind: 'csv-generic',
@@ -98,14 +100,16 @@ const OFFICIAL_FAST_SEEDS = [
   { id:'taipei-fast:075', cameraId:'075', lat:25.0326, lon:121.5682, road:'信義松仁', name:'CCTV 075 · 信義松仁' },
 ].map((cam) => ({
   ...cam,
-  streamUrl:`https://hls.bote.gov.taipei/live/index.html?id=${encodeURIComponent(cam.cameraId)}`,
+  streamUrl:'',
+  officialViewerUrl:`https://hls.bote.gov.taipei/live/index.html?id=${encodeURIComponent(cam.cameraId)}`,
   direction:'', start:'', end:'', mile:'', status:'',
   source:'臺北市交通管制工程處',
-  sourceDatasetUrl:'https://bote.gov.taipei/cp.aspx?n=9E503DCE3584EE2A',
+  sourceDatasetUrl:'https://bote.gov.taipei/cp.aspx?n=8B8FFEA8353857B5',
   originalSource:true,
   region:'臺北市', regionResolvedBy:'verified-fast-index', regionConfidence:'high',
-  access:'live-wrapper', quickIndex:true,
-  note:'臺北市官方 CCTV 快速索引；播放器仍由站內代理解析背後原始媒體。',
+  access:'authorization-required', playbackPolicy:'authorization-required', requiresAuthorization:true, quickIndex:true,
+  authorizationUrl:'https://bote.gov.taipei/cp.aspx?n=8B8FFEA8353857B5',
+  note:'臺北市官方 CCTV 快速索引；點位可顯示，但第三方網站介接即時影像需依官方規定申請。',
 }));
 
 function decodeXmlUrl(v = '') {
@@ -241,9 +245,14 @@ function cameraRecord(source, raw, index) {
   if (!plausibleTaiwan(lat, lon) && plausibleTaiwan(lon, lat)) [lat, lon] = [lon, lat];
   const road = String(fieldValue(raw, f.name || ['RoadName','Location','位置','路口','name']) || '').trim();
   const rawStream = decodeXmlUrl(fieldValue(raw, f.stream || ['VideoStreamURL','URL','url','streamUrl']));
-  let streamUrl = source.access === 'position-only' ? '' : rawStream;
-  if (typeof source.streamBuilder === 'function') {
+  const directStreamAllowed = !['position-only','authorization-required','official-viewer'].includes(source.access);
+  let streamUrl = directStreamAllowed ? rawStream : '';
+  if (directStreamAllowed && typeof source.streamBuilder === 'function') {
     try { streamUrl = source.streamBuilder({ rawId, rawStream, road, raw, index }) || ''; } catch (_) { streamUrl = ''; }
+  }
+  let officialViewerUrl = '';
+  if (typeof source.viewerBuilder === 'function') {
+    try { officialViewerUrl = source.viewerBuilder({ rawId, rawStream, road, raw, index }) || ''; } catch (_) { officialViewerUrl = ''; }
   }
   const direction = String(fieldValue(raw, f.direction || ['RoadDirection','Direction','direction','方向']) || '').trim();
   const status = String(fieldValue(raw, f.status || ['status','Status','狀態']) || '').trim();
@@ -257,8 +266,12 @@ function cameraRecord(source, raw, index) {
     source: source.name,
     sourceDatasetUrl: source.url || '',
     originalSource: true,
+    officialViewerUrl,
+    authorizationUrl: source.authorizationUrl || '',
+    requiresAuthorization: Boolean(source.requiresAuthorization),
+    playbackPolicy: source.requiresAuthorization ? 'authorization-required' : (officialViewerUrl && !streamUrl ? 'official-viewer-only' : (streamUrl ? 'direct-public-stream' : 'position-only')),
     region: source.region || '',
-    access: streamUrl ? (source.access || 'live') : 'position-only',
+    access: streamUrl ? (source.access || 'live') : (source.requiresAuthorization ? 'authorization-required' : (officialViewerUrl ? 'official-viewer' : 'position-only')),
     note: source.note || (streamUrl ? '政府公開交通 CCTV 影像來源。' : '政府公開 CCTV 位置；未提供可直接免授權播放的串流。'),
   };
   if (!plausibleTaiwan(item.lat, item.lon)) return null;
