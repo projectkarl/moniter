@@ -2492,7 +2492,7 @@ body.camera-expanded-open{overflow:auto!important;}
 }
 .boot-sequence.tactical-boot.done{animation:none!important;pointer-events:none}
 
-/* v1.0.1 CCTV source-policy states */
+/* CCTV source-policy states */
 .camera-policy-links{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
 .camera-official-link{display:inline-flex;align-items:center;justify-content:center;min-height:30px;padding:6px 10px;border:1px solid rgba(108,214,190,.35);border-radius:6px;background:rgba(14,52,49,.72);color:#bdeee1!important;text-decoration:none!important;font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.05em}
 .camera-official-link.secondary{border-color:rgba(218,185,99,.3);background:rgba(55,46,20,.58);color:#e4d39d!important}
@@ -2500,3 +2500,5 @@ body.camera-expanded-open{overflow:auto!important;}
 .map-live-cctv-card.auth-required .map-live-cctv-head>span,.marker-camera.auth-required span{color:#e3c26e}
 .map-live-cctv-card.viewer-only .map-live-cctv-head>span,.marker-camera.viewer-only span{color:#8ec9d8}
 .map-live-cctv-card.auth-required .map-live-cctv-stage,.map-live-cctv-card.viewer-only .map-live-cctv-stage{background:linear-gradient(135deg,rgba(18,25,22,.97),rgba(8,13,14,.98))}
+
+.camera-snapshot-badge{border-color:rgba(116,220,174,.34)!important;color:#9ee7c3!important;background:rgba(4,18,14,.9)!important;}

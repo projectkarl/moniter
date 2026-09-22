@@ -107,12 +107,12 @@ async function fetchWithTimeout(url, opts = {}, timeout = 12000) {
 
 async function fetchProbeTarget(url, timeout = 6500) {
   let response = await fetchWithTimeout(url, {
-    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'SENTINEL-Taiwan/1.0.1 public-cctv-probe' },
+    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'SENTINEL-Taiwan/1.0.2 public-cctv-probe' },
   }, timeout);
   if (!response.ok && [400,403,405,416].includes(response.status)) {
     try { await response.body?.cancel?.(); } catch (_) {}
     response = await fetchWithTimeout(url, {
-      headers: { Accept: '*/*', 'User-Agent': 'SENTINEL-Taiwan/1.0.1 public-cctv-probe' },
+      headers: { Accept: '*/*', 'User-Agent': 'SENTINEL-Taiwan/1.0.2 public-cctv-probe' },
     }, timeout);
   }
   return response;
@@ -165,6 +165,30 @@ async function resolveMediaTarget(camera) {
   return out;
 }
 
+async function proxySnapshot(camera, res) {
+  if (!camera?.imageUrl) return false;
+  const target = safeHttpUrl(camera.imageUrl);
+  const upstream = await fetchWithTimeout(target.toString(), {
+    headers: {
+      Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+      'User-Agent': 'SENTINEL-Taiwan/1.0.2 public-cctv-snapshot',
+      'Cache-Control': 'no-cache',
+    },
+  }, 9000);
+  if (!upstream.ok || !upstream.body) throw new Error(`CCTV snapshot HTTP ${upstream.status}`);
+  const finalUrl = safeHttpUrl(upstream.url || target.toString());
+  const contentType = upstream.headers.get('content-type') || 'image/jpeg';
+  if (!/^image\//i.test(contentType) && mediaKind(contentType, finalUrl.toString()) !== 'image') {
+    throw new Error(`CCTV snapshot returned ${contentType || 'unknown format'}`);
+  }
+  res.setHeader('Content-Type', /^image\//i.test(contentType) ? contentType : 'image/jpeg');
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  Readable.fromWeb(upstream.body).pipe(res);
+  return true;
+}
+
 function sendJson(res, code, value) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
@@ -186,11 +210,31 @@ module.exports = async (req, res) => {
       if (String(req.query.probe || '') === '1') return sendJson(res, 403, { id, kind:'authorization-required', authorizationUrl:camera.authorizationUrl || '', officialViewerUrl:camera.officialViewerUrl || '' });
       return res.status(403).send('Official CCTV image interface requires provider authorization');
     }
+    if (String(req.query.snapshot || '') === '1') {
+      if (!camera?.imageUrl) return res.status(404).send('No official CCTV snapshot URL');
+      await proxySnapshot(camera, res);
+      return;
+    }
     if (!camera?.streamUrl) {
+      if (camera?.imageUrl) {
+        if (String(req.query.probe || '') === '1') return sendJson(res, 200, { id, kind:'image', contentType:'image/*', proxied:true, snapshotAvailable:true, imageRefreshRate:Math.max(1, Number(camera.imageRefreshRate) || 5), fallback:'official-snapshot' });
+        await proxySnapshot(camera, res);
+        return;
+      }
       if (String(req.query.probe || '') === '1') return sendJson(res, 409, { id, kind:'official-viewer-only', officialViewerUrl:camera.officialViewerUrl || '' });
       return res.status(409).send('Official CCTV point has no declared public raw stream URL');
     }
-    const resolved = await resolveMediaTarget(camera);
+    let resolved;
+    try {
+      resolved = await resolveMediaTarget(camera);
+    } catch (streamError) {
+      if (camera?.imageUrl) {
+        if (String(req.query.probe || '') === '1') return sendJson(res, 200, { id, kind:'image', contentType:'image/*', proxied:true, snapshotAvailable:true, imageRefreshRate:Math.max(1, Number(camera.imageRefreshRate) || 5), fallback:'official-snapshot', streamError:String(streamError?.message || streamError).slice(0,140) });
+        await proxySnapshot(camera, res);
+        return;
+      }
+      throw streamError;
+    }
     const base = safeHttpUrl(resolved.url.toString());
 
     if (String(req.query.probe || '') === '1') {
@@ -199,6 +243,8 @@ module.exports = async (req, res) => {
         kind: resolved.kind,
         contentType: resolved.contentType,
         proxied: true,
+        snapshotAvailable: Boolean(camera.imageUrl),
+        imageRefreshRate: Math.max(1, Number(camera.imageRefreshRate) || 5),
       });
     }
 
@@ -211,7 +257,7 @@ module.exports = async (req, res) => {
 
     const headers = {
       Accept: '*/*',
-      'User-Agent': 'SENTINEL-Taiwan/1.0.1 public-cctv-inline-proxy',
+      'User-Agent': 'SENTINEL-Taiwan/1.0.2 public-cctv-inline-proxy',
     };
     if (req.headers?.range) headers.Range = req.headers.range;
     const upstream = await fetchWithTimeout(target.toString(), { headers }, 12000);

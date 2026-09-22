@@ -3321,6 +3321,11 @@
     return '';
   }
 
+  function cameraSnapshotUrl(cam) {
+    if (!cam?.id || !cam?.imageUrl) return '';
+    return `/api/cctv-feed?id=${encodeURIComponent(cam.id)}&snapshot=1`;
+  }
+
   let hlsLoaderPromise = null;
   function ensureHlsJs() {
     if (window.Hls) return Promise.resolve(window.Hls);
@@ -3387,12 +3392,35 @@
     setTimeout(play, 80); setTimeout(play, 650);
   }
 
-  function renderHls(stage, url) {
+  function renderHls(stage, url, cam = {}) {
     const video = document.createElement('video');
+    const poster = cameraSnapshotUrl(cam);
+    if (poster) video.poster = `${poster}&frame=${Date.now()}`;
     video.controls = !stage.classList?.contains('map-live-cctv-stage'); video.preload = 'auto';
     armVideoAutoplay(video);
     stage.appendChild(video);
     syncLocalPrivacyMask(stage);
+    let settled = false;
+    let watchdog = null;
+    const markFrame = () => {
+      if (video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) {
+        settled = true;
+        if (watchdog) clearTimeout(watchdog);
+      }
+    };
+    const failToSnapshot = () => {
+      if (settled || !stage.isConnected) return;
+      settled = true;
+      if (watchdog) clearTimeout(watchdog);
+      try { video._eyeHls?.destroy?.(); } catch (_) {}
+      const snap = cameraSnapshotUrl(cam);
+      clearCameraStage(stage);
+      if (snap) renderCameraSnapshotFallback(stage, cam, 'STREAM STALLED · OFFICIAL SNAPSHOT');
+      else stage.innerHTML = '<div class="camera-placeholder"><b>LIVE STREAM STALLED</b><span>官方串流已連線但目前沒有可解碼影格；此鏡頭未提供公開快照備援。</span></div>';
+    };
+    ['playing','timeupdate'].forEach((name) => video.addEventListener(name, markFrame));
+    video.addEventListener('error', failToSnapshot, { once:true });
+    watchdog = setTimeout(failToSnapshot, stage.classList?.contains('map-live-cctv-stage') ? 4200 : 6200);
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = url;
       armVideoAutoplay(video);
@@ -3403,10 +3431,10 @@
       const hls = new Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 12, maxBufferLength: 12, manifestLoadingTimeOut: 4500, levelLoadingTimeOut: 4500, fragLoadingTimeOut: 6500 });
       hls.loadSource(url); hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => armVideoAutoplay(video));
+      hls.on(Hls.Events.FRAG_BUFFERED, () => armVideoAutoplay(video));
+      hls.on(Hls.Events.ERROR, (_evt, data) => { if (data?.fatal) failToSnapshot(); });
       video._eyeHls = hls;
-    }).catch(() => {
-      stage.innerHTML = '<div class="camera-placeholder"><b>SIGNAL FORMAT UNAVAILABLE</b><span>此公開串流目前無法由瀏覽器解碼；系統仍留在本頁並持續嘗試其他附近鏡頭。</span></div>';
-    });
+    }).catch(failToSnapshot);
   }
 
   async function probeCameraFeed(cam, signal) {
@@ -3433,17 +3461,52 @@
     if (refresh) stage._eyeRefresh = setInterval(apply, 4500);
   }
 
-  function renderCameraVideo(stage, url, fallbackHls = false) {
+  function renderCameraSnapshotFallback(stage, cam = {}, reason = 'OFFICIAL SNAPSHOT') {
+    const url = cameraSnapshotUrl(cam);
+    if (!url) {
+      stage.innerHTML = '<div class="camera-placeholder"><b>NO SNAPSHOT FALLBACK</b><span>官方資料目前沒有提供可公開顯示的快照網址。</span></div>';
+      return false;
+    }
+    const refreshSeconds = Math.max(2, Math.min(30, Number(cam.imageRefreshRate) || Number(cam?._probe?.imageRefreshRate) || 5));
+    renderCameraImage(stage, url, true, false);
+    const badge = document.createElement('div');
+    badge.className = 'camera-index-badge camera-snapshot-badge';
+    badge.textContent = `LIVE SNAPSHOT · ${refreshSeconds}s`;
+    badge.title = reason;
+    stage.appendChild(badge);
+    clearInterval(stage._eyeRefresh);
+    const img = stage.querySelector('img');
+    const apply = () => { if (img) img.src = `${url}${url.includes('?') ? '&' : '?'}frame=${Date.now()}`; };
+    stage._eyeRefresh = setInterval(apply, refreshSeconds * 1000);
+    return true;
+  }
+
+  function renderCameraVideo(stage, url, fallbackHls = false, cam = {}) {
     const video = document.createElement('video');
+    const poster = cameraSnapshotUrl(cam);
+    if (poster) video.poster = `${poster}&frame=${Date.now()}`;
     video.src = url; video.controls = !stage.classList?.contains('map-live-cctv-stage'); video.preload = 'auto';
     armVideoAutoplay(video);
-    video.addEventListener('error', () => {
-      if (fallbackHls) { clearCameraStage(stage); renderHls(stage, url); return; }
-      stage.innerHTML = '<div class="camera-placeholder"><b>VIDEO SIGNAL UNAVAILABLE</b><span>目前串流暫時無法播放；不會跳離本頁。</span></div>';
-    }, { once:true });
+    let ready = false;
+    let watchdog = null;
+    const markReady = () => {
+      if (video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) {
+        ready = true; if (watchdog) clearTimeout(watchdog);
+      }
+    };
+    const fail = () => {
+      if (ready || !stage.isConnected) return;
+      ready = true; if (watchdog) clearTimeout(watchdog);
+      if (cameraSnapshotUrl(cam)) { clearCameraStage(stage); renderCameraSnapshotFallback(stage, cam, 'VIDEO STALLED · OFFICIAL SNAPSHOT'); return; }
+      if (fallbackHls) { clearCameraStage(stage); renderHls(stage, url, cam); return; }
+      stage.innerHTML = '<div class="camera-placeholder"><b>VIDEO SIGNAL UNAVAILABLE</b><span>目前串流沒有可顯示影格；此鏡頭未提供公開快照備援。</span></div>';
+    };
+    ['playing','timeupdate'].forEach((name)=>video.addEventListener(name, markReady));
+    video.addEventListener('error', fail, { once:true });
     stage.appendChild(video);
     syncLocalPrivacyMask(stage);
     armVideoAutoplay(video);
+    watchdog = setTimeout(fail, stage.classList?.contains('map-live-cctv-stage') ? 4200 : 6200);
   }
 
   async function renderCameraMedia(stage, cam, options = {}) {
@@ -3459,9 +3522,9 @@
     }
     const quickKind = inferCameraMediaKind(cam);
     const renderKnown = (kind) => {
-      if (kind === 'hls') { renderHls(stage, url); return true; }
+      if (kind === 'hls') { renderHls(stage, url, cam); return true; }
       if (kind === 'image' || kind === 'mjpeg') { renderCameraImage(stage, url, kind === 'image'); return true; }
-      if (kind === 'video') { renderCameraVideo(stage, url); return true; }
+      if (kind === 'video') { renderCameraVideo(stage, url, false, cam); return true; }
       return false;
     };
     // Obvious media extensions and previously-probed cameras start immediately.
@@ -3480,6 +3543,10 @@
     clearCameraStage(stage);
     const kind = probe?.kind || 'unknown';
     if (renderKnown(kind)) return;
+    if (cameraSnapshotUrl(cam)) {
+      renderCameraSnapshotFallback(stage, cam, 'STREAM FORMAT UNKNOWN · OFFICIAL SNAPSHOT');
+      return;
+    }
     if (cam?.access === 'live-wrapper' || cam?.officialViewerUrl || cam?.requiresAuthorization) {
       renderOriginalSourceUnavailable(stage, cam);
       return;

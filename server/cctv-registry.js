@@ -245,6 +245,8 @@ function cameraRecord(source, raw, index) {
   if (!plausibleTaiwan(lat, lon) && plausibleTaiwan(lon, lat)) [lat, lon] = [lon, lat];
   const road = String(fieldValue(raw, f.name || ['RoadName','Location','位置','路口','name']) || '').trim();
   const rawStream = decodeXmlUrl(fieldValue(raw, f.stream || ['VideoStreamURL','URL','url','streamUrl']));
+  const rawImage = decodeXmlUrl(fieldValue(raw, f.image || ['VideoImageURL','ImageURL','imageUrl','snapshotUrl']));
+  const imageRefreshRate = Math.max(1, Number(fieldValue(raw, f.refresh || ['ImageRefreshRate','refreshRate','RefreshRate'])) || 5);
   const directStreamAllowed = !['position-only','authorization-required','official-viewer'].includes(source.access);
   let streamUrl = directStreamAllowed ? rawStream : '';
   if (directStreamAllowed && typeof source.streamBuilder === 'function') {
@@ -259,6 +261,8 @@ function cameraRecord(source, raw, index) {
   const item = {
     id: `${source.id}:${String(rawId || index).trim()}`,
     streamUrl,
+    imageUrl: directStreamAllowed ? rawImage : '',
+    imageRefreshRate,
     lon, lat,
     road: road || `${source.region || source.name} CCTV`,
     direction,
@@ -289,6 +293,8 @@ function parseStandardXml(xml, source) {
     const raw = {
       CCTVID: tag(block, 'CCTVID') || tag(block, 'ID'),
       VideoStreamURL: tag(block, 'VideoStreamURL') || tag(block, 'videostreamurl') || tag(block, 'URL') || tag(block, 'Url'),
+      VideoImageURL: tag(block, 'VideoImageURL') || tag(block, 'videoimageurl') || tag(block, 'ImageURL') || tag(block, 'SnapshotURL'),
+      ImageRefreshRate: tag(block, 'ImageRefreshRate') || tag(block, 'imagerefreshrate') || '5',
       PositionLon: tag(block, 'PositionLon') || tag(block, 'positionlon') || tag(block, 'Longitude') || tag(block, 'X'),
       PositionLat: tag(block, 'PositionLat') || tag(block, 'positionlat') || tag(block, 'Latitude') || tag(block, 'Y'),
       RoadName: tag(block, 'RoadName') || tag(block, 'roadname') || tag(block, 'RoadID') || tag(block, 'Location'),
@@ -296,7 +302,7 @@ function parseStandardXml(xml, source) {
       Start: tag(block, 'Start'), End: tag(block, 'End'), LocationMile: tag(block, 'LocationMile'),
     };
     const rec = cameraRecord({ ...source, fields: {
-      id:['CCTVID'], stream:['VideoStreamURL'], lon:['PositionLon'], lat:['PositionLat'], name:['RoadName'], direction:['RoadDirection'],
+      id:['CCTVID'], stream:['VideoStreamURL'], image:['VideoImageURL'], refresh:['ImageRefreshRate'], lon:['PositionLon'], lat:['PositionLat'], name:['RoadName'], direction:['RoadDirection'],
     } }, raw, index);
     if (rec) {
       rec.start = raw.Start || '';
