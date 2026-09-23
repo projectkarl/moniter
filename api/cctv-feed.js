@@ -170,7 +170,7 @@ async function fetchProbeTarget(url, timeout = 6500, context = {}) {
   const headers = {
     Accept: '*/*',
     Range: 'bytes=0-65535',
-    'User-Agent': 'SENTINEL-Taiwan/1.0.9 public-cctv-probe',
+    'User-Agent': 'SENTINEL-Taiwan/1.1.0 public-cctv-probe',
     ...(context.referer ? { Referer: context.referer } : {}),
     ...(context.cookie ? { Cookie: context.cookie } : {}),
   };
@@ -271,7 +271,7 @@ async function proxySnapshot(camera, res) {
   const upstream = await fetchWithTimeout(target.toString(), {
     headers: {
       Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-      'User-Agent': 'SENTINEL-Taiwan/1.0.9 public-cctv-snapshot',
+      'User-Agent': 'SENTINEL-Taiwan/1.1.0 public-cctv-snapshot',
       'Cache-Control': 'no-cache',
     },
   }, 9000);
@@ -391,7 +391,7 @@ module.exports = async (req, res) => {
 
     const headers = {
       Accept: '*/*',
-      'User-Agent': 'SENTINEL-Taiwan/1.0.9 public-cctv-inline-proxy',
+      'User-Agent': 'SENTINEL-Taiwan/1.1.0 public-cctv-inline-proxy',
       ...(resolved.referer ? { Referer: resolved.referer } : {}),
       ...(resolved.cookie ? { Cookie: resolved.cookie } : {}),
     };

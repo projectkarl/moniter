@@ -1,6 +1,10 @@
+# SENTINEL // TAIWAN v1.1.0
+
+Deployment reset release. Clears legacy Sentinel shell caches and forces fresh core assets while keeping inline CCTV playback and automatic nearby substitute logic.
+
 # SENTINEL // TAIWAN
 
-**Version 1.0.9 · Public Signal Command Grid**
+**Version 1.1.0 · Public Signal Command Grid**
 
 SENTINEL // TAIWAN 是一個以台灣公開資料為基礎的地圖型戰情／導航實驗專案。核心目標是把即時車流、公開 CCTV、交通事件、天氣、環境資訊與導航整合在同一張地圖，同時清楚標示資料來源與即時性。
 
@@ -36,8 +40,8 @@ SENTINEL // TAIWAN 是一個以台灣公開資料為基礎的地圖型戰情／�
 - 景點官方 YouTube 直播仍直接在 SENTINEL 內播放。
 
 ## 版本
-**SENTINEL // TAIWAN v1.0.9** 將道路 CCTV 收斂為單一「站內直接播放」鏈：公開來源／解析橋接 → `/api/cctv-feed` → SENTINEL video/img/HLS player。移除外部 CCTV widget 與官方整頁 viewer fallback。
+**SENTINEL // TAIWAN v1.1.0** 將道路 CCTV 收斂為單一「站內直接播放」鏈：公開來源／解析橋接 → `/api/cctv-feed` → SENTINEL video/img/HLS player。移除外部 CCTV widget 與官方整頁 viewer fallback。
 
 
-## v1.0.9 CCTV inline-only fallback
+## v1.1.0 CCTV inline-only fallback
 CCTV 播放區不提供外部頁面或跳轉連結。原鏡頭無法直接播放時，SENTINEL 會依 5 / 12 / 25 km 半徑自動尋找最近可播放公開 CCTV，並在原播放框直接換台。
