@@ -1,9 +1,5 @@
 # SENTINEL // TAIWAN v1.1.1
 
-**CCTV Golden Playback Restore**
-
-This release restores the CCTV inline playback core from the last known-good playback generation while retaining the current SENTINEL UI, highway FLOW, search and navigation features. CCTV still plays inside SENTINEL via `/api/cctv-feed`; no external navigation is required for playback.
-
 Deployment reset release. Clears legacy Sentinel shell caches and forces fresh core assets while keeping inline CCTV playback and automatic nearby substitute logic.
 
 # SENTINEL // TAIWAN
@@ -49,3 +45,8 @@ SENTINEL // TAIWAN 是一個以台灣公開資料為基礎的地圖型戰情／�
 
 ## v1.1.1 CCTV inline-only fallback
 CCTV 播放區不提供外部頁面或跳轉連結。原鏡頭無法直接播放時，SENTINEL 會依 5 / 12 / 25 km 半徑自動尋找最近可播放公開 CCTV，並在原播放框直接換台。
+
+
+## v1.1.1 Golden Playback Core
+
+CCTV 播放核心回退至最後一個已驗證可播放的 v0.35 media pipeline：HLS / MJPEG / JPEG / MP4 維持站內 `/api/cctv-feed`；播放失敗只切換附近可播放鏡頭，不開外站。

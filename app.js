@@ -3397,8 +3397,14 @@
   }
 
   function cameraFeedUrl(cam) {
+    if (cam?.scenic) return String(cam.streamUrl || '');
     if (cam?.id) return `/api/cctv-feed?id=${encodeURIComponent(cam.id)}`;
     return '';
+  }
+
+  function cameraSnapshotUrl(cam) {
+    if (!cam?.id || !cam?.imageUrl) return '';
+    return `/api/cctv-feed?id=${encodeURIComponent(cam.id)}&snapshot=1`;
   }
 
   let hlsLoaderPromise = null;
@@ -3467,7 +3473,8 @@
     setTimeout(play, 80); setTimeout(play, 650);
   }
 
-  function renderHls(stage, url) {
+  function renderHls(stage, url, cam = {}) {
+    if (stage) stage._activeCctv = cam;
     const video = document.createElement('video');
     video.controls = !stage.classList?.contains('map-live-cctv-stage'); video.preload = 'auto';
     armVideoAutoplay(video);
@@ -3485,7 +3492,7 @@
       hls.on(Hls.Events.MANIFEST_PARSED, () => armVideoAutoplay(video));
       video._eyeHls = hls;
     }).catch(() => {
-      stage.innerHTML = '<div class="camera-placeholder"><b>SIGNAL FORMAT UNAVAILABLE</b><span>此公開串流目前無法由瀏覽器解碼；系統仍留在本頁並持續嘗試其他附近鏡頭。</span></div>';
+      renderNearbyCctvWidget(stage, stage?._activeCctv || {}, '附近公開 CCTV');
     });
   }
 
@@ -3496,7 +3503,8 @@
     return res.json();
   }
 
-  function renderCameraImage(stage, url, refresh = false, fallbackUnknown = false) {
+  function renderCameraImage(stage, url, refresh = false, fallbackUnknown = false, cam = {}) {
+    if (stage) stage._activeCctv = cam;
     const img = document.createElement('img');
     img.alt = 'CCTV 即時影像';
     img.referrerPolicy = 'no-referrer';
@@ -3504,8 +3512,8 @@
     const apply = () => { img.src = `${url}${url.includes('?') ? '&' : '?'}frame=${Date.now()}`; };
     img.addEventListener('error', () => {
       clearInterval(stage._eyeRefresh); stage._eyeRefresh = null;
-      if (fallbackUnknown) { clearCameraStage(stage); renderCameraVideo(stage, url, true); return; }
-      stage.innerHTML = '<div class="camera-placeholder"><b>CAMERA SIGNAL RETRYING</b><span>公開影像目前沒有可解碼畫面，請切換附近鏡頭或稍後重試。</span></div>';
+      if (fallbackUnknown) { clearCameraStage(stage); renderCameraVideo(stage, url, true, cam); return; }
+      renderNearbyCctvWidget(stage, cam, cam.name || cam.road || '附近公開 CCTV');
     }, { once:true });
     stage.appendChild(img);
     syncLocalPrivacyMask(stage);
@@ -3513,13 +3521,34 @@
     if (refresh) stage._eyeRefresh = setInterval(apply, 4500);
   }
 
-  function renderCameraVideo(stage, url, fallbackHls = false) {
+  function renderCameraSnapshotFallback(stage, cam = {}, reason = 'OFFICIAL SNAPSHOT') {
+    const url = cameraSnapshotUrl(cam);
+    if (!url) {
+      stage.innerHTML = '<div class="camera-placeholder"><b>NO SNAPSHOT FALLBACK</b><span>官方資料目前沒有提供可公開顯示的快照網址。</span></div>';
+      return false;
+    }
+    const refreshSeconds = Math.max(2, Math.min(30, Number(cam.imageRefreshRate) || Number(cam?._probe?.imageRefreshRate) || 5));
+    renderCameraImage(stage, url, true, false, cam);
+    const badge = document.createElement('div');
+    badge.className = 'camera-index-badge camera-snapshot-badge';
+    badge.textContent = `LIVE SNAPSHOT · ${refreshSeconds}s`;
+    badge.title = reason;
+    stage.appendChild(badge);
+    clearInterval(stage._eyeRefresh);
+    const img = stage.querySelector('img');
+    const apply = () => { if (img) img.src = `${url}${url.includes('?') ? '&' : '?'}frame=${Date.now()}`; };
+    stage._eyeRefresh = setInterval(apply, refreshSeconds * 1000);
+    return true;
+  }
+
+  function renderCameraVideo(stage, url, fallbackHls = false, cam = {}) {
+    if (stage) stage._activeCctv = cam;
     const video = document.createElement('video');
     video.src = url; video.controls = !stage.classList?.contains('map-live-cctv-stage'); video.preload = 'auto';
     armVideoAutoplay(video);
     video.addEventListener('error', () => {
-      if (fallbackHls) { clearCameraStage(stage); renderHls(stage, url); return; }
-      stage.innerHTML = '<div class="camera-placeholder"><b>VIDEO SIGNAL UNAVAILABLE</b><span>目前串流暫時無法播放；不會跳離本頁。</span></div>';
+      if (fallbackHls) { clearCameraStage(stage); renderHls(stage, url, cam); return; }
+      renderNearbyCctvWidget(stage, cam, cam.name || cam.road || '附近公開 CCTV');
     }, { once:true });
     stage.appendChild(video);
     syncLocalPrivacyMask(stage);
@@ -3528,6 +3557,10 @@
 
   async function renderCameraMedia(stage, cam, options = {}) {
     if (!stage) return;
+    if (cam?.scenic && renderScenicOriginal(stage, cam)) return;
+    stage._activeCctv = cam;
+    stage._eyeTriedCctv ||= new Set();
+    if (cam?.id) stage._eyeTriedCctv.add(String(cam.id));
     const token = `${Date.now()}-${Math.random()}`;
     stage.dataset.renderToken = token;
     clearCameraStage(stage);
@@ -3538,9 +3571,9 @@
     }
     const quickKind = inferCameraMediaKind(cam);
     const renderKnown = (kind) => {
-      if (kind === 'hls') { renderHls(stage, url); return true; }
-      if (kind === 'image' || kind === 'mjpeg') { renderCameraImage(stage, url, kind === 'image'); return true; }
-      if (kind === 'video') { renderCameraVideo(stage, url); return true; }
+      if (kind === 'hls') { renderHls(stage, url, cam); return true; }
+      if (kind === 'image' || kind === 'mjpeg') { renderCameraImage(stage, url, kind === 'image', false, cam); return true; }
+      if (kind === 'video') { renderCameraVideo(stage, url, false, cam); return true; }
       return false;
     };
     // Obvious media extensions and previously-probed cameras start immediately.
@@ -3557,14 +3590,14 @@
     clearTimeout(timer);
     if (stage.dataset.renderToken !== token) return;
     clearCameraStage(stage);
-    if (!probe && cam?.indexed) {
+    if (!probe) {
       renderNearbyCctvWidget(stage, cam, cam.name || cam.road || '附近公開 CCTV');
       return;
     }
     const kind = probe?.kind || 'unknown';
     if (renderKnown(kind)) return;
     // Unknown endpoints are commonly live snapshots without a useful extension.
-    renderCameraImage(stage, url, true, true);
+    renderCameraImage(stage, url, true, true, cam);
   }
 
   function nearestCityFlowForCamera(cam, cityFlow = []) {

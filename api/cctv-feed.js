@@ -106,7 +106,7 @@ async function resolveMediaTarget(camera) {
     return direct;
   }
   let response = await fetchWithTimeout(original.toString(), {
-    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'EYE-Taiwan/0.35 public-cctv-probe' },
+    headers: { Accept: '*/*', Range: 'bytes=0-65535', 'User-Agent': 'SENTINEL-Taiwan/1.1.1 public-cctv-probe' },
   }, 6500);
   if (!response.ok) throw new Error(`CCTV upstream HTTP ${response.status}`);
   const finalUrl = safeHttpUrl(response.url || original.toString());
@@ -122,7 +122,7 @@ async function resolveMediaTarget(camera) {
     if (!discovered) throw new Error('No playable media found in CCTV wrapper');
     target = safeHttpUrl(discovered.toString());
     response = await fetchWithTimeout(target.toString(), {
-      headers: { Accept: '*/*', Range: 'bytes=0-4095', 'User-Agent': 'EYE-Taiwan/0.35 public-cctv-probe' },
+      headers: { Accept: '*/*', Range: 'bytes=0-4095', 'User-Agent': 'SENTINEL-Taiwan/1.1.1 public-cctv-probe' },
     }, 6000);
     if (!response.ok) throw new Error(`CCTV media HTTP ${response.status}`);
     kind = mediaKind(response.headers.get('content-type') || '', response.url || target.toString());
@@ -178,7 +178,7 @@ module.exports = async (req, res) => {
 
     const headers = {
       Accept: '*/*',
-      'User-Agent': 'EYE-Taiwan/0.35 public-cctv-inline-proxy',
+      'User-Agent': 'SENTINEL-Taiwan/1.1.1 public-cctv-inline-proxy',
     };
     if (req.headers?.range) headers.Range = req.headers.range;
     const upstream = await fetchWithTimeout(target.toString(), { headers }, 12000);
