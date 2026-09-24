@@ -1,3 +1,28 @@
+
+function edgeTtl(url = '') {
+  const u = String(url || '').toLowerCase();
+  if (/adsb\.lol/.test(u)) return 2;
+  if (/getvddata|motc20|roadData|traffic|vdd?ata|city-flow|lane/.test(u)) return 15;
+  if (/open-meteo|earthquake\.usgs|gdelt|feedburner/.test(u)) return 60;
+  if (/nominatim|photon\.komoot/.test(u)) return 86400;
+  if (/cctv|camera|tisv|thb\.gov|trafficopendata|showframe|twipcam/.test(u)) return 180;
+  if (/air|aqx|parking|work\.json|flood|wra\.gov/.test(u)) return 180;
+  return 60;
+}
+
+function withEdgeCache(url, init = {}) {
+  const ttl = edgeTtl(url);
+  const prior = init.cf && typeof init.cf === 'object' ? init.cf : {};
+  return {
+    ...init,
+    cf: {
+      cacheEverything: true,
+      cacheTtlByStatus: { '200-299': ttl, '404': 2, '500-599': 0 },
+      ...prior,
+    },
+  };
+}
+
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -16,11 +41,11 @@ async function fetchJson(url, init = {}, timeoutMs = 10000) {
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const r = await fetch(url, {
-      ...init,
+      ...withEdgeCache(url, init),
       signal: ctrl.signal,
       headers: {
         Accept: 'application/json',
-        'User-Agent': 'SENTINEL-Taiwan/1.0 zero-key-public-data-client',
+        'User-Agent': 'SENTINEL-Taiwan/2.0 Cloudflare zero-key-public-data-client',
         ...(init.headers || {}),
       },
     });
@@ -39,11 +64,11 @@ async function fetchText(url, init = {}, timeoutMs = 10000) {
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const r = await fetch(url, {
-      ...init,
+      ...withEdgeCache(url, init),
       signal: ctrl.signal,
       headers: {
         Accept: '*/*',
-        'User-Agent': 'SENTINEL-Taiwan/1.0 zero-key-public-data-client',
+        'User-Agent': 'SENTINEL-Taiwan/2.0 Cloudflare zero-key-public-data-client',
         ...(init.headers || {}),
       },
     });
@@ -60,11 +85,11 @@ async function fetchBuffer(url, init = {}, timeoutMs = 10000, maxBytes = 20 * 10
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const r = await fetch(url, {
-      ...init,
+      ...withEdgeCache(url, init),
       signal: ctrl.signal,
       headers: {
         Accept: '*/*',
-        'User-Agent': 'SENTINEL-Taiwan/1.0 zero-key-public-data-client',
+        'User-Agent': 'SENTINEL-Taiwan/2.0 Cloudflare zero-key-public-data-client',
         ...(init.headers || {}),
       },
     });

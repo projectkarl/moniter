@@ -185,7 +185,7 @@ module.exports = async (req, res) => {
       timeoutCap:national ? 4200 : (fast ? 3600 : 9000),
     });
     // A fast nearby lookup must never spend several seconds waiting for a municipal
-    // CSV/XML on a cold Vercel function. Return the verified official quick index first;
+    // CSV/XML during a cold edge invocation. Return the verified official quick index first;
     // the frontend immediately starts a second, fuller official-registry enrichment.
     const registryPromise = fast && !national
       ? deadline(registryLoad, 1200, { items:[], sourceStatus:[{ id:'fast-timeout', name:'官方 CCTV 即時清單', region:'附近', ok:false, count:0, access:'live', error:'FAST WINDOW EXCEEDED · background enrichment continues' }] })

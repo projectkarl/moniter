@@ -1,52 +1,75 @@
-# SENTINEL // TAIWAN v1.1.1
+# SENTINEL // TAIWAN — Cloudflare v2.0.0
 
-Deployment reset release. Clears legacy Sentinel shell caches and forces fresh core assets while keeping inline CCTV playback and automatic nearby substitute logic.
+全新 Cloudflare Workers + Static Assets 版本。保留原本 SENTINEL / 007 戰情介面與使用流程，但後端入口、CCTV 代理、快取與部署方式已改成 Cloudflare 原生架構，不再依賴 Vercel Serverless Functions。
 
-# SENTINEL // TAIWAN
+## 這版解決什麼
 
-**Version 1.1.1 · Public Signal Command Grid**
+- **單一 Cloudflare Worker**：所有 `/api/*` 由 `src/worker.js` 統一派送，靜態頁面由 Static Assets 直接提供。
+- **CCTV 直接內嵌**：`/api/cctv-feed` 使用 Web Streams，不用 `node:stream`；支援 HLS、MJPEG、圖片快照、MP4/WebM、HTML wrapper 探測。
+- **HLS 完整代理**：master playlist、子 playlist、segment 與 `URI="..."` 都重新指回本站代理，避免瀏覽器直接跨站而被 CORS / Referer 擋下。
+- **來源狀態傳遞**：wrapper 解析時保存 Cookie / Referer，播放時傳遞 Range。
+- **SSRFi 防護**：CCTV resource 僅允許公開 HTTP/HTTPS 位址，拒絕 localhost / 私有網段；HLS 子資源限制同 host / subdomain。
+- **Cloudflare Workers Caching**：資料 API 依性質配置 2 秒～1 天 TTL，減少免費方案 Worker CPU 與上游請求。
+- **零付費金鑰**：目前功能仍以公開、可免 key 的資料源為主。
+- **SPA / PWA 保留**：原介面、manifest、Service Worker 與資產保留，cache namespace 已升級避免舊版殘留。
 
-SENTINEL // TAIWAN 是一個以台灣公開資料為基礎的地圖型戰情／導航實驗專案。核心目標是把即時車流、公開 CCTV、交通事件、天氣、環境資訊與導航整合在同一張地圖，同時清楚標示資料來源與即時性。
+## 主要功能
 
-## 核心功能
-- 全台國道即時 FLOW 色帶與 HWY 戰情模式
-- 搜尋地點／點選地圖後顯示周邊公開 CCTV
-- 原始政府／官方 CCTV 來源優先，支援 HLS、JPEG/MJPEG、MP4/WebM 與官方公開播放器解析
-- 景點官方直播與周邊道路 CCTV 融合
-- 目前位置追蹤、雙路線導航、偏離路線重算、轉彎提示與前方事件／CCTV 情報
-- 全台即時戰情、事件、AQI、水情、施工、停車、天氣與來源狀態
-- CONTACT TRACK、航空公開訊號、3D Cockpit、Watch Zone、Flow Trend、Sensor Look
-- 軍事／情報中心風格資料感知開機序列
+地點搜尋／簡稱搜尋、定位、A/B 導航、天氣、空氣品質、全台／周邊 CCTV、高速公路車流、道路事件、VD 車道資料、測速照相、停車、施工、淹水、航班、地震、新聞、周邊戰情與濾鏡等皆沿用既有前端操作方式。
 
-## 資料原則
-- 優先使用政府或官方公開來源，不把第三方索引頁當成正式影像播放器。
-- `LIVE / OBSERVED / MODEL / DERIVED / ESTIMATED / VISUAL / UNAVAILABLE` 分級用來區分資料性質。
-- CCTV 影像分析不做人臉辨識、車牌 OCR 或身分追蹤。
-- 公開資料來源可能暫時離線、改版、限流或停止提供；系統會盡量降級顯示而不虛構資料。
+## 專案結構
 
-## 部署
-直接將此資料夾部署至 Vercel 即可。正式執行使用兩個 Serverless Functions：
-- `/api/data`
-- `/api/cctv-feed`
+```text
+public/                 靜態前端與 PWA
+src/worker.js           Cloudflare Worker API router
+src/cctv-feed.js        Cloudflare 原生 CCTV / HLS proxy
+src/lib/                Worker adapter / security / HTTP helpers
+src/services/           各公開資料來源 service
+scripts/check.mjs       不連網結構與路由自檢
+scripts/smoke.mjs       部署後即時串接 smoke test
+wrangler.jsonc           Workers + Static Assets + Workers Caching
+```
 
-不需要前端付費 API Key。
+## 第一次部署
 
-## CCTV 播放政策
-- CCTV 播放區不另開外站，也不再嵌入第三方 CCTV 網頁或附近影像 widget。
-- 高速公路局、公路局等來源直接使用官方 `VideoStreamURL` / `VideoImageURL`。
-- 地方政府只有播放器頁或公開索引時，後端只把該頁當解析入口：遞迴找出 HLS / MJPEG / JPEG / MP4 / WebM 後，統一由 `/api/cctv-feed` 代理給 SENTINEL 自己的播放器。
-- 解析器會保留必要的 Referer / Cookie，並支援巢狀播放器頁與 HLS 子播放清單。
-- 解析不到直接媒體時仍保留官方 CCTV 點位；不跳轉外站、不用整頁 iframe 假裝直播。
-- 景點官方 YouTube 直播仍直接在 SENTINEL 內播放。
+需求：Node.js 20～24、Cloudflare 帳號。
 
-## 版本
-**SENTINEL // TAIWAN v1.1.1** 將道路 CCTV 收斂為單一「站內直接播放」鏈：公開來源／解析橋接 → `/api/cctv-feed` → SENTINEL video/img/HLS player。移除外部 CCTV widget 與官方整頁 viewer fallback。
+```bash
+npm install
+npx wrangler login
+npm run check
+npm run deploy
+```
 
+Wrangler 會輸出 `https://<worker>.<subdomain>.workers.dev`。部署完成後執行：
 
-## v1.1.1 CCTV inline-only fallback
-CCTV 播放區不提供外部頁面或跳轉連結。原鏡頭無法直接播放時，SENTINEL 會依 5 / 12 / 25 km 半徑自動尋找最近可播放公開 CCTV，並在原播放框直接換台。
+```bash
+BASE_URL=https://你的網址.workers.dev npm run smoke
+```
 
+Smoke test 會驗證 Cloudflare health、地點搜尋、天氣、路線、CCTV registry、CCTV inline probe，以及交通／空品／地震／航班等公開來源。外部來源暫時維護或限流的項目會標為 optional warning；核心 health / search / weather / route / CCTV registry 失敗會直接 exit 1。
 
-## v1.1.1 Golden Playback Core
+## Cloudflare Dashboard 部署
 
-CCTV 播放核心回退至最後一個已驗證可播放的 v0.35 media pipeline：HLS / MJPEG / JPEG / MP4 維持站內 `/api/cctv-feed`；播放失敗只切換附近可播放鏡頭，不開外站。
+也可以把本專案推到 GitHub 後，在 Cloudflare Workers & Pages 建立 Worker，Build command 使用 `npm install`（或平台預設），Deploy command 使用 `npx wrangler deploy`。`wrangler.jsonc` 已包含 Static Assets 與 API routing，不要另外建立 Vercel rewrite。
+
+## 免費方案與效能策略
+
+- 靜態 CSS / JS / 圖片不需要每次執行 API Worker。
+- `/api/data` 依資料新鮮度使用 edge TTL；車流短、地理編碼長。
+- CCTV media 為即時串流，刻意 `no-store`，避免把影像當成一般 API 長期快取。
+- 地圖前端不應高頻輪詢所有全台資料；只有目前視窗／目的地需要的資料才載入。
+- `nodejs_compat` 只保留給 ODS ZIP / Buffer / crypto 類既有資料解析；CCTV 串流本身已完全改成 Web Streams。
+
+## 驗證指令
+
+```bash
+npm run check
+BASE_URL=https://你的網址 npm run smoke
+```
+
+`npm run check` 不需網路，可先抓出檔案缺漏、Worker routing、frontend action mapping、Static Assets 綁定設定等問題。
+
+## 注意
+
+公開 CCTV 與第三方公開資料仍可能因來源站臨時維護、改版、封鎖機房 IP 或串流 token 過期而個別失效。此版的設計是讓單一來源失效時不拖垮整個 Worker，並讓前端能使用其他候選攝影機；無法合法取得的封閉串流不會繞過授權限制。
