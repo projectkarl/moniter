@@ -49,7 +49,7 @@ await expectJson('https://sentinel.invalid/api/data?action=health', d => d.ok &&
 try {
   const response = await worker.fetch(new Request('https://sentinel.invalid/'), {ASSETS:assets}, {});
   const html = await response.text();
-  if (response.ok && html.includes('2.4.0 CF')) ok('static assets binding', 'index.html reachable');
+  if (response.ok && html.includes('2.5.0 CF')) ok('static assets binding', 'index.html reachable');
   else bad('static assets binding', `HTTP ${response.status}`);
 } catch (e) { bad('static assets binding', e?.message || String(e)); }
 

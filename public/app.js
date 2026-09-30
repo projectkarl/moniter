@@ -3324,11 +3324,11 @@
     if ($('inlineCameraMeta')) $('inlineCameraMeta').textContent = `${cam.road || cam.name || ''} · 無可播放媒體時自動換成附近最近公開 CCTV。`;
     renderNearbyCctvWidget($('inlineCameraStage'), cam, cam.name || cam.road || '附近公開 CCTV');
     const popup = $('cctvPopup');
-    if (popup) {
-      popup.hidden = false;
+    if (popup && !popup.hidden) {
+      clearCameraStage($('inlineCameraStage'));
       resetCctvPopupPosition();
       $('cctvPopupTitle').textContent = shortName(cam.name || cam.road || 'PUBLIC CCTV');
-      $('cctvPopupMeta').textContent = 'SEARCHING NEARBY PLAYABLE CCTV · IN-APP ONLY';
+      $('cctvPopupMeta').textContent = '附近即時影像';
       renderNearbyCctvWidget($('cctvPopupStage'), cam, cam.name || cam.road || '附近公開 CCTV');
     }
   }
@@ -3450,7 +3450,7 @@
   function clearCameraStage(stage) {
     clearInterval(stage?._eyeRefresh);
     stage._eyeRefresh = null;
-    stage?.querySelectorAll?.('video').forEach((v) => { try { v._eyeHls?.destroy?.(); } catch (_) {} });
+    stage?.querySelectorAll?.('video').forEach((v) => { cleanupPlaybackGuard(v); try { v._eyeHls?.destroy?.(); } catch (_) {} });
     if (stage) stage.innerHTML = '';
   }
 
@@ -3480,19 +3480,71 @@
     return 'unknown';
   }
 
-  function armVideoAutoplay(video) {
+  function cleanupPlaybackGuard(video) {
+    if (!video) return;
+    try { video._eyePlaybackCleanup?.(); } catch (_) {}
+    video._eyePlaybackCleanup = null;
+  }
+
+  function installPlaybackGuard(video, hls = null) {
+    if (!video) return;
+    cleanupPlaybackGuard(video);
+    let stopped = false;
+    let lastTime = -1;
+    let stagnantTicks = 0;
+    const resume = () => {
+      if (stopped || !video.isConnected) return;
+      video.muted = true;
+      const p = video.play?.();
+      if (p?.catch) p.catch(()=>{});
+    };
+    const recover = () => {
+      if (stopped || !video.isConnected) return;
+      try { hls?.startLoad?.(-1); } catch (_) {}
+      resume();
+    };
+    const onPause = () => { if (!video.ended) setTimeout(resume, 120); };
+    const onWaiting = () => setTimeout(recover, 900);
+    const onVisibility = () => { if (!document.hidden) resume(); };
+    video.addEventListener('pause', onPause);
+    video.addEventListener('waiting', onWaiting);
+    video.addEventListener('stalled', onWaiting);
+    video.addEventListener('suspend', onWaiting);
+    document.addEventListener('visibilitychange', onVisibility);
+    const timer = setInterval(() => {
+      if (!video.isConnected) return;
+      if (video.paused && !video.ended) resume();
+      const t = Number(video.currentTime || 0);
+      if (video.readyState >= 2 && Math.abs(t - lastTime) < 0.02) stagnantTicks += 1;
+      else stagnantTicks = 0;
+      lastTime = t;
+      if (stagnantTicks >= 3) { stagnantTicks = 0; recover(); }
+    }, 1500);
+    video._eyePlaybackCleanup = () => {
+      stopped = true;
+      clearInterval(timer);
+      video.removeEventListener('pause', onPause);
+      video.removeEventListener('waiting', onWaiting);
+      video.removeEventListener('stalled', onWaiting);
+      video.removeEventListener('suspend', onWaiting);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+    resume();
+  }
+
+  function armVideoAutoplay(video, hls = null) {
     if (!video) return;
     video.autoplay = true; video.muted = true; video.defaultMuted = true; video.playsInline = true;
     video.setAttribute('autoplay',''); video.setAttribute('muted',''); video.setAttribute('playsinline',''); video.setAttribute('webkit-playsinline','');
     const play = () => { video.muted = true; const p = video.play?.(); if (p?.catch) p.catch(()=>{}); };
     ['loadedmetadata','canplay','playing'].forEach((name) => video.addEventListener(name, play, { once:true }));
     setTimeout(play, 80); setTimeout(play, 650);
+    installPlaybackGuard(video, hls);
   }
 
-  function renderHls(stage, url) {
+  function renderHls(stage, url, retry = 0) {
     const video = document.createElement('video');
     video.controls = !stage.classList?.contains('map-live-cctv-stage'); video.preload = 'auto';
-    armVideoAutoplay(video);
     stage.appendChild(video);
     syncLocalPrivacyMask(stage);
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -3505,35 +3557,56 @@
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: false,
-        backBufferLength: 15,
-        maxBufferLength: 30,
-        maxMaxBufferLength: 45,
+        backBufferLength: 10,
+        maxBufferLength: 24,
+        maxMaxBufferLength: 36,
         liveSyncDurationCount: 3,
-        liveMaxLatencyDurationCount: 8,
-        maxLiveSyncPlaybackRate: 1.05,
-        manifestLoadingTimeOut: 8000,
-        levelLoadingTimeOut: 8000,
-        fragLoadingTimeOut: 12000,
-        fragLoadingMaxRetry: 4,
-        levelLoadingMaxRetry: 4,
-        manifestLoadingMaxRetry: 3,
+        liveMaxLatencyDurationCount: 10,
+        maxLiveSyncPlaybackRate: 1.03,
+        maxBufferHole: 0.5,
+        highBufferWatchdogPeriod: 2,
+        nudgeOffset: 0.1,
+        nudgeMaxRetry: 5,
+        manifestLoadingTimeOut: 10000,
+        levelLoadingTimeOut: 10000,
+        fragLoadingTimeOut: 15000,
+        fragLoadingMaxRetry: 6,
+        levelLoadingMaxRetry: 6,
+        manifestLoadingMaxRetry: 4,
+        fragLoadingRetryDelay: 500,
+        levelLoadingRetryDelay: 500,
       });
       hls.loadSource(url); hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => armVideoAutoplay(video));
+      hls.on(Hls.Events.MANIFEST_PARSED, () => armVideoAutoplay(video, hls));
       hls.on(Hls.Events.ERROR, (_event, data) => {
         if (!data?.fatal) return;
         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          try { hls.startLoad(); } catch (_) {}
+          try { hls.startLoad(-1); } catch (_) {}
+          setTimeout(() => { try { video.play?.(); } catch (_) {} }, 250);
           return;
         }
         if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
           try { hls.recoverMediaError(); } catch (_) {}
+          setTimeout(() => { try { video.play?.(); } catch (_) {} }, 250);
           return;
         }
+        cleanupPlaybackGuard(video);
         try { hls.destroy(); } catch (_) {}
+        if (retry < 3 && stage.isConnected) {
+          setTimeout(() => {
+            if (!stage.isConnected) return;
+            stage.querySelectorAll('video').forEach((v)=>{ cleanupPlaybackGuard(v); try{v._eyeHls?.destroy?.();}catch(_){}; v.remove(); });
+            renderHls(stage, url, retry + 1);
+          }, 700 + retry * 500);
+        }
       });
       video._eyeHls = hls;
+      armVideoAutoplay(video, hls);
     }).catch(() => {
+      if (retry < 2 && stage.isConnected) {
+        setTimeout(() => { if (stage.isConnected) renderHls(stage, url, retry + 1); }, 800);
+        return;
+      }
       stage.innerHTML = '<div class="camera-placeholder"><b>目前無法播放</b><span>此影像格式暫時無法解碼，請切換其他附近鏡頭。</span></div>';
     });
   }
@@ -4211,6 +4284,7 @@
     if (state.visionRunning) $('cctvPopupStage')?.classList.add('live-analysis-active');
     $('cctvPopupTitle').textContent = shortName(cam.name || cam.road || 'PUBLIC CCTV');
     $('cctvPopupMeta').textContent = `${cam.region ? `${cam.region} · ` : ''}${cam.road || ''} ${cam.direction || ''} · ${cam.source || 'PUBLIC DATA'}`.trim();
+    clearCameraStage($('inlineCameraStage'));
     renderCameraMedia($('cctvPopupStage'), cam, { fast:true });
     renderCameraIntel(cam).catch(() => {});
     setVisionButtons(state.visionRunning);
@@ -4223,6 +4297,8 @@
     popup.hidden = true;
     $('cctvPopupStage')?.classList.remove('live-analysis-active');
     clearCameraStage($('cctvPopupStage'));
+    const cam = state.inlineCamera || state.activeCamera;
+    if (cam && $('inlineCameraStage')) renderCameraMedia($('inlineCameraStage'), cam);
     resetCctvPopupPosition();
   }
 
@@ -4269,12 +4345,14 @@
     $('inlineCameraTitle').textContent = shortName(cam.name || cam.road || 'PUBLIC CCTV');
     $('inlineCameraSignal').textContent = cam.scenic ? 'SCENIC // ORIGINAL' : 'LIVE // DIRECT';
     $('inlineCameraMeta').textContent = `${cam.region ? `${cam.region} · ` : ''}${cam.road || ''} ${cam.direction || ''} · ${cam.source || 'PUBLIC DATA'}`.trim();
-    renderCameraMedia($('inlineCameraStage'), cam);
-    syncLocalPrivacyMask($('inlineCameraStage'));
     if ($('cctvPopup') && !$('cctvPopup').hidden) {
+      clearCameraStage($('inlineCameraStage'));
       $('cctvPopupTitle').textContent = shortName(cam.name || cam.road || 'PUBLIC CCTV');
       $('cctvPopupMeta').textContent = `${cam.region ? `${cam.region} · ` : ''}${cam.road || ''} ${cam.direction || ''} · ${cam.source || 'PUBLIC DATA'}`.trim();
       renderCameraMedia($('cctvPopupStage'), cam);
+    } else {
+      renderCameraMedia($('inlineCameraStage'), cam);
+      syncLocalPrivacyMask($('inlineCameraStage'));
     }
     if (!state.visionRunning && $('cameraVisionLab')) $('cameraVisionLab').hidden = true;
     if ($('visionLabStatus')) $('visionLabStatus').textContent = state.visionRunning ? '切換鏡頭中' : '待命';

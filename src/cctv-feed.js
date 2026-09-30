@@ -188,24 +188,69 @@ function sameHostOrSubdomain(base, candidate) {
   return a === b || b.endsWith(`.${a}`) || a.endsWith(`.${b}`);
 }
 
-function proxyUrl(id, value) {
-  return `/api/cctv-feed?id=${encodeURIComponent(id)}&resource=${encodeURIComponent(value)}`;
+const FALLBACK_PROXY_KEY = 'igzC7Ay_fkj3RESDdHlPDamDUlEqemuXqWkSkL2UCYk';
+const encoder = new TextEncoder();
+
+function base64Url(bytes) {
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-function rewritePlaylist(text, sourceUrl, id) {
+async function resourceSignature(secret, id, value, exp) {
+  const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name:'HMAC', hash:'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(`${id}|${exp}|${value}`));
+  return base64Url(new Uint8Array(sig));
+}
+
+function constantTimeEqual(a = '', b = '') {
+  const x = String(a), y = String(b);
+  if (x.length !== y.length) return false;
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x.charCodeAt(i) ^ y.charCodeAt(i);
+  return diff === 0;
+}
+
+async function proxyUrl(id, value, env = {}) {
+  const exp = Math.floor(Date.now() / 1000) + 900;
+  const secret = String(env?.CCTV_PROXY_SECRET || FALLBACK_PROXY_KEY);
+  const sig = await resourceSignature(secret, id, value, exp);
+  return `/api/cctv-feed?id=${encodeURIComponent(id)}&resource=${encodeURIComponent(value)}&exp=${exp}&sig=${encodeURIComponent(sig)}`;
+}
+
+async function rewritePlaylist(text, sourceUrl, id, env = {}) {
   const base = new URL(sourceUrl);
-  return String(text).split(/\r?\n/).map((line) => {
-    if (!line) return line;
+  const lines = String(text).split(/\r?\n/);
+  const out = [];
+  for (const line of lines) {
+    if (!line) { out.push(line); continue; }
     if (line.startsWith('#')) {
-      return line.replace(/URI="([^"]+)"/g, (_, uri) => {
-        const abs = new URL(uri, base).toString();
-        return `URI="${proxyUrl(id, abs)}"`;
-      });
+      const match = line.match(/URI="([^"]+)"/);
+      if (!match) { out.push(line); continue; }
+      try {
+        const abs = safePublicHttpUrl(new URL(match[1], base).toString()).toString();
+        const proxied = await proxyUrl(id, abs, env);
+        out.push(line.replace(match[0], `URI="${proxied}"`));
+      } catch (_) { out.push(line); }
+      continue;
     }
     const trimmed = line.trim();
-    if (!trimmed) return line;
-    try { return proxyUrl(id, new URL(trimmed, base).toString()); } catch (_) { return line; }
-  }).join('\n');
+    if (!trimmed) { out.push(line); continue; }
+    try {
+      const abs = safePublicHttpUrl(new URL(trimmed, base).toString()).toString();
+      out.push(await proxyUrl(id, abs, env));
+    } catch (_) { out.push(line); }
+  }
+  return out.join('\n');
+}
+
+async function verifySignedResource(url, id, value, env = {}) {
+  const exp = Number(url.searchParams.get('exp') || 0);
+  const sig = String(url.searchParams.get('sig') || '');
+  if (!exp || !sig || exp < Math.floor(Date.now() / 1000) - 30 || exp > Math.floor(Date.now() / 1000) + 1800) return false;
+  const secret = String(env?.CCTV_PROXY_SECRET || FALLBACK_PROXY_KEY);
+  const expected = await resourceSignature(secret, id, value, exp);
+  return constantTimeEqual(sig, expected);
 }
 
 function forwardedHeaders(request, resolved) {
@@ -221,7 +266,7 @@ function forwardedHeaders(request, resolved) {
   return headers;
 }
 
-export async function handleCctvFeed(request) {
+export async function handleCctvFeed(request, env = {}) {
   if (request.method === 'OPTIONS') return withSecurity(new Response(null, { status: 204 }), { 'Access-Control-Allow-Origin': '*' });
   if (!['GET', 'HEAD'].includes(request.method)) return new Response('Method Not Allowed', { status: 405 });
   const url = new URL(request.url);
@@ -239,9 +284,11 @@ export async function handleCctvFeed(request) {
 
     let target = base;
     const resource = url.searchParams.get('resource');
+    let signedResource = false;
     if (resource) {
       const requested = safePublicHttpUrl(resource);
-      if (!sameHostOrSubdomain(base, requested)) return new Response('CCTV resource host rejected', { status: 403 });
+      signedResource = await verifySignedResource(url, id, requested.toString(), env);
+      if (!sameHostOrSubdomain(base, requested) && !signedResource) return new Response('CCTV resource host rejected', { status: 403 });
       target = requested;
     }
 
@@ -253,7 +300,7 @@ export async function handleCctvFeed(request) {
     if (!upstream.ok || (request.method !== 'HEAD' && !upstream.body)) return new Response(`CCTV upstream HTTP ${upstream.status}`, { status: 502 });
 
     const finalUrl = safePublicHttpUrl(upstream.url || target.toString());
-    if (!sameHostOrSubdomain(target, finalUrl)) return new Response('CCTV redirect host rejected', { status: 403 });
+    if (!sameHostOrSubdomain(target, finalUrl) && !signedResource) return new Response('CCTV redirect host rejected', { status: 403 });
     const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
     const isPlaylist = /mpegurl|m3u8/i.test(contentType) || /\.m3u8(?:\?|$)/i.test(finalUrl.toString());
 
@@ -262,7 +309,7 @@ export async function handleCctvFeed(request) {
       if (declared > MAX_PLAYLIST) return new Response('HLS playlist too large', { status: 502 });
       const text = await upstream.text();
       if (text.length > MAX_PLAYLIST) return new Response('HLS playlist too large', { status: 502 });
-      return withSecurity(new Response(rewritePlaylist(text, finalUrl.toString(), id), {
+      return withSecurity(new Response(await rewritePlaylist(text, finalUrl.toString(), id, env), {
         status: 200,
         headers: {
           'Content-Type': 'application/vnd.apple.mpegurl; charset=utf-8',

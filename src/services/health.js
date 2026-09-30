@@ -1,7 +1,7 @@
 const { json } = require('./_utils');
 module.exports = async (req, res) => json(res, 200, {
   ok: true,
-  build: '2.4.0-cloudflare-smooth-live-analysis',
+  build: '2.5.0-cloudflare-continuous-cctv',
   zeroKey: true,
   environmentSecretsRequired: false,
   sources: [

@@ -1,51 +1,48 @@
-# SENTINEL // TAIWAN v2.4.0 Cloudflare — Test Report
+# SENTINEL // TAIWAN v2.5.0 Cloudflare — Test Report
 
-## Result
+## 結果
 
-PASS — local project checks, Cloudflare routing, CCTV proxy, ANPR wiring, and playback-first live-analysis checks all passed.
+**PASS**
 
-## Playback changes verified
+已執行：
 
-- HLS low-latency chasing is disabled in favor of a stable live buffer.
-- Forward buffer increased to 30 seconds with a 45-second maximum.
-- Live edge sync uses 3 segments and allows up to 8 segments of latency before recovery.
-- Fatal HLS network and media errors have automatic recovery paths.
-- Live analysis waits for a rendered video frame before copying pixels.
-- Analysis resolution is capped at 480px on desktop and 360px on mobile.
-- Object detection uses a reduced result count and higher threshold to reduce main-thread work.
-- Analysis cadence adapts to measured processing time.
-- Analysis is skipped while the video does not have enough buffered data.
-- Plate OCR runs asynchronously from the main object-detection loop.
-- Default plate OCR load is reduced to one vehicle per OCR cycle and a 3-second interval.
-- Heavy backdrop blur and decorative CCTV analysis effects were removed.
-- CCTV analysis labels and side text were simplified to normal Chinese wording.
-
-## Commands executed
-
-- `node --check public/app.js`
 - `npm run check`
+- `npm run test:cctv`
 - `npm run test:playback`
 - `npm run test:anpr`
-- `npm run test:cctv`
 
-## Passed checks
+## CCTV playback
 
-- Cloudflare project files present.
-- Static Assets configuration valid.
-- `/api/health` returns 200 in local worker test.
-- Legacy `/api/data?action=health` adapter returns 200.
-- 19 frontend API actions are routed.
-- CCTV wrapper discovery → HLS master → child playlist → media segment rewriting passes.
-- Cookie and Referer propagation passes.
-- Cross-host HLS resource guard passes.
-- Authorized-camera ANPR allowlist remains locked by default.
-- Night enhancement, skew correction, keystone adjustment, and multi-frame vote wiring remain present.
-- Playback-first HLS configuration and adaptive analysis scheduling are present.
+- PASS：持續播放守護存在。
+- PASS：`pause / waiting / stalled / suspend` 自動恢復。
+- PASS：HLS network error 重新 `startLoad(-1)`。
+- PASS：HLS media error 使用 `recoverMediaError()`。
+- PASS：buffer stall watchdog / nudge recovery。
+- PASS：fragment / level / manifest retry。
+- PASS：CCTV popup 與 inline view 不再同時維持兩條串流。
+- PASS：關閉 popup 後恢復 inline stream。
 
-## Not covered locally
+## HLS Worker proxy
 
-A real deployed `workers.dev` URL and real third-party CCTV feeds were not available in this local test. After deployment run:
+- PASS：HTML wrapper 解析到 HLS。
+- PASS：Cookie 與 Referer 轉送。
+- PASS：master playlist 重寫。
+- PASS：child playlist 重寫。
+- PASS：media segment 串流。
+- PASS：跨 CDN child playlist。
+- PASS：跨 CDN media segment。
+- PASS：Range header。
+- PASS：跨 CDN URL 使用 HMAC 簽章。
+- PASS：任意未簽章跨網域 URL 仍回 403。
+- PASS：竄改已簽章 resource URL 仍回 403。
 
-```bash
-BASE_URL=https://your-project.workers.dev npm run smoke
-```
+## 其他功能回歸
+
+- PASS：Cloudflare Worker / Static Assets 結構。
+- PASS：19 個前端 API action 有 Worker routing。
+- PASS：ANPR allowlist。
+- PASS：夜間增強、傾斜補償、多幀 voting。
+
+## 尚未宣稱的項目
+
+本地測試不能代表每一支外部公開 CCTV 在 Cloudflare edge 上都一定在線。部署後仍應執行 `npm run smoke`，並用實際會卡住的 CCTV 做來源端驗證。
