@@ -5,7 +5,7 @@ import worker from '../src/worker.js';
 
 const root = path.resolve(new URL('..', import.meta.url).pathname);
 const required = [
-  'package.json','wrangler.jsonc','public/index.html','public/app.js','public/styles.css','public/sw.js',
+  'package.json','wrangler.jsonc','public/index.html','public/app.js','public/styles.css','public/sw.js','public/anpr-config.js',
   'src/worker.js','src/cctv-feed.js','src/lib/http.js','src/lib/legacy-adapter.js',
   'src/services/cctv.js','src/services/cctv-registry.js','src/services/geocode.js','src/services/weather.js','src/services/route.js'
 ];
@@ -49,7 +49,7 @@ await expectJson('https://sentinel.invalid/api/data?action=health', d => d.ok &&
 try {
   const response = await worker.fetch(new Request('https://sentinel.invalid/'), {ASSETS:assets}, {});
   const html = await response.text();
-  if (response.ok && html.includes('2.0.0 CF')) ok('static assets binding', 'index.html reachable');
+  if (response.ok && html.includes('2.3.0 CF')) ok('static assets binding', 'index.html reachable');
   else bad('static assets binding', `HTTP ${response.status}`);
 } catch (e) { bad('static assets binding', e?.message || String(e)); }
 
@@ -66,6 +66,23 @@ const workerText = fs.readFileSync(path.join(root, 'src/worker.js'), 'utf8');
 const missingActions = unique.filter(a => !workerText.includes(`'${a}'`) && !new RegExp(`\\b${a}\\s*[,}]`).test(workerText));
 if (!missingActions.length) ok('frontend API action coverage', `${unique.length} actions routed`);
 else bad('frontend API action coverage', `missing: ${missingActions.join(', ')}`);
+
+const visionNeedles = [
+  'visionTracks: new Map()',
+  'function updateVisionTracks(',
+  'function plateRegionForPrediction(',
+  'plate-privacy-roi',
+  '匿名短時追蹤',
+  'PLATE SHIELD',
+  'function getAnprWorker(',
+  'function runAuthorizedAnpr(',
+  'AUTHORIZED ANPR',
+  'tesseract.js@7.0.0'
+];
+for (const needle of visionNeedles) {
+  (app.includes(needle) || fs.readFileSync(path.join(root, 'public/styles.css'), 'utf8').includes(needle) || fs.readFileSync(path.join(root, 'public/index.html'), 'utf8').includes(needle))
+    ? ok(`vision ${needle}`) : bad(`vision ${needle}`, 'missing');
+}
 
 if (failed) {
   console.error(`\nCHECK FAILED: ${failed} problem(s)`);

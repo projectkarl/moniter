@@ -315,16 +315,16 @@
             </div>
           </article>
           <article class="intel-card inline-camera-card" id="inlineCameraCard" hidden>
-            <div class="card-label camera-card-label"><span>LIVE CCTV // 即時監控</span><div class="camera-card-actions"><button type="button" id="cameraAnalyzeBtn" aria-pressed="false" title="在目前 CCTV 畫面上持續進行瀏覽器端人／車類別分析">LIVE ANALYSIS</button><button type="button" id="inlineCameraExpand" aria-pressed="false" title="放大 CCTV">⛶ 放大</button></div></div>
+            <div class="card-label camera-card-label"><span>LIVE CCTV // 即時監控</span><div class="camera-card-actions"><button type="button" id="cameraAnalyzeBtn" aria-pressed="false" title="在目前 CCTV 畫面上進行匿名即時車流分析、停滯/方向/排隊估計與車牌候選區遮罩">LIVE ANALYSIS</button><button type="button" id="cameraAnprBtn" class="anpr-action" aria-pressed="false" hidden>AUTHORIZED ANPR</button><button type="button" id="inlineCameraExpand" aria-pressed="false" title="放大 CCTV">⛶ 放大</button></div></div>
             <div class="inline-camera-head"><b id="inlineCameraTitle">PUBLIC CCTV</b><span id="inlineCameraSignal">AUTO SELECT</span></div>
             <div id="inlineCameraStage" class="inline-camera-stage"><div class="camera-placeholder">正在等待公開 CCTV 訊號…</div></div>
             <div id="inlineCameraMeta" class="inline-camera-meta"></div>
             <div id="inlineCameraSensor" class="camera-intel inline-camera-sensor" hidden></div>
             <section id="cameraVisionLab" class="camera-vision-lab" hidden aria-label="CCTV 影格分析">
-              <div class="vision-lab-head"><div><span>ON-DEVICE LIVE VISION</span><b id="visionLabStatus">READY</b></div><button type="button" id="visionLabClose">停止分析</button></div>
+              <div class="vision-lab-head"><div><span>ON-DEVICE ANON TRAFFIC VISION</span><b id="visionLabStatus">READY</b></div><button type="button" id="visionLabClose">停止分析</button></div>
               <canvas id="cameraAnalysisCanvas" width="640" height="360" aria-hidden="true"></canvas>
-              <div id="cameraAnalysisMetrics" class="vision-lab-metrics"><div><small>PERSON</small><b>—</b></div><div><small>VEHICLE</small><b>—</b></div><div><small>CROWD</small><b>—</b></div><div><small>TRAFFIC</small><b>—</b></div></div>
-              <div id="cameraAnalysisTypes" class="vision-type-list">按 LIVE ANALYSIS 後，分析框會直接疊在目前 CCTV 畫面並定期更新。辨識人、汽車、公車、卡車、機車與自行車等類別；不做人臉、車牌、身份或跨鏡頭追蹤。</div>
+              <div id="cameraAnalysisMetrics" class="vision-lab-metrics"><div><small>PERSON</small><b>—</b></div><div><small>VEHICLE</small><b>—</b></div><div><small>QUEUE</small><b>—</b></div><div><small>STOPPED</small><b>—</b></div><div><small>FLOW DIR</small><b>—</b></div><div><small>PLATE</small><b>SHIELDED</b></div></div>
+              <div id="cameraAnalysisTypes" class="vision-type-list">按 LIVE ANALYSIS 後，會直接疊加匿名短時追蹤、方向、停滯與排隊估計。公開 CCTV 車牌只做候選區遮罩。自有／已授權鏡頭可啟用 AUTHORIZED ANPR，包含夜間增強、機車專用 ROI、傾斜補償與多幀投票。</div><div id="anprPlateList" class="anpr-plate-list"><span>ANPR LOCKED</span><small>Authorized cameras only.</small></div>
             </section>
             <div id="inlineCameraChoices" class="inline-camera-choices"></div>
           </article>
@@ -430,23 +430,24 @@
         <div class="setting-row"><div><b>地圖視覺特效</b><small>預設關閉，保持原始衛星／街圖清晰；需要電影感時再手動開啟</small></div><button id="mapFxToggle" class="toggle" aria-pressed="false"><span></span></button></div>
         <div class="setting-row"><div><b>自動載入天氣</b><small>移動地圖後更新中心點資訊</small></div><button id="weatherAutoToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-row"><div><b>語音回饋</b><small>以系統語音讀出查詢結果</small></div><button id="speechToggle" class="toggle" aria-pressed="false"><span></span></button></div>
-        <div class="setting-row"><div><b>LIVE VISION ANALYTICS</b><small>CCTV + VD 車道速度／占有率／流量 Sensor Fusion；適用所有有足夠公開 lane-level VD 的路段與隧道入口，不辨識車牌或人臉</small></div><button id="vehicleIntelToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
+        <div class="setting-row"><div><b>LIVE VISION ANALYTICS</b><small>CCTV + VD 車道速度／占有率／流量 Sensor Fusion。公開 CCTV 不讀車牌；自有／已授權鏡頭可另外啟用本機 AUTHORIZED ANPR。</small></div><button id="vehicleIntelToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-row"><div><b>公開測速點警示</b><small>導航中提早約 2 km / 1 km / 400 m 提醒官方公開固定／區間測速執法點，並在資料有提供時主動顯示速限；不偵測臨檢或移動式警力</small></div><button id="speedAlertToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-row"><div><b>CCTV 自動接管</b><small>導航移動時自動切換前方公開 CCTV 情報；只切換公開鏡頭，不追蹤個別車輛</small></div><button id="cameraHandoffToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-row"><div><b>戰術地點轉場</b><small>跨區移動時使用衛星鎖定、訊號切換與座標轉移動畫</small></div><button id="transferFxToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-stack"><div><b>MAP SOURCE</b><small>預設使用原專案 Zero-Key 思路的 Esri 衛星影像＋地名/道路標註；可一鍵切換清楚街圖</small></div><div class="map-modes" id="mapModes"><button data-map-source="satellite" class="active" aria-pressed="true">SATELLITE</button><button data-map-source="tactical" aria-pressed="false">STREET</button></div></div>
         <div class="setting-stack"><div><b>SENSOR LOOK</b><small>NORMAL / NVG / FLIR / NOIR / CRT / SNOW 僅切換戰術視覺效果，不改變底層資料內容</small></div><div class="sensor-modes" id="sensorModes"><button data-sensor="normal" class="active">NORMAL</button><button data-sensor="nvg">NVG</button><button data-sensor="flir">FLIR</button><button data-sensor="noir">NOIR</button><button data-sensor="crt">CRT</button><button data-sensor="snow">SNOW</button></div></div>
+        <div class="setting-stack anpr-settings"><div><b>AUTHORIZED ANPR</b><small>預設鎖定。只有在 <code>public/anpr-config.js</code> 明確列入你自有或已取得授權的 camera ID 才解鎖；可依鏡頭調整 OCR 間隔、信心值、多幀票數、ROI 放大與傾斜角度。OCR 僅在瀏覽器執行，結果不送 Worker、不寫資料庫、不做跨鏡頭搜尋。</small></div></div>
         <div class="setting-row"><div><b>DETECTION OVERLAY</b><small>在可見公開訊號標記加上識別框與 ID；CCTV 的 LIVE ANALYSIS 會將人／車類別框直接疊在目前影像並定期更新；不做人臉／車牌辨識</small></div><button id="detectionToggle" class="toggle" aria-pressed="false"><span></span></button></div>
         <div class="setting-row"><div><b>VOICE MARKUP</b><small>Zero-Key 本地語音指令：例如「標記這裡集合點」、「清除標註」、「切換夜視」、「追蹤最近航班」</small></div><button id="voiceMarkupToggle" class="toggle active" aria-pressed="true"><span></span></button></div>
         <div class="setting-row"><div><b>CCTV 局部隱私遮罩</b><small>預設關閉。開啟時只遮罩畫面下緣近距離區域，保留大部分道路與車流可視；這是輕量 ROI 遮罩，不宣稱自動辨識人臉或車牌</small></div><button id="privacyShieldToggle" class="toggle" aria-pressed="false"><span></span></button></div>
-        <div class="system-box"><span>BUILD</span><b>SENTINEL // TAIWAN // 2.0.0 CF</b><span>PRIVACY</span><b>NO PLATE OCR · LOCATION SESSION ONLY</b></div>
+        <div class="system-box"><span>BUILD</span><b>SENTINEL // TAIWAN // 2.3.0 CF</b><span>PRIVACY</span><b>PUBLIC PLATES SHIELDED · AUTHORIZED ANPR LOCAL-ONLY</b></div>
       </section>
 
 
       <section id="cctvPopup" class="cctv-popup" aria-label="放大 CCTV 浮動視窗" hidden>
         <div id="cctvPopupHandle" class="cctv-popup-head" role="toolbar" aria-label="拖曳 CCTV 視窗">
           <div><span>LIVE CCTV // FLOATING VIEW</span><b id="cctvPopupTitle">PUBLIC CCTV</b></div>
-          <div class="cctv-popup-actions"><button type="button" id="cctvPopupAnalyze" aria-pressed="false">LIVE ANALYSIS</button><button type="button" id="cctvPopupClose" aria-label="關閉放大 CCTV">×</button></div>
+          <div class="cctv-popup-actions"><button type="button" id="cctvPopupAnalyze" aria-pressed="false">LIVE ANALYSIS</button><button type="button" id="cctvPopupAnpr" class="anpr-action" aria-pressed="false" hidden>AUTHORIZED ANPR</button><button type="button" id="cctvPopupClose" aria-label="關閉放大 CCTV">×</button></div>
         </div>
         <div id="cctvPopupStage" class="cctv-popup-stage"><div class="camera-placeholder">等待 CCTV 訊號…</div></div>
         <div id="cctvPopupMeta" class="cctv-popup-meta">PUBLIC LIVE SOURCE</div>
@@ -475,6 +476,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="/anpr-config.js"></script>
   <script src="/app.js" defer></script>
 </body>
 </html>

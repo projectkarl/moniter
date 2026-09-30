@@ -23,7 +23,7 @@ import parking from './services/parking.js';
 import construction from './services/construction.js';
 import flood from './services/flood.js';
 
-const BUILD = '2.0.0-cloudflare-rebuild';
+const BUILD = '2.3.0-cloudflare-anpr-plus';
 const HANDLERS = {
   geocode,
   'reverse-geocode': reverseGeocode,

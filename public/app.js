@@ -71,6 +71,20 @@
     visionRunning: false,
     visionBusy: false,
     visionLoopTimer: null,
+    visionTracks: new Map(),
+    visionTrackSeq: 1,
+    visionTrackCameraId: null,
+    visionPlateShield: true,
+    visionLastFrameAt: 0,
+    anprWorker: null,
+    anprWorkerPromise: null,
+    anprRunning: false,
+    anprBusy: false,
+    anprCameraId: null,
+    anprReads: new Map(),
+    anprVotes: new Map(),
+    anprLastAt: 0,
+    anprTelemetry: { mode:'IDLE', lastAngle:0, attempts:0 },
     privacyShield: false,
     speedAlerts: true,
     cameraHandoff: true,
@@ -1458,8 +1472,9 @@
   function openMapCctvPreview(cam) {
     if (!cam) return;
     if (!hasDirectCameraMedia(cam)) { openCctvPosition(cam); return; }
+    if (state.anprRunning && !isAnprAuthorizedCamera(cam)) stopAuthorizedAnpr();
     state.activeCamera = cam;
-    state.inlineCamera = cam;
+    state.inlineCamera = cam; setAnprButtons();
     openCctvPopup();
   }
 
@@ -3227,11 +3242,13 @@
     const updateSelectedCamera = (cam, d) => {
       const meta = `NEARBY SUBSTITUTE · ${Number.isFinite(d) ? d.toFixed(1) : '?'} km · ${cam.source || 'PUBLIC CCTV'}`;
       if (stage.id === 'cctvPopupStage') {
-        state.activeCamera = cam; state.inlineCamera = cam;
+        if (state.anprRunning && !isAnprAuthorizedCamera(cam)) stopAuthorizedAnpr();
+        state.activeCamera = cam; state.inlineCamera = cam; setAnprButtons();
         if ($('cctvPopupTitle')) $('cctvPopupTitle').textContent = shortName(cam.name || cam.road || 'PUBLIC CCTV');
         if ($('cctvPopupMeta')) $('cctvPopupMeta').textContent = meta;
       } else if (stage.id === 'inlineCameraStage') {
-        state.inlineCamera = cam;
+        if (state.anprRunning && !isAnprAuthorizedCamera(cam)) stopAuthorizedAnpr();
+        state.inlineCamera = cam; setAnprButtons();
         if ($('inlineCameraTitle')) $('inlineCameraTitle').textContent = shortName(cam.name || cam.road || 'PUBLIC CCTV');
         if ($('inlineCameraSignal')) $('inlineCameraSignal').textContent = 'LIVE // NEARBY SUBSTITUTE';
         if ($('inlineCameraMeta')) $('inlineCameraMeta').textContent = meta;
@@ -3296,7 +3313,8 @@
 
   async function openCctvPosition(cam = {}) {
     if (!Number.isFinite(Number(cam?.lat)) || !Number.isFinite(Number(cam?.lon))) return;
-    state.inlineCamera = cam; state.activeCamera = cam;
+    if (state.anprRunning && !isAnprAuthorizedCamera(cam)) stopAuthorizedAnpr();
+    state.inlineCamera = cam; state.activeCamera = cam; setAnprButtons();
     if ($('inlineCameraCard')) $('inlineCameraCard').hidden = false;
     if ($('inlineCameraTitle')) $('inlineCameraTitle').textContent = shortName(cam.name || cam.road || 'PUBLIC CCTV');
     if ($('inlineCameraSignal')) $('inlineCameraSignal').textContent = 'SEARCHING // NEARBY LIVE';
@@ -3642,10 +3660,322 @@
     analysisStages().forEach((stage) => stage.querySelectorAll('.live-vision-layer').forEach((node) => node.remove()));
   }
 
-  function renderLiveVisionBoxes(predictions = [], srcW = 1, srcH = 1) {
+  function visionCenter(box = [0,0,0,0]) {
+    return { x:Number(box[0]||0)+Number(box[2]||0)/2, y:Number(box[1]||0)+Number(box[3]||0)/2 };
+  }
+
+  function visionDirection(dx = 0, dy = 0, dead = 4) {
+    if (Math.hypot(dx,dy) < dead) return 'STILL';
+    if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 'RIGHT' : 'LEFT';
+    return dy > 0 ? 'DOWN' : 'UP';
+  }
+
+  function resetVisionTracks(cameraId = null) {
+    state.visionTracks = new Map();
+    state.visionTrackSeq = 1;
+    state.visionTrackCameraId = cameraId == null ? null : String(cameraId);
+    state.visionLastFrameAt = 0;
+  }
+
+  function updateVisionTracks(predictions = [], srcW = 1, srcH = 1, cameraId = null) {
+    const now = Date.now();
+    const camKey = cameraId == null ? '' : String(cameraId);
+    if (state.visionTrackCameraId !== camKey) resetVisionTracks(camKey);
+    const previousAt = Number(state.visionLastFrameAt || now);
+    const dt = Math.max(.25, Math.min(8, (now - previousAt) / 1000 || 1));
+    state.visionLastFrameAt = now;
+    const diag = Math.max(1, Math.hypot(srcW,srcH));
+    const maxDist = diag * .16;
+    const vehicleClasses = new Set(['car','bus','truck','motorcycle','bicycle']);
+    const detections = predictions.filter((p)=>vehicleClasses.has(p.class)).map((p)=>({ ...p, center:visionCenter(p.bbox) }));
+    const tracks = [...state.visionTracks.values()].filter((t)=>now-t.lastSeen < 9000);
+    const used = new Set();
+    const output = [];
+    for (const det of detections) {
+      let best = null, bestD = Infinity;
+      for (const t of tracks) {
+        if (used.has(t.id) || t.class !== det.class) continue;
+        const d = Math.hypot(det.center.x-t.cx, det.center.y-t.cy);
+        if (d < bestD && d <= maxDist) { best=t; bestD=d; }
+      }
+      if (!best) {
+        best = { id:state.visionTrackSeq++, class:det.class, cx:det.center.x, cy:det.center.y, firstSeen:now, lastSeen:now, ageFrames:0, stationaryFrames:0, vx:0, vy:0, path:[] };
+      } else used.add(best.id);
+      const dx = det.center.x-best.cx, dy = det.center.y-best.cy;
+      const movement = Math.hypot(dx,dy);
+      best.vx = best.ageFrames ? best.vx*.55 + (dx/dt)*.45 : 0;
+      best.vy = best.ageFrames ? best.vy*.55 + (dy/dt)*.45 : 0;
+      best.stationaryFrames = movement < diag*.009 ? best.stationaryFrames+1 : Math.max(0,best.stationaryFrames-1);
+      best.cx=det.center.x; best.cy=det.center.y; best.lastSeen=now; best.ageFrames++;
+      best.path = [...(best.path||[]).slice(-4), {x:best.cx,y:best.cy,at:now}];
+      best.direction = visionDirection(best.vx,best.vy,diag*.006);
+      best.stopped = best.stationaryFrames >= 2 && now-best.firstSeen >= 5000;
+      state.visionTracks.set(best.id,best);
+      output.push({ ...det, trackId:best.id, direction:best.direction, stopped:best.stopped, trackAgeMs:now-best.firstSeen, vx:best.vx, vy:best.vy });
+    }
+    for (const [id,t] of state.visionTracks) if (now-t.lastSeen >= 9000) state.visionTracks.delete(id);
+    const stopped = output.filter((x)=>x.stopped).length;
+    const lowerHalf = output.filter((x)=>x.center.y > srcH*.42).length;
+    const queueScore = Math.min(100, Math.round(output.length*8 + stopped*18 + Math.max(0,lowerHalf-2)*7));
+    const directions = output.reduce((acc,x)=>{ acc[x.direction]=(acc[x.direction]||0)+1; return acc; },{});
+    const dominantDirection = Object.entries(directions).filter(([k])=>k!=='STILL').sort((a,b)=>b[1]-a[1])[0]?.[0] || (stopped ? 'STILL' : 'N/A');
+    return { tracked:output, stopped, queueScore, dominantDirection, activeTracks:state.visionTracks.size };
+  }
+
+  function plateRegionForPrediction(p = {}) {
+    const [x,y,w,h] = p.bbox || [0,0,0,0];
+    if (!w || !h || p.class === 'bicycle') return null;
+    if (p.class === 'motorcycle') return [x+w*.18, y+h*.52, w*.64, h*.30];
+    return [x+w*.16, y+h*.55, w*.68, h*.27];
+  }
+
+  function plateRegionsForPrediction(p = {}) {
+    const [x,y,w,h] = p.bbox || [0,0,0,0];
+    if (!w || !h || p.class === 'bicycle') return [];
+    if (p.class === 'motorcycle') return [
+      [x+w*.18, y+h*.50, w*.64, h*.32],
+      [x+w*.27, y+h*.60, w*.46, h*.22],
+      [x+w*.12, y+h*.58, w*.76, h*.25],
+    ];
+    return [
+      [x+w*.16, y+h*.55, w*.68, h*.27],
+      [x+w*.22, y+h*.62, w*.56, h*.18],
+      [x+w*.10, y+h*.58, w*.80, h*.22],
+    ];
+  }
+
+  function anprAuthorizedIds() {
+    return new Set((window.SENTINEL_ANPR_AUTHORIZED_IDS || []).map((x)=>String(x)));
+  }
+
+  function anprCameraConfig(cam = null) {
+    const id=String(cam?.id || cam?.key || cam?.cameraId || '');
+    const all=window.SENTINEL_ANPR_CONFIG || {};
+    return { ...(all.default || {}), ...(id && all.cameras?.[id] ? all.cameras[id] : {}) };
+  }
+
+  function isAnprAuthorizedCamera(cam = null) {
+    if (!cam) return false;
+    const id = String(cam.id || cam.key || cam.cameraId || '');
+    return Boolean(id && anprAuthorizedIds().has(id));
+  }
+
+  function resetAnpr(cameraId = null) {
+    state.anprCameraId = cameraId == null ? null : String(cameraId);
+    state.anprReads = new Map();
+    state.anprVotes = new Map();
+    state.anprLastAt = 0;
+    state.anprTelemetry = { mode:'IDLE', lastAngle:0, attempts:0 };
+  }
+
+  function alphaFix(s='') { return String(s).replace(/0/g,'O').replace(/1/g,'I').replace(/2/g,'Z').replace(/5/g,'S').replace(/8/g,'B').replace(/6/g,'G'); }
+  function digitFix(s='') { return String(s).replace(/[OQ]/g,'0').replace(/[IL]/g,'1').replace(/Z/g,'2').replace(/S/g,'5').replace(/[BG]/g,(m)=>m==='B'?'8':'6'); }
+
+  function normalizePlateText(text = '') {
+    const pieces=[String(text || '').toUpperCase().replace(/[^A-Z0-9]/g,''), ...String(text || '').toUpperCase().split(/\s+/).map((x)=>x.replace(/[^A-Z0-9]/g,''))].filter(Boolean);
+    const seen=new Set();
+    for (const raw of pieces) {
+      if (raw.length < 5 || raw.length > 8 || seen.has(raw)) continue;
+      seen.add(raw);
+      const direct=[
+        [/^([A-Z]{2,3})(\d{3,4})$/, (m)=>`${m[1]}-${m[2]}`],
+        [/^(\d{3,4})([A-Z]{2,3})$/, (m)=>`${m[1]}-${m[2]}`],
+        [/^([A-Z]{1,2})(\d{2,4})([A-Z]{1,2})$/, (m)=>`${m[1]}${m[2]}-${m[3]}`],
+      ];
+      for (const [rx,fmt] of direct) { const m=raw.match(rx); if(m) return fmt(m); }
+      for (const split of [2,3]) {
+        if (raw.length-split < 3 || raw.length-split > 4) continue;
+        const a=alphaFix(raw.slice(0,split)), n=digitFix(raw.slice(split));
+        if (/^[A-Z]{2,3}$/.test(a) && /^\d{3,4}$/.test(n)) return `${a}-${n}`;
+      }
+      for (const split of [3,4]) {
+        if (raw.length-split < 2 || raw.length-split > 3) continue;
+        const n=digitFix(raw.slice(0,split)), a=alphaFix(raw.slice(split));
+        if (/^\d{3,4}$/.test(n) && /^[A-Z]{2,3}$/.test(a)) return `${n}-${a}`;
+      }
+    }
+    return '';
+  }
+
+  async function getAnprWorker() {
+    if (state.anprWorker) return state.anprWorker;
+    if (state.anprWorkerPromise) return state.anprWorkerPromise;
+    state.anprWorkerPromise = (async () => {
+      await loadExternalScript('https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js', () => window.Tesseract);
+      if (!window.Tesseract?.createWorker) throw new Error('ANPR OCR engine unavailable');
+      const worker = await window.Tesseract.createWorker('eng', 1, { logger:()=>{} });
+      await worker.setParameters({
+        tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+        tessedit_pageseg_mode:'7',
+        preserve_interword_spaces:'0',
+        user_defined_dpi:'300'
+      });
+      state.anprWorker = worker;
+      return worker;
+    })().finally(()=>{ state.anprWorkerPromise = null; });
+    return state.anprWorkerPromise;
+  }
+
+  function cropPlateRoi(sourceCanvas, roi = [0,0,0,0], targetWidth = 320) {
+    const [rx,ry,rw,rh] = roi.map(Number);
+    if (!rw || !rh) return null;
+    const padX=rw*.08, padY=rh*.18;
+    const sx=Math.max(0,Math.floor(rx-padX)), sy=Math.max(0,Math.floor(ry-padY));
+    const sw=Math.max(1,Math.min(sourceCanvas.width-sx,Math.ceil(rw+padX*2))), sh=Math.max(1,Math.min(sourceCanvas.height-sy,Math.ceil(rh+padY*2)));
+    if (sw < 18 || sh < 8) return null;
+    const out=document.createElement('canvas');
+    const scale=Math.min(7,Math.max(2.5,targetWidth/Math.max(1,sw)));
+    out.width=Math.max(220,Math.round(sw*scale)); out.height=Math.max(64,Math.round(sh*scale));
+    const ctx=out.getContext('2d',{willReadFrequently:true});
+    ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+    ctx.drawImage(sourceCanvas,sx,sy,sw,sh,0,0,out.width,out.height);
+    return out;
+  }
+
+  function plateLuma(canvas) {
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    const d=ctx.getImageData(0,0,canvas.width,canvas.height).data; let sum=0, n=0;
+    for(let i=0;i<d.length;i+=16){ sum += .299*d[i]+.587*d[i+1]+.114*d[i+2]; n++; }
+    return sum/Math.max(1,n);
+  }
+
+  function otsuThreshold(gray = []) {
+    const hist=new Uint32Array(256); gray.forEach((v)=>hist[Math.max(0,Math.min(255,Math.round(v)))]++);
+    let total=gray.length,sum=0; for(let i=0;i<256;i++) sum+=i*hist[i];
+    let sumB=0,wB=0,max=0,threshold=128;
+    for(let i=0;i<256;i++){
+      wB+=hist[i]; if(!wB)continue; const wF=total-wB; if(!wF)break;
+      sumB+=i*hist[i]; const mB=sumB/wB,mF=(sum-sumB)/wF; const between=wB*wF*(mB-mF)*(mB-mF);
+      if(between>max){max=between;threshold=i;}
+    }
+    return threshold;
+  }
+
+  function enhancePlateCanvas(baseCanvas, mode = 'auto') {
+    const out=document.createElement('canvas'); out.width=baseCanvas.width; out.height=baseCanvas.height;
+    const ctx=out.getContext('2d',{willReadFrequently:true}); ctx.drawImage(baseCanvas,0,0);
+    const img=ctx.getImageData(0,0,out.width,out.height), d=img.data; const gray=[];
+    let min=255,max=0,sum=0;
+    for(let i=0;i<d.length;i+=4){ const g=.299*d[i]+.587*d[i+1]+.114*d[i+2]; gray.push(g); min=Math.min(min,g); max=Math.max(max,g); sum+=g; }
+    const mean=sum/Math.max(1,gray.length); const night=mean<82;
+    const lo=Math.max(0,min-4), hi=Math.max(lo+24,max); const stretch=255/(hi-lo);
+    const normalized=gray.map((g)=>Math.max(0,Math.min(255,(g-lo)*stretch)));
+    const threshold=otsuThreshold(normalized);
+    for(let p=0,i=0;i<d.length;i+=4,p++){
+      let v=normalized[p];
+      if(night) v=255*Math.pow(v/255,.72);
+      if(mode==='binary') v=v>threshold?255:0;
+      else if(mode==='invert') v=v>threshold?0:255;
+      else v=Math.max(0,Math.min(255,(v-128)*1.32+128));
+      d[i]=d[i+1]=d[i+2]=v; d[i+3]=255;
+    }
+    ctx.putImageData(img,0,0); out.dataset.anprMode=night?'NIGHT':'DAY'; out.dataset.preprocess=mode; return out;
+  }
+
+  function rotatePlateCanvas(canvas, degrees = 0) {
+    if (!degrees) return canvas;
+    const out=document.createElement('canvas'); out.width=canvas.width; out.height=canvas.height;
+    const ctx=out.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,out.width,out.height);
+    ctx.translate(out.width/2,out.height/2); ctx.rotate(degrees*Math.PI/180); ctx.drawImage(canvas,-canvas.width/2,-canvas.height/2); return out;
+  }
+
+  function keystonePlateCanvas(canvas, strength = 0) {
+    if (!strength) return canvas;
+    const out=document.createElement('canvas'); out.width=canvas.width; out.height=canvas.height;
+    const ctx=out.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,out.width,out.height);
+    const slices=Math.min(48,Math.max(18,Math.round(canvas.height/4)));
+    for(let i=0;i<slices;i++){
+      const sy=Math.floor(i*canvas.height/slices), sh=Math.ceil(canvas.height/slices)+1;
+      const t=(i+.5)/slices; const scale=Math.max(.72,Math.min(1.28,1+strength*(t-.5)*2));
+      const dw=canvas.width*scale, dx=(canvas.width-dw)/2; const dy=sy;
+      ctx.drawImage(canvas,0,sy,canvas.width,sh,dx,dy,dw,sh);
+    }
+    return out;
+  }
+
+  function buildPlateCandidate(sourceCanvas, p, attempt = 0) {
+    const cfg=anprCameraConfig(state.inlineCamera || state.activeCamera);
+    const regions=plateRegionsForPrediction(p); if(!regions.length)return null;
+    const roi=regions[attempt % regions.length]; const base=cropPlateRoi(sourceCanvas,roi,Number(cfg.targetWidth||320)); if(!base)return null;
+    const modes=['auto','binary','auto','binary','invert']; const angles=Array.isArray(cfg.skewAngles)&&cfg.skewAngles.length?cfg.skewAngles:[0,-4,4,-7,7];
+    const keystones=Array.isArray(cfg.keystoneStrengths)&&cfg.keystoneStrengths.length?cfg.keystoneStrengths:[0,-.10,.10,-.16,.16];
+    const mode=modes[attempt%modes.length], angle=Number(angles[attempt%angles.length]||0), keystone=Number(keystones[attempt%keystones.length]||0);
+    const enhanced=enhancePlateCanvas(base,mode); const warped=keystonePlateCanvas(enhanced,keystone); const canvas=rotatePlateCanvas(warped,angle);
+    return { canvas, roi, angle, keystone, mode:enhanced.dataset.anprMode || 'DAY', preprocess:mode, luma:Math.round(plateLuma(base)) };
+  }
+
+  function voteAnprRead(key, plate, confidence, meta = {}) {
+    const now=Date.now(); const bucket=state.anprVotes.get(key) || { frames:0, candidates:new Map(), lastSeen:now };
+    bucket.frames++; bucket.lastSeen=now;
+    const c=bucket.candidates.get(plate) || { count:0, confidenceSum:0, bestConfidence:0, preview:'', plate };
+    c.count++; c.confidenceSum+=confidence; c.bestConfidence=Math.max(c.bestConfidence,confidence); if(confidence>=c.bestConfidence){ c.preview=meta.preview||c.preview; c.roi=meta.roi||c.roi; c.mode=meta.mode; c.angle=meta.angle; }
+    bucket.candidates.set(plate,c); state.anprVotes.set(key,bucket);
+    const ranked=[...bucket.candidates.values()].sort((a,b)=>(b.count-a.count)||((b.confidenceSum/b.count)-(a.confidenceSum/a.count)));
+    const best=ranked[0]; if(!best)return null;
+    const cfg=anprCameraConfig(state.inlineCamera || state.activeCamera); const need=Math.max(2,Number(cfg.stableVotes||2)); const avg=Math.round(best.confidenceSum/Math.max(1,best.count));
+    const stable=best.count>=need || (best.bestConfidence>=92 && best.count>=1);
+    return { plate:best.plate, confidence:avg, votes:best.count, stable, preview:best.preview, roi:best.roi, mode:best.mode, angle:best.angle, at:now };
+  }
+
+  async function runAuthorizedAnpr(found = [], sourceCanvas = null, tracking = null, cam = null) {
+    if (!state.anprRunning || state.anprBusy || !sourceCanvas || !isAnprAuthorizedCamera(cam)) return [];
+    const camId=String(cam?.id || cam?.key || ''); if (state.anprCameraId !== camId) resetAnpr(camId);
+    const cfg=anprCameraConfig(cam), now=Date.now(), interval=Math.max(1600,Number(cfg.intervalMs||2200));
+    if (now-state.anprLastAt < interval) return [...state.anprReads.values()];
+    state.anprLastAt=now; state.anprBusy=true;
+    try {
+      const worker=await getAnprWorker();
+      const vehicles=(tracking?.tracked || found).filter((p)=>p.class !== 'person' && p.class !== 'bicycle').sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,Math.max(1,Math.min(2,Number(cfg.maxVehicles||2))));
+      const reads=[];
+      for (const p of vehicles) {
+        const key=String(p.trackId || `${p.class}:${Math.round(p.bbox?.[0]||0)}:${Math.round(p.bbox?.[1]||0)}`);
+        const bucket=state.anprVotes.get(key); const attempt=Number(bucket?.frames||0); const candidate=buildPlateCandidate(sourceCanvas,p,attempt); if(!candidate)continue;
+        const result=await worker.recognize(candidate.canvas); const plate=normalizePlateText(result?.data?.text || ''); const confidence=Math.round(Number(result?.data?.confidence || 0));
+        state.anprTelemetry={ mode:candidate.mode, lastAngle:candidate.angle, keystone:candidate.keystone, attempts:Number(state.anprTelemetry?.attempts||0)+1 };
+        if (!plate || confidence < Math.max(24,Number(cfg.minConfidence||28))) continue;
+        const preview=candidate.canvas.toDataURL('image/jpeg',.78); const voted=voteAnprRead(key,plate,confidence,{...candidate,preview}); if(!voted)continue;
+        if(voted.stable){ const item={ key, trackId:p.trackId || null, ...voted }; state.anprReads.set(key,item); reads.push(item); }
+      }
+      for (const [k,v] of state.anprReads) if(now-v.at>14000) state.anprReads.delete(k);
+      for (const [k,v] of state.anprVotes) if(now-v.lastSeen>16000) state.anprVotes.delete(k);
+      return reads;
+    } finally { state.anprBusy=false; }
+  }
+
+  function setAnprButtons() {
+    const cam=state.inlineCamera || state.activeCamera;
+    const authorized=isAnprAuthorizedCamera(cam);
+    [$('cameraAnprBtn'),$('cctvPopupAnpr')].filter(Boolean).forEach((btn)=>{
+      btn.hidden=!authorized;
+      btn.classList.toggle('active',state.anprRunning);
+      btn.setAttribute('aria-pressed',String(state.anprRunning));
+      btn.textContent=state.anprRunning?'■ STOP ANPR':'AUTHORIZED ANPR';
+      btn.title=authorized?'On-device plate OCR for this explicitly authorized camera':'ANPR locked for public cameras';
+    });
+  }
+
+  async function stopAuthorizedAnpr() {
+    state.anprRunning=false; state.visionPlateShield=true; resetAnpr(null); setAnprButtons();
+    if ($('anprPlateList')) $('anprPlateList').innerHTML='<span>ANPR IDLE</span><small>No plate data retained.</small>';
+    if (!state.visionRunning) clearLiveVisionBoxes();
+  }
+
+  function toggleAuthorizedAnpr() {
+    const cam=state.inlineCamera || state.activeCamera;
+    if (!isAnprAuthorizedCamera(cam)) { toast('ANPR 僅能用於你自有或已明確授權的鏡頭'); return; }
+    if (state.anprRunning) { stopAuthorizedAnpr(); return; }
+    const ok=window.confirm('AUTHORIZED ANPR 只應用於你自有或已取得明確授權的鏡頭。車牌只在本機即時辨識，不建立歷史紀錄。確定啟用？');
+    if (!ok) return;
+    state.anprRunning=true; state.visionPlateShield=false; resetAnpr(cam.id || cam.key || null); setAnprButtons();
+    if (!state.visionRunning) startCameraLiveAnalysis();
+    toast('AUTHORIZED ANPR // ON-DEVICE OCR');
+  }
+
+  function renderLiveVisionBoxes(predictions = [], srcW = 1, srcH = 1, tracking = null) {
     clearLiveVisionBoxes();
     const allowed = new Set(['person','car','bus','truck','motorcycle','bicycle']);
     const found = predictions.filter((x) => allowed.has(x.class));
+    const trackedByKey = new Map((tracking?.tracked||[]).map((x)=>[`${x.class}:${Math.round(x.bbox?.[0]||0)}:${Math.round(x.bbox?.[1]||0)}`,x]));
     analysisStages().forEach((stage) => {
       const layer = document.createElement('div');
       layer.className = 'live-vision-layer';
@@ -3656,18 +3986,39 @@
       const offsetX = (stageW - drawW) / 2, offsetY = (stageH - drawH) / 2;
       found.forEach((p) => {
         const [x,y,w,h] = p.bbox || [0,0,0,0];
+        const tracked = trackedByKey.get(`${p.class}:${Math.round(x)}:${Math.round(y)}`);
         const box = document.createElement('div');
-        box.className = `live-vision-box ${p.class === 'person' ? 'person' : 'vehicle'}`;
+        box.className = `live-vision-box ${p.class === 'person' ? 'person' : 'vehicle'} ${tracked?.stopped ? 'stopped' : ''}`;
         box.style.left = `${Math.max(0, offsetX + x * fitScale)}px`;
         box.style.top = `${Math.max(0, offsetY + y * fitScale)}px`;
         box.style.width = `${Math.max(12, w * fitScale)}px`;
         box.style.height = `${Math.max(12, h * fitScale)}px`;
-        box.innerHTML = `<span>${escapeHtml(String(p.class || '').toUpperCase())} ${Math.round(Number(p.score || 0)*100)}%</span>`;
+        const trackText = tracked ? ` · T${String(tracked.trackId).padStart(2,'0')} · ${tracked.stopped?'STOP':tracked.direction}` : '';
+        box.innerHTML = `<span>${escapeHtml(String(p.class || '').toUpperCase())} ${Math.round(Number(p.score || 0)*100)}%${escapeHtml(trackText)}</span>`;
         layer.appendChild(box);
+        const plate = p.class !== 'person' ? plateRegionForPrediction(p) : null;
+        if (plate && state.visionPlateShield) {
+          const [px,py,pw,ph] = plate;
+          const mask = document.createElement('div');
+          mask.className = 'plate-privacy-roi';
+          mask.style.left = `${Math.max(0, offsetX + px * fitScale)}px`;
+          mask.style.top = `${Math.max(0, offsetY + py * fitScale)}px`;
+          mask.style.width = `${Math.max(12, pw * fitScale)}px`;
+          mask.style.height = `${Math.max(7, ph * fitScale)}px`;
+          mask.innerHTML = '<span>PLATE SHIELD</span>';
+          layer.appendChild(mask);
+        } else if (plate && state.anprRunning) {
+          const match=[...state.anprReads.values()].find((r)=> tracked?.trackId && String(r.trackId)===String(tracked.trackId));
+          if (match) {
+            const [px,py,pw,ph]=plate; const tag=document.createElement('div'); tag.className='anpr-plate-tag';
+            tag.style.left=`${Math.max(0,offsetX+px*fitScale)}px`; tag.style.top=`${Math.max(0,offsetY+(py+ph)*fitScale+3)}px`;
+            tag.innerHTML=`<b>${escapeHtml(match.plate)}</b><small>${match.confidence}%</small>`; layer.appendChild(tag);
+          }
+        }
       });
       const stamp = document.createElement('div');
       stamp.className = 'live-vision-stamp';
-      stamp.textContent = `LIVE ANALYSIS · ${new Date().toLocaleTimeString('zh-TW',{hour12:false})}`;
+      stamp.textContent = `ANON LIVE ANALYSIS · ${new Date().toLocaleTimeString('zh-TW',{hour12:false})}`;
       layer.appendChild(stamp);
       stage.appendChild(layer);
     });
@@ -3710,13 +4061,23 @@
       const vehicles = [...vehicleClasses].reduce((n,k)=>n+(counts[k]||0),0);
       const crowdScore = Math.min(100, Math.round(persons*7 + personArea*180));
       const trafficScore = Math.min(100, Math.round(vehicles*7 + vehicleArea*150));
-      metrics.innerHTML = `<div><small>PERSON</small><b>${persons}</b></div><div><small>VEHICLE</small><b>${vehicles}</b></div><div><small>CROWD</small><b>${densityLabel(crowdScore)} <em>${crowdScore}</em></b></div><div><small>TRAFFIC</small><b>${densityLabel(trafficScore)} <em>${trafficScore}</em></b></div>`;
+      const tracking = updateVisionTracks(found, canvas.width, canvas.height, cam.id);
+      if (state.anprRunning && isAnprAuthorizedCamera(cam)) await runAuthorizedAnpr(found, canvas, tracking, cam);
+      const livePlates=[...state.anprReads.values()].filter((x)=>Date.now()-x.at<12000);
+      metrics.innerHTML = `<div><small>PERSON</small><b>${persons}</b></div><div><small>VEHICLE</small><b>${vehicles}</b></div><div><small>QUEUE</small><b>${densityLabel(tracking.queueScore)} <em>${tracking.queueScore}</em></b></div><div><small>STOPPED</small><b>${tracking.stopped}</b></div><div><small>FLOW DIR</small><b>${escapeHtml(tracking.dominantDirection)}</b></div><div><small>PLATE</small><b>${state.anprRunning?`READ ${livePlates.length}`:(state.visionPlateShield?'SHIELDED':'OFF')}</b></div>`;
       const typeOrder = ['car','bus','truck','motorcycle','bicycle','person'];
       const chips = typeOrder.filter((k)=>counts[k]).map((k)=>`<span><b>${k.toUpperCase()}</b><em>${counts[k]}</em></span>`).join('');
-      types.innerHTML = `${chips || '<span><b>NO TARGET CLASS</b><em>0</em></span>'}<small>分析框直接疊在目前 CCTV，約每 4–5 秒更新一次。受遮擋、角度、夜間與低畫質影響；密度為畫面估計，不是實際人數。不提供品牌／精確車型、人臉、車牌或身份辨識；NO TRACKING。</small>`;
+      const trackingChips = `<span><b>TRACKS</b><em>${tracking.activeTracks}</em></span><span><b>DIR</b><em>${escapeHtml(tracking.dominantDirection)}</em></span><span><b>STOP</b><em>${tracking.stopped}</em></span>`;
+      const plateChips = state.anprRunning && livePlates.length ? livePlates.map((r)=>`<span class="plate-chip"><b>${escapeHtml(r.plate)}</b><em>${r.confidence}% · ${r.votes||1}V</em></span>`).join('') : '';
+      const anprMode = state.anprRunning ? `${escapeHtml(state.anprTelemetry?.mode||'DAY')} · SKEW ${Number(state.anprTelemetry?.lastAngle||0)}° · KEY ${Number(state.anprTelemetry?.keystone||0).toFixed(2)} · ${Number(state.anprTelemetry?.attempts||0)} OCR` : '';
+      const anprModeChip = state.anprRunning ? `<span class="anpr-mode-chip"><b>ANPR MODE</b><em>${anprMode}</em></span>` : '';
+      types.innerHTML = `${chips || '<span><b>NO TARGET CLASS</b><em>0</em></span>'}${trackingChips}${plateChips}${anprModeChip}<small>${state.anprRunning?'AUTHORIZED ANPR：已啟用夜間增強、機車專用 ROI、傾斜補償與多幀投票；僅此已授權鏡頭、本機即時 OCR、不保留歷史、不做跨鏡頭查號。':'匿名短時追蹤只存在目前瀏覽器記憶體；切換 CCTV 或停止分析就清除。公開 CCTV 的車牌僅標示候選區並即時模糊，不讀取號碼。'} 方向、停滯與排隊皆為畫面估計，遮擋、反光與過低解析度仍會降低準確度。</small>`;
+      if ($('anprPlateList')) $('anprPlateList').innerHTML = state.anprRunning ? (livePlates.length ? livePlates.map((r)=>`<div class="anpr-stable-read"><img src="${r.preview}" alt="plate ROI"><b>${escapeHtml(r.plate)}</b><em>${r.confidence}% · ${r.votes||1} votes · ${escapeHtml(r.mode||'DAY')} · ${Number(r.angle||0)}°</em></div>`).join('') : `<span>SCANNING PLATES…</span><small>${escapeHtml(state.anprTelemetry?.mode||'DAY')} enhancement · multi-frame verification</small>`) : '<span>ANPR LOCKED</span><small>Authorized cameras only.</small>';
       const scaleX = srcW / Math.max(1,canvas.width), scaleY = srcH / Math.max(1,canvas.height);
-      renderLiveVisionBoxes(found.map((p)=>({ ...p, bbox:[p.bbox[0]*scaleX,p.bbox[1]*scaleY,p.bbox[2]*scaleX,p.bbox[3]*scaleY] })), srcW, srcH);
-      state.visionAnalysis = { cameraId:cam.id, at:Date.now(), counts, crowdScore, trafficScore };
+      const scaledFound = found.map((p)=>({ ...p, bbox:[p.bbox[0]*scaleX,p.bbox[1]*scaleY,p.bbox[2]*scaleX,p.bbox[3]*scaleY] }));
+      const scaledTracking = { ...tracking, tracked:tracking.tracked.map((p)=>({ ...p, bbox:[p.bbox[0]*scaleX,p.bbox[1]*scaleY,p.bbox[2]*scaleX,p.bbox[3]*scaleY] })) };
+      renderLiveVisionBoxes(scaledFound, srcW, srcH, scaledTracking);
+      state.visionAnalysis = { cameraId:cam.id, at:Date.now(), counts, crowdScore, trafficScore, queueScore:tracking.queueScore, stopped:tracking.stopped, dominantDirection:tracking.dominantDirection, activeTracks:tracking.activeTracks, plateShield:state.visionPlateShield };
       status.textContent = `LIVE · ${found.length} OBJECTS · ${new Date().toLocaleTimeString('zh-TW',{hour12:false})}`;
     } catch (err) {
       status.textContent = 'ANALYSIS RETRY';
@@ -3727,6 +4088,7 @@
   }
 
   function setVisionButtons(active) {
+    setAnprButtons();
     [$('cameraAnalyzeBtn'), $('cctvPopupAnalyze')].filter(Boolean).forEach((btn) => {
       btn.classList.toggle('active', active);
       btn.setAttribute('aria-pressed', String(active));
@@ -3738,6 +4100,8 @@
     state.visionRunning = false;
     clearTimeout(state.visionLoopTimer); state.visionLoopTimer = null;
     clearLiveVisionBoxes();
+    resetVisionTracks(null);
+    if (state.anprRunning) stopAuthorizedAnpr();
     analysisStages().forEach((stage)=>stage.classList.remove('live-analysis-active'));
     setVisionButtons(false);
     if ($('visionLabStatus')) $('visionLabStatus').textContent = 'READY';
@@ -3829,7 +4193,13 @@
 
   function selectInlineCamera(cam, cityFlow = []) {
     if (!cam || !$('inlineCameraStage') || !hasDirectCameraMedia(cam)) return;
+    if (String(state.inlineCamera?.id || '') !== String(cam.id || '')) {
+      resetVisionTracks(cam.id);
+      if (state.anprRunning && !isAnprAuthorizedCamera(cam)) stopAuthorizedAnpr();
+      else resetAnpr(cam.id);
+    }
     state.inlineCamera = cam;
+    setAnprButtons();
     $('inlineCameraCard').hidden = false;
     $('inlineCameraTitle').textContent = shortName(cam.name || cam.road || 'PUBLIC CCTV');
     $('inlineCameraSignal').textContent = cam.scenic ? 'SCENIC // ORIGINAL' : 'LIVE // DIRECT';
@@ -3988,7 +4358,7 @@
       const laneHtml = lanes.length ? `<div class="lane-matrix">${lanes.slice(0,4).map((lane,i)=>`<div class="lane-card ${lane===best?'best':''}"><small>${escapeHtml(laneLabel(lane,i))}</small><b>${Number.isFinite(Number(lane.speed))?Math.round(Number(lane.speed)):'—'} <em>km/h</em></b><span>OCC ${Number.isFinite(Number(lane.occupancy))?Math.round(Number(lane.occupancy))+'%':'—'} · FLOW ${Number.isFinite(Number(lane.volume))?Math.round(Number(lane.volume)):'—'}</span><strong>${Number.isFinite(Number(lane.probability))?Math.round(Number(lane.probability))+'%':'—'}</strong></div>`).join('')}</div>` : '';
       const tctx = tunnelLaneContext(cam, vd);
       const safety = tctx.active && best ? `<small class="lane-safety">${escapeHtml(tctx.name || 'TUNNEL APPROACH')}：車道機率為目前速度／占有率／流量推算的短時趨勢，不保證未來速度；進入隧道後請依現場 LCS/CMS、標線與速限行駛${tctx.snow ? '，雪山隧道內禁止變換車道' : ''}。</small>` : '';
-      setCameraIntelContent(`<span class="intel-kicker">LIVE SENSOR FUSION · ROAD ANALYSIS</span><div class="intel-grid four"><div><small>FLOW STATE</small><b>${escapeHtml(status)}</b></div><div><small>AVG SPEED</small><b>${escapeHtml(speed)}</b></div><div><small>OCCUPANCY</small><b>${escapeHtml(occupancy)}</b></div><div><small>FLOW EDGE</small><b>${escapeHtml(bestText)}</b></div></div>${laneHtml}${safety}<small class="privacy-note">FREEWAY VD 1-MINUTE DATA + PUBLIC CCTV · LIVE ANALYSIS 可將人／車類別與密度推估直接疊在 CCTV 畫面 · NO PLATE OCR / NO FACE ID / NO TRACKING</small>`, false);
+      setCameraIntelContent(`<span class="intel-kicker">LIVE SENSOR FUSION · ROAD ANALYSIS</span><div class="intel-grid four"><div><small>FLOW STATE</small><b>${escapeHtml(status)}</b></div><div><small>AVG SPEED</small><b>${escapeHtml(speed)}</b></div><div><small>OCCUPANCY</small><b>${escapeHtml(occupancy)}</b></div><div><small>FLOW EDGE</small><b>${escapeHtml(bestText)}</b></div></div>${laneHtml}${safety}<small class="privacy-note">FREEWAY VD 1-MINUTE DATA + PUBLIC CCTV · LIVE ANALYSIS 可將人／車類別與密度推估直接疊在 CCTV 畫面 · PUBLIC CCTV: NO PLATE OCR / NO FACE ID / NO CROSS-CAMERA TRACKING</small>`, false);
       renderCameraVisionOverlay(cam, { status, speed, vd });
     } catch (err) {
       renderCameraVisionOverlay(cam, { status: 'PUBLIC FEED', speed: '—', vd: null });
@@ -4618,6 +4988,8 @@
     $('cctvPopupAnalyze')?.addEventListener('click', toggleCameraLiveAnalysis);
     bindCctvPopupDrag();
     $('cameraAnalyzeBtn')?.addEventListener('click', toggleCameraLiveAnalysis);
+    $('cameraAnprBtn')?.addEventListener('click', toggleAuthorizedAnpr);
+    $('cctvPopupAnpr')?.addEventListener('click', toggleAuthorizedAnpr);
     $('visionLabClose')?.addEventListener('click', () => stopCameraLiveAnalysis({ collapse:true }));
     document.addEventListener('click', (e) => {
       const more = e.target.closest?.('[data-news-more]');

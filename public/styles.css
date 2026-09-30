@@ -2068,7 +2068,7 @@ body.camera-expanded-open{overflow:hidden!important;}
 .vision-lab-head span,.vision-lab-head b{display:block;font:700 8px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;}
 .vision-lab-head span{color:#7eb28f}.vision-lab-head b{margin-top:3px;color:#d5e5d9;}
 #cameraAnalysisCanvas{display:block;width:100%;height:auto;max-height:330px;object-fit:contain;background:#030404;border:1px solid rgba(255,255,255,.055);}
-.vision-lab-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;margin-top:7px;}
+.vision-lab-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:7px;}
 .vision-lab-metrics>div{min-width:0;padding:7px 6px;border:1px solid rgba(255,255,255,.055);background:rgba(255,255,255,.018);}
 .vision-lab-metrics small{display:block;color:#6f7772;font:7px ui-monospace,SFMono-Regular,Menlo,monospace;}
 .vision-lab-metrics b{display:block;margin-top:3px;color:#d8ded9;font-size:10px;line-height:1.25;overflow-wrap:anywhere}.vision-lab-metrics em{color:#8bbda2;font:normal 8px ui-monospace,SFMono-Regular,Menlo,monospace;}
@@ -2148,6 +2148,11 @@ body.camera-expanded-open{overflow:hidden!important;}
 .live-vision-box span{position:absolute;left:-1px;top:-18px;max-width:150px;padding:3px 4px;background:rgba(3,6,7,.88);border:1px solid currentColor;color:#cfe4d6;font:700 7px/1 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;}
 .live-vision-box.person span{color:#ead694;}
 .live-vision-stamp{position:absolute;right:7px;top:7px;padding:4px 6px;border:1px solid rgba(139,189,162,.28);background:rgba(3,6,7,.80);color:#9dc7aa;font:700 7px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;}
+
+.live-vision-box.stopped{border-color:rgba(229,120,95,.96);box-shadow:0 0 0 1px rgba(0,0,0,.42),0 0 15px rgba(229,120,95,.18) inset;}
+.live-vision-box.stopped span{color:#efaa95;}
+.plate-privacy-roi{position:absolute;z-index:3;min-width:12px;min-height:7px;border:1px dashed rgba(224,199,127,.72);background:rgba(8,9,9,.42);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);overflow:visible;}
+.plate-privacy-roi span{position:absolute;left:-1px;bottom:-14px;padding:2px 3px;background:rgba(3,6,7,.82);color:#d8c77f;font:700 6px/1 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;}
 .camera-card-actions button.active{border-color:rgba(139,189,162,.55)!important;color:#b9ddc4!important;background:rgba(90,140,108,.12)!important;}
 
 /* Retire the old full-card enlargement behavior. */
@@ -2505,3 +2510,12 @@ body.camera-expanded-open{overflow:auto!important;}
 /* CCTV point visibility is independent from media playback capability. */
 
 .map-live-cctv-card.point-only::after{content:'點擊查看'!important;}
+
+
+/* v2.3 AUTHORIZED ANPR — local-only OCR for explicitly allowlisted private/authorized cameras */
+.anpr-action{border-color:rgba(104,190,150,.32)!important;color:#9bc8ad!important}.anpr-action.active{background:rgba(78,159,119,.14)!important;box-shadow:inset 0 0 18px rgba(78,159,119,.08);color:#b9e0c8!important}
+.anpr-plate-tag{position:absolute;z-index:8;display:flex;gap:5px;align-items:center;padding:2px 5px;border:1px solid rgba(111,214,160,.7);background:rgba(2,9,6,.88);box-shadow:0 0 16px rgba(68,183,126,.18);font:7px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;color:#b9e0c8;pointer-events:none}.anpr-plate-tag b{font-size:9px}.anpr-plate-tag small{font-size:5px;color:#6fb88f}
+.anpr-plate-list{margin-top:7px;display:flex;gap:5px;flex-wrap:wrap;align-items:center;padding:6px;border:1px solid rgba(111,214,160,.12);background:rgba(4,12,8,.25);min-height:34px}.anpr-plate-list>div{display:grid;grid-template-columns:70px auto auto;gap:7px;align-items:center;padding:4px 6px;border:1px solid rgba(111,214,160,.15);background:rgba(4,10,7,.38)}.anpr-plate-list img{width:70px;height:24px;object-fit:contain;background:#fff}.anpr-plate-list b{font:500 11px ui-monospace,SFMono-Regular,Menlo,monospace;color:#b9e0c8}.anpr-plate-list em{font:normal 6px ui-monospace,SFMono-Regular,Menlo,monospace;color:#6d9b80}.anpr-plate-list>span{color:#7b877f;font:7px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em}.anpr-plate-list>small{color:#555f59;font:6px ui-monospace,SFMono-Regular,Menlo,monospace}.plate-chip b{color:#b9e0c8!important}.plate-chip em{color:#6fb88f!important}.anpr-settings code{color:#a8bcb0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+@media(max-width:520px){.anpr-plate-list>div{grid-template-columns:56px auto auto}.anpr-plate-list img{width:56px;height:22px}.anpr-plate-tag b{font-size:8px}.camera-card-actions{flex-wrap:wrap;justify-content:flex-end}}
+/* v2.3 ANPR verification telemetry */
+.anpr-mode-chip{border-color:rgba(107,160,214,.22)!important;background:rgba(35,70,100,.12)!important}.anpr-mode-chip b{color:#9ebbd3!important}.anpr-mode-chip em{color:#7896ad!important}.anpr-stable-read{box-shadow:inset 2px 0 0 rgba(111,214,160,.52)}.anpr-stable-read em{white-space:nowrap}.anpr-plate-list img{image-rendering:auto}

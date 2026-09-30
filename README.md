@@ -1,4 +1,4 @@
-# SENTINEL // TAIWAN — Cloudflare v2.0.0
+# SENTINEL // TAIWAN — Cloudflare v2.3.0
 
 全新 Cloudflare Workers + Static Assets 版本。保留原本 SENTINEL / 007 戰情介面與使用流程，但後端入口、CCTV 代理、快取與部署方式已改成 Cloudflare 原生架構，不再依賴 Vercel Serverless Functions。
 
@@ -73,3 +73,53 @@ BASE_URL=https://你的網址 npm run smoke
 ## 注意
 
 公開 CCTV 與第三方公開資料仍可能因來源站臨時維護、改版、封鎖機房 IP 或串流 token 過期而個別失效。此版的設計是讓單一來源失效時不拖垮整個 Worker，並讓前端能使用其他候選攝影機；無法合法取得的封閉串流不會繞過授權限制。
+
+
+## v2.2.0 — Privacy-first CCTV live analysis
+
+- Browser-side object detection remains the default so continuous analysis does not consume Workers AI quota.
+- Adds anonymous short-lived per-camera track IDs, dominant movement direction, stopped-vehicle count, and queue index.
+- Public CCTV license plates are **not OCRed**. The UI estimates a plate candidate region inside detected vehicles and places a local blur shield over that region.
+- Tracks exist only in browser memory, expire after a few seconds, reset when the camera changes, and are never persisted or correlated across cameras.
+- No face recognition, identity matching, vehicle-owner identification, or cross-camera person/vehicle tracking.
+- This is traffic situational analysis only; direction/queue/stopped metrics are estimates and are affected by camera angle, occlusion, night conditions and resolution.
+
+Cloudflare Workers AI remains optional. Cloudflare currently exposes serverless object detection such as `@cf/facebook/detr-resnet-50`, but the continuous default stays on-device to preserve the free quota and reduce edge requests.
+
+
+## AUTHORIZED ANPR (v2.2)
+
+This build adds on-device license-plate OCR for cameras you own or have explicit permission to process. Public CCTV remains plate-shielded by default.
+
+1. Find the `id` of your authorized camera object.
+2. Edit `public/anpr-config.js`.
+3. Add only the authorized ID, for example: `window.SENTINEL_ANPR_AUTHORIZED_IDS = ['private-gate-01'];`
+4. Deploy again. The camera card will reveal **AUTHORIZED ANPR** only for allowlisted IDs.
+
+The OCR pipeline runs in the browser with Tesseract.js 7, analyzes only estimated plate ROIs, keeps results in memory for seconds, and does not send OCR text/images to the Worker or store plate history. Camera switching and stopping analysis clear transient reads. Accuracy depends strongly on source resolution, shutter speed, viewing angle, plate size, night lighting, and compression.
+
+## AUTHORIZED ANPR+ (v2.3.0)
+
+v2.3 keeps ANPR locked to exact camera IDs in `public/anpr-config.js`, and strengthens recognition for owned / explicitly authorized cameras without adding server-side plate history.
+
+- **Night enhancement**: estimates plate-region luminance, stretches contrast, applies low-light gamma lift, and records DAY/NIGHT mode in the live panel.
+- **Skew compensation**: successive frames rotate the candidate plate crop through configurable angles (`0, -4, 4, -7, 7` by default) instead of trusting a single horizontal crop.
+- **Motorcycle ROI**: motorcycle detections use taller/lower candidate regions and cycle through multiple plate-area hypotheses.
+- **Multi-frame voting**: OCR text must normally agree across at least two reads before it is shown as a stable plate. A single exceptionally high-confidence result can be accepted, configurable with `stableVotes` and `minConfidence`.
+- **OCR-confusion repair**: common OCR substitutions such as `O/0`, `I/1`, `Z/2`, `S/5`, `B/8`, and `G/6` are corrected only when they make sense for an alphanumeric plate pattern.
+- **Per-camera tuning**: `intervalMs`, `minConfidence`, `stableVotes`, `maxVehicles`, `targetWidth`, `skewAngles`, and `keystoneStrengths` can be overridden under `SENTINEL_ANPR_CONFIG.cameras`.
+- **Local-only results**: reads, votes, previews, and temporary tracking remain in browser memory and are cleared on camera change or ANPR stop. No plate-search endpoint or cross-camera correlation is added.
+
+Example:
+
+```js
+window.SENTINEL_ANPR_AUTHORIZED_IDS = ['private-gate-01'];
+window.SENTINEL_ANPR_CONFIG = {
+  default: { intervalMs: 2200, minConfidence: 28, stableVotes: 2, maxVehicles: 2, targetWidth: 320, skewAngles: [0,-4,4,-7,7], keystoneStrengths: [0,-0.10,0.10,-0.16,0.16] },
+  cameras: {
+    'private-gate-01': { targetWidth: 380, intervalMs: 1800, skewAngles: [0,-3,3,-6,6], keystoneStrengths: [0,-0.08,0.08] }
+  }
+};
+```
+
+For best results, use a camera where a plate is at least roughly 80–120 pixels wide in the source frame and avoid heavy motion blur or blown-out IR reflections. The browser UI shows current enhancement mode, skew angle and OCR attempt count so each authorized camera can be tuned empirically.

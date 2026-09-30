@@ -1,66 +1,53 @@
-# SENTINEL Cloudflare v2.0.0 — Validation Report
+# SENTINEL // TAIWAN v2.3.0 Cloudflare — Test Report
 
-Date: 2026-09-24 (Asia/Taipei)
+Date: 2026-09-29
 
 ## Result
 
-**PASS for deploy-ready source validation.**
+PASS — Cloudflare project structure, 19 frontend API routes, static assets, CCTV proxy, traffic live-analysis wiring, and the v2.3 Authorized ANPR+ pipeline all pass local checks.
 
-This report distinguishes code-level verification from a real Cloudflare-edge deployment. A real `workers.dev` smoke test still requires deployment into the owner's Cloudflare account.
+## Checks performed
 
-## Automated checks completed
+- `npm run check` — PASS
+  - required Cloudflare files present
+  - Worker main/static-assets routing configuration valid
+  - `/api/health` and legacy `/api/data?action=health` return 200
+  - all 19 frontend API actions have Worker routes
+  - live-vision tracking / queue / direction / plate-shield code present
+  - Authorized ANPR / Tesseract.js integration present
+- `npm run test:cctv` — PASS
+  - wrapper discovery -> HLS
+  - master/child playlists rewritten through same-origin proxy
+  - segment streaming
+  - Cookie / Referer forwarding
+  - cross-host HLS resource rejected
+- `npm run test:anpr` — PASS
+  - standard plate normalization samples
+  - common OCR confusion repair (`O/0`, `I/1`, `Z/2`, `S/5`, `B/8`, `G/6`)
+  - default ANPR allowlist empty
+  - authorization requires an exact allowlisted camera ID
+  - night enhancement / luminance processing present
+  - Otsu thresholding present
+  - skew-angle compensation present
+  - lightweight keystone compensation present
+  - motorcycle ROI variants present
+  - multi-frame vote state and stable-read threshold present
+  - per-camera ANPR tuning present
 
-### Project / routing
-- Required Cloudflare files present.
-- `wrangler.jsonc` points to `src/worker.js`.
-- Static Assets binding uses `./public`.
-- Only `/api/*` runs Worker-first; normal assets remain asset-first.
-- SPA fallback enabled.
-- Workers Caching enabled.
-- Native `/api/health` returns HTTP 200 in local Worker invocation.
-- `/api/data?action=health` passes through the compatibility adapter and returns HTTP 200.
-- Unknown API actions correctly return HTTP 404.
-- Frontend references **19 API actions** and all are routed by the Worker.
-- All JS/MJS files pass `node --check`.
+## ANPR scope
 
-### CCTV pipeline
-Mocked end-to-end pipeline passed:
-1. Public CCTV wrapper page is fetched.
-2. Wrapper JavaScript media URL is discovered.
-3. Wrapper `Set-Cookie` is retained.
-4. Wrapper URL is sent as media `Referer`.
-5. HLS master playlist is returned through `/api/cctv-feed`.
-6. Child playlist URL is rewritten to same-origin proxy.
-7. Segment URL is rewritten to same-origin proxy.
-8. Media segment is streamed via Web Streams.
-9. Cross-host resource injection is rejected with HTTP 403.
+`AUTHORIZED ANPR` is off and hidden by default. It appears only for exact camera IDs listed in `public/anpr-config.js`. Merely receiving a public camera object is not enough to unlock OCR. OCR runs in the browser, remains transient, and is cleared on camera changes/stops. The application does not add a plate database, plate-history API, owner lookup, cross-camera plate search, or cross-camera identity correlation.
 
-### Free-tier request protection
-- Static assets bypass Worker execution.
-- Data APIs have per-action edge TTLs.
-- Upstream fetches have short/long edge cache policies based on data type.
-- CCTV media is `no-store` so live frames are not incorrectly cached.
-- Frontend nearby-CCTV fallback was reduced from large sequential probe loops to at most six candidates per search batch.
-- CCTV probes are deduplicated in the browser for 30 seconds, preventing the inline panel and popup from probing the same camera twice at the same time.
+## v2.3 recognition behavior
 
-## Current public-source verification
-- Cloudflare Workers Static Assets and `run_worker_first` are current supported deployment mechanisms.
-- Cloudflare Workers Caching supports `cache.enabled` and requires Wrangler 4.69.0+.
-- Cloudflare Free currently documents 100,000 Worker requests/day, 10 ms CPU/request, 128 MB memory, and 50 subrequests/request.
-- Taiwan Freeway Bureau still publishes a traffic database and CCTV/VD open-data formats.
-- Highway Bureau public documentation still defines `VideoStreamURL` for CCTV records.
-- Taipei City CCTV position data remains public, but real-time image value-added use has a separate application/authorization notice; the project therefore treats Taipei position records as points unless a legitimately public media endpoint can be resolved.
+Each tracked authorized vehicle is sampled over successive frames rather than trusted from one OCR pass. Candidate plate regions cycle through ROI hypotheses; preprocessing cycles between contrast-enhanced / binary / inverted variants; skew and keystone compensation cycle through configured values. A read normally needs at least two agreeing votes before it is shown as stable, unless it reaches the high-confidence single-read fallback. Night/day mode, current skew, keystone setting and OCR-attempt count are visible in the live analysis panel.
 
-## Required post-deploy verification
+## Deployment verification still required
 
-Run after Cloudflare gives the final URL:
+After Cloudflare deployment, run:
 
 ```bash
-BASE_URL=https://your-worker.workers.dev npm run smoke
+BASE_URL=https://<your-worker>.workers.dev npm run smoke
 ```
 
-Core failures make the command exit with code 1. Optional public-source outages are shown as warnings so one third-party maintenance event does not mark the entire deployment dead.
-
-## Known external limitation
-
-A public upstream may temporarily block Cloudflare data-center IPs, change its endpoint, require authorization, or return a broken individual camera. The app does not bypass access controls. It will keep official point metadata and attempt other legitimately public nearby cameras instead of opening third-party pages.
+OCR accuracy must also be calibrated using an owned or explicitly authorized real feed because local tests cannot reproduce the deployed camera's plate pixel size, shutter speed, night illumination, IR glare, viewing angle, compression, focus, or browser media behavior.

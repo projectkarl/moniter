@@ -1,7 +1,7 @@
 const { json } = require('./_utils');
 module.exports = async (req, res) => json(res, 200, {
   ok: true,
-  build: '2.0.0-cloudflare-rebuild',
+  build: '2.3.0-cloudflare-anpr-plus',
   zeroKey: true,
   environmentSecretsRequired: false,
   sources: [
