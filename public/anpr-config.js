@@ -1,4 +1,4 @@
-// SENTINEL v2.3 — AUTHORIZED ANPR allowlist + local tuning
+// SENTINEL v2.4 — authorized camera list and local tuning
 // Add ONLY camera IDs for cameras you own or have explicit permission to process.
 // Public government CCTV IDs should remain absent. ANPR is locked unless the exact ID is here.
 window.SENTINEL_ANPR_AUTHORIZED_IDS = [];
@@ -6,11 +6,11 @@ window.SENTINEL_ANPR_AUTHORIZED_IDS = [];
 // Optional per-camera tuning. All OCR remains on-device in the browser.
 window.SENTINEL_ANPR_CONFIG = {
   default: {
-    intervalMs: 2200,
+    intervalMs: 3000,
     minConfidence: 28,
     stableVotes: 2,
-    maxVehicles: 2,
-    targetWidth: 320,
+    maxVehicles: 1,
+    targetWidth: 300,
     skewAngles: [0, -4, 4, -7, 7],
     keystoneStrengths: [0, -0.10, 0.10, -0.16, 0.16],
   },

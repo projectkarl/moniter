@@ -71,6 +71,9 @@
     visionRunning: false,
     visionBusy: false,
     visionLoopTimer: null,
+    visionLastDurationMs: 0,
+    visionCadenceMs: 1400,
+    visionLastRunAt: 0,
     visionTracks: new Map(),
     visionTrackSeq: 1,
     visionTrackCameraId: null,
@@ -3499,12 +3502,39 @@
     }
     ensureHlsJs().then((Hls) => {
       if (!Hls?.isSupported?.()) throw new Error('HLS unsupported');
-      const hls = new Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 12, maxBufferLength: 12, manifestLoadingTimeOut: 4500, levelLoadingTimeOut: 4500, fragLoadingTimeOut: 6500 });
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+        backBufferLength: 15,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 45,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 8,
+        maxLiveSyncPlaybackRate: 1.05,
+        manifestLoadingTimeOut: 8000,
+        levelLoadingTimeOut: 8000,
+        fragLoadingTimeOut: 12000,
+        fragLoadingMaxRetry: 4,
+        levelLoadingMaxRetry: 4,
+        manifestLoadingMaxRetry: 3,
+      });
       hls.loadSource(url); hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => armVideoAutoplay(video));
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (!data?.fatal) return;
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          try { hls.startLoad(); } catch (_) {}
+          return;
+        }
+        if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          try { hls.recoverMediaError(); } catch (_) {}
+          return;
+        }
+        try { hls.destroy(); } catch (_) {}
+      });
       video._eyeHls = hls;
     }).catch(() => {
-      stage.innerHTML = '<div class="camera-placeholder"><b>SIGNAL FORMAT UNAVAILABLE</b><span>此公開串流目前無法由瀏覽器解碼；系統仍留在本頁並持續嘗試其他附近鏡頭。</span></div>';
+      stage.innerHTML = '<div class="camera-placeholder"><b>目前無法播放</b><span>此影像格式暫時無法解碼，請切換其他附近鏡頭。</span></div>';
     });
   }
 
@@ -3544,7 +3574,7 @@
     img.addEventListener('error', () => {
       clearInterval(stage._eyeRefresh); stage._eyeRefresh = null;
       if (fallbackUnknown) { clearCameraStage(stage); renderCameraVideo(stage, url, true); return; }
-      stage.innerHTML = '<div class="camera-placeholder"><b>CAMERA SIGNAL RETRYING</b><span>公開影像目前沒有可解碼畫面，請切換附近鏡頭或稍後重試。</span></div>';
+      stage.innerHTML = '<div class="camera-placeholder"><b>影像暫時中斷</b><span>請稍後重試或切換附近鏡頭。</span></div>';
     }, { once:true });
     stage.appendChild(img);
     syncLocalPrivacyMask(stage);
@@ -3558,7 +3588,7 @@
     armVideoAutoplay(video);
     video.addEventListener('error', () => {
       if (fallbackHls) { clearCameraStage(stage); renderHls(stage, url); return; }
-      stage.innerHTML = '<div class="camera-placeholder"><b>VIDEO SIGNAL UNAVAILABLE</b><span>目前串流暫時無法播放；不會跳離本頁。</span></div>';
+      stage.innerHTML = '<div class="camera-placeholder"><b>影像暫時中斷</b><span>請稍後重試或切換附近鏡頭。</span></div>';
     }, { once:true });
     stage.appendChild(video);
     syncLocalPrivacyMask(stage);
@@ -3572,7 +3602,7 @@
     clearCameraStage(stage);
     const url = cameraFeedUrl(cam);
     if (!cam?.id || !url) {
-      stage.innerHTML = '<div class="camera-placeholder"><b>NO PUBLIC SIGNAL</b><span>此攝影機目前沒有可內嵌的公開串流。</span></div>';
+      stage.innerHTML = '<div class="camera-placeholder"><b>目前沒有影像</b><span>此攝影機暫時沒有可播放的串流。</span></div>';
       return;
     }
     const quickKind = inferCameraMediaKind(cam);
@@ -3585,7 +3615,7 @@
     // Obvious media extensions and previously-probed cameras start immediately.
     if (quickKind !== 'unknown' && renderKnown(quickKind)) return;
 
-    stage.innerHTML = `<div class="camera-loading"><i></i><b>${options.preview ? 'LIVE CCTV' : 'ACQUIRING LIVE CCTV'}</b><span>${options.preview ? '快速連線中…' : '正在辨識公開串流格式…'}</span></div>`;
+    stage.innerHTML = `<div class="camera-loading"><i></i><b>${options.preview ? '連線中' : '正在連線'}</b><span>${options.preview ? '請稍候…' : '正在載入影像…'}</span></div>`;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), options.fast ? 3200 : 5600);
     let probe = cam?._probe || null;
@@ -3949,14 +3979,14 @@
       btn.hidden=!authorized;
       btn.classList.toggle('active',state.anprRunning);
       btn.setAttribute('aria-pressed',String(state.anprRunning));
-      btn.textContent=state.anprRunning?'■ STOP ANPR':'AUTHORIZED ANPR';
-      btn.title=authorized?'On-device plate OCR for this explicitly authorized camera':'ANPR locked for public cameras';
+      btn.textContent=state.anprRunning?'停止車牌辨識':'車牌辨識';
+      btn.title=authorized?'辨識目前已授權鏡頭中的車牌':'';
     });
   }
 
   async function stopAuthorizedAnpr() {
     state.anprRunning=false; state.visionPlateShield=true; resetAnpr(null); setAnprButtons();
-    if ($('anprPlateList')) $('anprPlateList').innerHTML='<span>ANPR IDLE</span><small>No plate data retained.</small>';
+    if ($('anprPlateList')) $('anprPlateList').innerHTML='<span>車牌辨識未啟用</span>';
     if (!state.visionRunning) clearLiveVisionBoxes();
   }
 
@@ -3964,11 +3994,11 @@
     const cam=state.inlineCamera || state.activeCamera;
     if (!isAnprAuthorizedCamera(cam)) { toast('ANPR 僅能用於你自有或已明確授權的鏡頭'); return; }
     if (state.anprRunning) { stopAuthorizedAnpr(); return; }
-    const ok=window.confirm('AUTHORIZED ANPR 只應用於你自有或已取得明確授權的鏡頭。車牌只在本機即時辨識，不建立歷史紀錄。確定啟用？');
+    const ok=window.confirm('此功能僅供你自有或已取得授權的鏡頭使用。確定啟用車牌辨識？');
     if (!ok) return;
     state.anprRunning=true; state.visionPlateShield=false; resetAnpr(cam.id || cam.key || null); setAnprButtons();
     if (!state.visionRunning) startCameraLiveAnalysis();
-    toast('AUTHORIZED ANPR // ON-DEVICE OCR');
+    toast('車牌辨識已啟用');
   }
 
   function renderLiveVisionBoxes(predictions = [], srcW = 1, srcH = 1, tracking = null) {
@@ -3994,7 +4024,8 @@
         box.style.width = `${Math.max(12, w * fitScale)}px`;
         box.style.height = `${Math.max(12, h * fitScale)}px`;
         const trackText = tracked ? ` · T${String(tracked.trackId).padStart(2,'0')} · ${tracked.stopped?'STOP':tracked.direction}` : '';
-        box.innerHTML = `<span>${escapeHtml(String(p.class || '').toUpperCase())} ${Math.round(Number(p.score || 0)*100)}%${escapeHtml(trackText)}</span>`;
+        const simpleName={person:'人',car:'汽車',bus:'公車',truck:'卡車',motorcycle:'機車',bicycle:'自行車'}[p.class]||String(p.class||'');
+        box.innerHTML = `<span>${escapeHtml(simpleName)} ${Math.round(Number(p.score || 0)*100)}%</span>`;
         layer.appendChild(box);
         const plate = p.class !== 'person' ? plateRegionForPrediction(p) : null;
         if (plate && state.visionPlateShield) {
@@ -4005,7 +4036,7 @@
           mask.style.top = `${Math.max(0, offsetY + py * fitScale)}px`;
           mask.style.width = `${Math.max(12, pw * fitScale)}px`;
           mask.style.height = `${Math.max(7, ph * fitScale)}px`;
-          mask.innerHTML = '<span>PLATE SHIELD</span>';
+          mask.innerHTML = '';
           layer.appendChild(mask);
         } else if (plate && state.anprRunning) {
           const match=[...state.anprReads.values()].find((r)=> tracked?.trackId && String(r.trackId)===String(tracked.trackId));
@@ -4018,14 +4049,39 @@
       });
       const stamp = document.createElement('div');
       stamp.className = 'live-vision-stamp';
-      stamp.textContent = `ANON LIVE ANALYSIS · ${new Date().toLocaleTimeString('zh-TW',{hour12:false})}`;
+      stamp.textContent = `即時分析 ${new Date().toLocaleTimeString('zh-TW',{hour12:false})}`;
       layer.appendChild(stamp);
       stage.appendChild(layer);
     });
   }
 
+
+  function waitForVideoFrame(media, timeoutMs = 500) {
+    if (!media || media.tagName !== 'VIDEO' || typeof media.requestVideoFrameCallback !== 'function') {
+      return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    }
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => { if (done) return; done = true; resolve(); };
+      const timer = setTimeout(finish, timeoutMs);
+      try {
+        media.requestVideoFrameCallback(() => { clearTimeout(timer); finish(); });
+      } catch (_) { clearTimeout(timer); requestAnimationFrame(finish); }
+    });
+  }
+
+  function nextVisionCadence(lastDuration = 0) {
+    const mobile = window.innerWidth <= 920;
+    const base = mobile ? 1900 : 1250;
+    if (lastDuration > 1800) return mobile ? 3400 : 3000;
+    if (lastDuration > 1000) return mobile ? 2800 : 2300;
+    if (lastDuration > 550) return mobile ? 2300 : 1800;
+    return base;
+  }
+
   async function runCameraFrameAnalysis() {
     if (state.visionBusy) return;
+    const analysisStartedAt = performance.now();
     const cam = state.inlineCamera || state.activeCamera;
     const media = cameraMediaElement();
     const lab = $('cameraVisionLab'), status = $('visionLabStatus'), metrics = $('cameraAnalysisMetrics'), types = $('cameraAnalysisTypes'), canvas = $('cameraAnalysisCanvas');
@@ -4034,20 +4090,26 @@
     if (!cam || !media) { status.textContent = 'NO FRAME'; types.textContent = '請先選擇一支可播放的 CCTV。'; return; }
     state.visionBusy = true;
     try {
-      if (media.tagName === 'VIDEO' && media.readyState < 2) throw new Error('影像尚未就緒，稍後會自動重試');
+      if (media.tagName === 'VIDEO') {
+        if (media.readyState < 3 || media.seeking || media.paused) {
+          status.textContent = '等待影像穩定';
+          return;
+        }
+        await waitForVideoFrame(media, 450);
+      }
       if (media.tagName === 'IMG' && !media.complete) await media.decode?.();
       const model = await getVisionModel();
-      status.textContent = state.visionRunning ? 'LIVE ANALYSIS…' : 'ANALYZING…';
+      status.textContent = '分析中';
       const srcW = media.videoWidth || media.naturalWidth || media.width || 640;
       const srcH = media.videoHeight || media.naturalHeight || media.height || 360;
-      const maxW = 720;
+      const maxW = window.innerWidth <= 920 ? 360 : 480;
       const scale = Math.min(1, maxW / Math.max(1, srcW));
-      canvas.width = Math.max(320, Math.round(srcW * scale));
-      canvas.height = Math.max(180, Math.round(srcH * scale));
-      const ctx = canvas.getContext('2d', { willReadFrequently:true });
-      ctx.clearRect(0,0,canvas.width,canvas.height);
+      canvas.width = Math.max(288, Math.round(srcW * scale));
+      canvas.height = Math.max(162, Math.round(srcH * scale));
+      const ctx = canvas.getContext('2d', { willReadFrequently:false, alpha:false });
       ctx.drawImage(media, 0, 0, canvas.width, canvas.height);
-      const predictions = await model.detect(canvas, 30, 0.35);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const predictions = await model.detect(canvas, 18, 0.42);
       const allowed = new Set(['person','car','bus','truck','motorcycle','bicycle']);
       const found = predictions.filter((x) => allowed.has(x.class));
       const counts = {}; let personArea = 0, vehicleArea = 0;
@@ -4062,28 +4124,30 @@
       const crowdScore = Math.min(100, Math.round(persons*7 + personArea*180));
       const trafficScore = Math.min(100, Math.round(vehicles*7 + vehicleArea*150));
       const tracking = updateVisionTracks(found, canvas.width, canvas.height, cam.id);
-      if (state.anprRunning && isAnprAuthorizedCamera(cam)) await runAuthorizedAnpr(found, canvas, tracking, cam);
+      if (state.anprRunning && isAnprAuthorizedCamera(cam)) runAuthorizedAnpr(found, canvas, tracking, cam).catch(()=>{});
       const livePlates=[...state.anprReads.values()].filter((x)=>Date.now()-x.at<12000);
-      metrics.innerHTML = `<div><small>PERSON</small><b>${persons}</b></div><div><small>VEHICLE</small><b>${vehicles}</b></div><div><small>QUEUE</small><b>${densityLabel(tracking.queueScore)} <em>${tracking.queueScore}</em></b></div><div><small>STOPPED</small><b>${tracking.stopped}</b></div><div><small>FLOW DIR</small><b>${escapeHtml(tracking.dominantDirection)}</b></div><div><small>PLATE</small><b>${state.anprRunning?`READ ${livePlates.length}`:(state.visionPlateShield?'SHIELDED':'OFF')}</b></div>`;
+      const directionText = ({LEFT:'左',RIGHT:'右',UP:'上',DOWN:'下',STILL:'停滯','N/A':'—'})[tracking.dominantDirection] || tracking.dominantDirection;
+      metrics.innerHTML = `<div><small>人</small><b>${persons}</b></div><div><small>車輛</small><b>${vehicles}</b></div><div><small>排隊程度</small><b>${tracking.queueScore}</b></div><div><small>停滯</small><b>${tracking.stopped}</b></div><div><small>方向</small><b>${escapeHtml(directionText)}</b></div><div><small>車牌</small><b>${state.anprRunning?livePlates.length:'—'}</b></div>`;
       const typeOrder = ['car','bus','truck','motorcycle','bicycle','person'];
-      const chips = typeOrder.filter((k)=>counts[k]).map((k)=>`<span><b>${k.toUpperCase()}</b><em>${counts[k]}</em></span>`).join('');
-      const trackingChips = `<span><b>TRACKS</b><em>${tracking.activeTracks}</em></span><span><b>DIR</b><em>${escapeHtml(tracking.dominantDirection)}</em></span><span><b>STOP</b><em>${tracking.stopped}</em></span>`;
-      const plateChips = state.anprRunning && livePlates.length ? livePlates.map((r)=>`<span class="plate-chip"><b>${escapeHtml(r.plate)}</b><em>${r.confidence}% · ${r.votes||1}V</em></span>`).join('') : '';
-      const anprMode = state.anprRunning ? `${escapeHtml(state.anprTelemetry?.mode||'DAY')} · SKEW ${Number(state.anprTelemetry?.lastAngle||0)}° · KEY ${Number(state.anprTelemetry?.keystone||0).toFixed(2)} · ${Number(state.anprTelemetry?.attempts||0)} OCR` : '';
-      const anprModeChip = state.anprRunning ? `<span class="anpr-mode-chip"><b>ANPR MODE</b><em>${anprMode}</em></span>` : '';
-      types.innerHTML = `${chips || '<span><b>NO TARGET CLASS</b><em>0</em></span>'}${trackingChips}${plateChips}${anprModeChip}<small>${state.anprRunning?'AUTHORIZED ANPR：已啟用夜間增強、機車專用 ROI、傾斜補償與多幀投票；僅此已授權鏡頭、本機即時 OCR、不保留歷史、不做跨鏡頭查號。':'匿名短時追蹤只存在目前瀏覽器記憶體；切換 CCTV 或停止分析就清除。公開 CCTV 的車牌僅標示候選區並即時模糊，不讀取號碼。'} 方向、停滯與排隊皆為畫面估計，遮擋、反光與過低解析度仍會降低準確度。</small>`;
-      if ($('anprPlateList')) $('anprPlateList').innerHTML = state.anprRunning ? (livePlates.length ? livePlates.map((r)=>`<div class="anpr-stable-read"><img src="${r.preview}" alt="plate ROI"><b>${escapeHtml(r.plate)}</b><em>${r.confidence}% · ${r.votes||1} votes · ${escapeHtml(r.mode||'DAY')} · ${Number(r.angle||0)}°</em></div>`).join('') : `<span>SCANNING PLATES…</span><small>${escapeHtml(state.anprTelemetry?.mode||'DAY')} enhancement · multi-frame verification</small>`) : '<span>ANPR LOCKED</span><small>Authorized cameras only.</small>';
+      const typeNames = {car:'汽車',bus:'公車',truck:'卡車',motorcycle:'機車',bicycle:'自行車',person:'行人'};
+      const chips = typeOrder.filter((k)=>counts[k]).map((k)=>`<span><b>${typeNames[k]}</b><em>${counts[k]}</em></span>`).join('');
+      const plateChips = state.anprRunning && livePlates.length ? livePlates.map((r)=>`<span class="plate-chip"><b>${escapeHtml(r.plate)}</b><em>${r.confidence}%</em></span>`).join('') : '';
+      types.innerHTML = `${chips || '<span><b>目前未偵測到人車</b></span>'}${plateChips}`;
+      if ($('anprPlateList')) $('anprPlateList').innerHTML = state.anprRunning ? (livePlates.length ? livePlates.map((r)=>`<div class="anpr-stable-read"><img src="${r.preview}" alt="車牌"><b>${escapeHtml(r.plate)}</b><em>${r.confidence}%</em></div>`).join('') : '<span>正在辨識車牌…</span>') : '<span>車牌辨識未啟用</span>';
       const scaleX = srcW / Math.max(1,canvas.width), scaleY = srcH / Math.max(1,canvas.height);
       const scaledFound = found.map((p)=>({ ...p, bbox:[p.bbox[0]*scaleX,p.bbox[1]*scaleY,p.bbox[2]*scaleX,p.bbox[3]*scaleY] }));
       const scaledTracking = { ...tracking, tracked:tracking.tracked.map((p)=>({ ...p, bbox:[p.bbox[0]*scaleX,p.bbox[1]*scaleY,p.bbox[2]*scaleX,p.bbox[3]*scaleY] })) };
       renderLiveVisionBoxes(scaledFound, srcW, srcH, scaledTracking);
       state.visionAnalysis = { cameraId:cam.id, at:Date.now(), counts, crowdScore, trafficScore, queueScore:tracking.queueScore, stopped:tracking.stopped, dominantDirection:tracking.dominantDirection, activeTracks:tracking.activeTracks, plateShield:state.visionPlateShield };
-      status.textContent = `LIVE · ${found.length} OBJECTS · ${new Date().toLocaleTimeString('zh-TW',{hour12:false})}`;
+      status.textContent = `已更新 · ${new Date().toLocaleTimeString('zh-TW',{hour12:false})}`;
     } catch (err) {
-      status.textContent = 'ANALYSIS RETRY';
-      types.innerHTML = `<small>${escapeHtml(err.message || '此 CCTV 暫時無法分析')}。若影像來源禁止瀏覽器讀取畫素，仍可正常觀看 CCTV 與 VD / FLOW 感測融合。</small>`;
+      status.textContent = '暫時無法分析';
+      types.innerHTML = `<small>${escapeHtml(err.message || '此 CCTV 暫時無法分析')}</small>`;
     } finally {
       state.visionBusy = false;
+      state.visionLastDurationMs = Math.max(0, Math.round(performance.now() - analysisStartedAt));
+      state.visionCadenceMs = nextVisionCadence(state.visionLastDurationMs);
+      state.visionLastRunAt = Date.now();
     }
   }
 
@@ -4092,7 +4156,7 @@
     [$('cameraAnalyzeBtn'), $('cctvPopupAnalyze')].filter(Boolean).forEach((btn) => {
       btn.classList.toggle('active', active);
       btn.setAttribute('aria-pressed', String(active));
-      btn.textContent = active ? '■ STOP ANALYSIS' : 'LIVE ANALYSIS';
+      btn.textContent = active ? '停止分析' : '即時分析';
     });
   }
 
@@ -4104,7 +4168,7 @@
     if (state.anprRunning) stopAuthorizedAnpr();
     analysisStages().forEach((stage)=>stage.classList.remove('live-analysis-active'));
     setVisionButtons(false);
-    if ($('visionLabStatus')) $('visionLabStatus').textContent = 'READY';
+    if ($('visionLabStatus')) $('visionLabStatus').textContent = '待命';
     if (collapse && $('cameraVisionLab')) $('cameraVisionLab').hidden = true;
   }
 
@@ -4119,8 +4183,9 @@
       if (!state.visionRunning) return;
       await runCameraFrameAnalysis();
       if (!state.visionRunning) return;
-      state.visionLoopTimer = setTimeout(loop, window.innerWidth <= 920 ? 5000 : 4000);
+      state.visionLoopTimer = setTimeout(loop, Math.max(900, Number(state.visionCadenceMs || 1400)));
     };
+    state.visionCadenceMs = window.innerWidth <= 920 ? 1900 : 1250;
     loop();
   }
 
@@ -4212,7 +4277,7 @@
       renderCameraMedia($('cctvPopupStage'), cam);
     }
     if (!state.visionRunning && $('cameraVisionLab')) $('cameraVisionLab').hidden = true;
-    if ($('visionLabStatus')) $('visionLabStatus').textContent = state.visionRunning ? 'SWITCHING CAMERA…' : 'READY';
+    if ($('visionLabStatus')) $('visionLabStatus').textContent = state.visionRunning ? '切換鏡頭中' : '待命';
     renderCameraIntel(cam).catch(() => {});
     if (state.visionRunning) setTimeout(() => runCameraFrameAnalysis(), 900);
     document.querySelectorAll('[data-inline-camera]').forEach((btn) => btn.classList.toggle('active', btn.dataset.inlineCamera === String(cam.id)));
@@ -4313,16 +4378,13 @@
       const occ = Number.isFinite(Number(lane.occupancy)) ? `${Math.round(Number(lane.occupancy))}%` : '—';
       const prob = Number.isFinite(Number(lane.probability)) ? `${Math.round(Number(lane.probability))}%` : '—';
       const cls = best === lane ? 'best' : '';
-      return `<div class="vision-lane ${cls}"><span>${escapeHtml(laneLabel(lane,i))}</span><b>${spd}<small>km/h</small></b><em>OCC ${occ} · EDGE ${prob}</em></div>`;
+      return `<div class="vision-lane ${cls}"><span>${escapeHtml(laneLabel(lane,i))}</span><b>${spd}<small>km/h</small></b><em>占用 ${occ}</em></div>`;
     }).join('');
     const tunnelCtx = tunnelLaneContext(cam, vd);
     const tunnel = tunnelCtx.active;
-    const advisory = best && lanes.length >= 2
-      ? `${escapeHtml(laneLabel(best, lanes.indexOf(best)))} FLOW EDGE ${Math.round(Number(best.probability))}%`
-      : 'LANE SIGNAL INSUFFICIENT';
     const overlay = document.createElement('div');
     overlay.className = 'vision-fusion';
-    overlay.innerHTML = `<div class="vision-corners"></div><div class="vision-top"><span>LIVE SENSOR FUSION</span><b>${escapeHtml(status)}</b><em>${new Date().toLocaleTimeString('zh-TW',{hour12:false})}</em></div><div class="vision-reticle"><i></i><i></i><i></i><i></i></div>${laneStrip ? `<div class="vision-lanes">${laneStrip}</div>` : ''}<div class="vision-bottom"><span>${escapeHtml(cam?.road || 'PUBLIC CCTV')} · ${escapeHtml(cam?.direction || 'DIRECTION N/A')}</span><b>${escapeHtml(speed)}</b><em>${advisory}</em></div>${tunnel && best ? `<div class="vision-safety">${escapeHtml(tunnelCtx.name || 'TUNNEL APPROACH')} · FLOW EDGE 僅供入口前短時趨勢；進入隧道後依 LCS/CMS、標線與速限行駛${tunnelCtx.snow ? '；雪山隧道內禁止變換車道' : '；禁止變換車道的路段勿因本指標換道'}。</div>` : ''}`;
+    overlay.innerHTML = `<div class="vision-top"><span>道路資訊</span><b>${escapeHtml(status)}</b><em>${new Date().toLocaleTimeString('zh-TW',{hour12:false})}</em></div>${laneStrip ? `<div class="vision-lanes">${laneStrip}</div>` : ''}<div class="vision-bottom"><span>${escapeHtml(cam?.road || 'CCTV')} ${escapeHtml(cam?.direction || '')}</span><b>${escapeHtml(speed)}</b></div>${tunnel && best ? `<div class="vision-safety">${escapeHtml(tunnelCtx.name || '隧道路段')}：請依現場標誌、標線與速限行駛。</div>` : ''}`;
     stages.forEach((targetStage, i) => targetStage.appendChild(i === 0 ? overlay : overlay.cloneNode(true)));
   }
 
@@ -4336,7 +4398,7 @@
       [$('cameraStage'), $('inlineCameraStage'), $('cctvPopupStage')].filter(Boolean).forEach((stage)=>stage.querySelector('.vision-fusion')?.remove());
       return;
     }
-    setCameraIntelContent('<span class="intel-kicker">LIVE SENSOR FUSION</span><b>融合 CCTV、VD 車道偵測器與即時路況…</b><small>道路感測分析不進行車牌 OCR、個別車輛識別或跨鏡頭追蹤。</small>', false);
+    setCameraIntelContent('<b>正在載入道路資訊…</b>', false);
     try {
       const [flowResult, laneResult] = await Promise.allSettled([
         jsonFetch(`/api/data?action=flow&lat=${cam.lat}&lon=${cam.lon}&radius=12`),
@@ -4358,11 +4420,11 @@
       const laneHtml = lanes.length ? `<div class="lane-matrix">${lanes.slice(0,4).map((lane,i)=>`<div class="lane-card ${lane===best?'best':''}"><small>${escapeHtml(laneLabel(lane,i))}</small><b>${Number.isFinite(Number(lane.speed))?Math.round(Number(lane.speed)):'—'} <em>km/h</em></b><span>OCC ${Number.isFinite(Number(lane.occupancy))?Math.round(Number(lane.occupancy))+'%':'—'} · FLOW ${Number.isFinite(Number(lane.volume))?Math.round(Number(lane.volume)):'—'}</span><strong>${Number.isFinite(Number(lane.probability))?Math.round(Number(lane.probability))+'%':'—'}</strong></div>`).join('')}</div>` : '';
       const tctx = tunnelLaneContext(cam, vd);
       const safety = tctx.active && best ? `<small class="lane-safety">${escapeHtml(tctx.name || 'TUNNEL APPROACH')}：車道機率為目前速度／占有率／流量推算的短時趨勢，不保證未來速度；進入隧道後請依現場 LCS/CMS、標線與速限行駛${tctx.snow ? '，雪山隧道內禁止變換車道' : ''}。</small>` : '';
-      setCameraIntelContent(`<span class="intel-kicker">LIVE SENSOR FUSION · ROAD ANALYSIS</span><div class="intel-grid four"><div><small>FLOW STATE</small><b>${escapeHtml(status)}</b></div><div><small>AVG SPEED</small><b>${escapeHtml(speed)}</b></div><div><small>OCCUPANCY</small><b>${escapeHtml(occupancy)}</b></div><div><small>FLOW EDGE</small><b>${escapeHtml(bestText)}</b></div></div>${laneHtml}${safety}<small class="privacy-note">FREEWAY VD 1-MINUTE DATA + PUBLIC CCTV · LIVE ANALYSIS 可將人／車類別與密度推估直接疊在 CCTV 畫面 · PUBLIC CCTV: NO PLATE OCR / NO FACE ID / NO CROSS-CAMERA TRACKING</small>`, false);
+      setCameraIntelContent(`<div class="intel-grid four"><div><small>路況</small><b>${escapeHtml(status)}</b></div><div><small>平均速度</small><b>${escapeHtml(speed)}</b></div><div><small>道路占用</small><b>${escapeHtml(occupancy)}</b></div><div><small>較順車道</small><b>${escapeHtml(bestText)}</b></div></div>${laneHtml}${safety}`, false);
       renderCameraVisionOverlay(cam, { status, speed, vd });
     } catch (err) {
       renderCameraVisionOverlay(cam, { status: 'PUBLIC FEED', speed: '—', vd: null });
-      setCameraIntelContent('<span class="intel-kicker">LIVE SENSOR FUSION</span><b>車道級感測資料暫時無法取得</b><small>公開 CCTV 仍可正常檢視；可手動啟動 LIVE ANALYSIS，將人／車類別與密度推估疊在 CCTV 畫面。未執行車牌或人臉辨識。</small>', false);
+      setCameraIntelContent('<b>目前沒有可用的車道感測資料</b>', false);
     }
   }
 

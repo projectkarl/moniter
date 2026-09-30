@@ -2512,10 +2512,23 @@ body.camera-expanded-open{overflow:auto!important;}
 .map-live-cctv-card.point-only::after{content:'點擊查看'!important;}
 
 
-/* v2.3 AUTHORIZED ANPR — local-only OCR for explicitly allowlisted private/authorized cameras */
+/* v2.4 authorized plate recognition */
 .anpr-action{border-color:rgba(104,190,150,.32)!important;color:#9bc8ad!important}.anpr-action.active{background:rgba(78,159,119,.14)!important;box-shadow:inset 0 0 18px rgba(78,159,119,.08);color:#b9e0c8!important}
 .anpr-plate-tag{position:absolute;z-index:8;display:flex;gap:5px;align-items:center;padding:2px 5px;border:1px solid rgba(111,214,160,.7);background:rgba(2,9,6,.88);box-shadow:0 0 16px rgba(68,183,126,.18);font:7px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.08em;color:#b9e0c8;pointer-events:none}.anpr-plate-tag b{font-size:9px}.anpr-plate-tag small{font-size:5px;color:#6fb88f}
 .anpr-plate-list{margin-top:7px;display:flex;gap:5px;flex-wrap:wrap;align-items:center;padding:6px;border:1px solid rgba(111,214,160,.12);background:rgba(4,12,8,.25);min-height:34px}.anpr-plate-list>div{display:grid;grid-template-columns:70px auto auto;gap:7px;align-items:center;padding:4px 6px;border:1px solid rgba(111,214,160,.15);background:rgba(4,10,7,.38)}.anpr-plate-list img{width:70px;height:24px;object-fit:contain;background:#fff}.anpr-plate-list b{font:500 11px ui-monospace,SFMono-Regular,Menlo,monospace;color:#b9e0c8}.anpr-plate-list em{font:normal 6px ui-monospace,SFMono-Regular,Menlo,monospace;color:#6d9b80}.anpr-plate-list>span{color:#7b877f;font:7px ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em}.anpr-plate-list>small{color:#555f59;font:6px ui-monospace,SFMono-Regular,Menlo,monospace}.plate-chip b{color:#b9e0c8!important}.plate-chip em{color:#6fb88f!important}.anpr-settings code{color:#a8bcb0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 @media(max-width:520px){.anpr-plate-list>div{grid-template-columns:56px auto auto}.anpr-plate-list img{width:56px;height:22px}.anpr-plate-tag b{font-size:8px}.camera-card-actions{flex-wrap:wrap;justify-content:flex-end}}
-/* v2.3 ANPR verification telemetry */
+/* v2.4 plate recognition results */
 .anpr-mode-chip{border-color:rgba(107,160,214,.22)!important;background:rgba(35,70,100,.12)!important}.anpr-mode-chip b{color:#9ebbd3!important}.anpr-mode-chip em{color:#7896ad!important}.anpr-stable-read{box-shadow:inset 2px 0 0 rgba(111,214,160,.52)}.anpr-stable-read em{white-space:nowrap}.anpr-plate-list img{image-rendering:auto}
+
+
+/* v2.4 playback-first CCTV analysis */
+.live-vision-layer{contain:layout paint;will-change:contents}
+.live-analysis-active video{transform:translateZ(0);will-change:auto}
+.plate-privacy-roi{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(8,9,9,.72)!important}
+.plate-privacy-roi span{display:none!important}
+.live-vision-box{box-shadow:none!important}
+.live-vision-stamp{letter-spacing:0!important;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif!important;font-weight:600!important}
+.vision-type-list>small,.privacy-note{display:none!important}
+@media(max-width:920px){.live-vision-box span{font-size:6px!important}.live-vision-stamp{font-size:6px!important}}
+
+.vision-corners,.vision-reticle{display:none!important}

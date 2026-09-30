@@ -1,53 +1,51 @@
-# SENTINEL // TAIWAN v2.3.0 Cloudflare — Test Report
-
-Date: 2026-09-29
+# SENTINEL // TAIWAN v2.4.0 Cloudflare — Test Report
 
 ## Result
 
-PASS — Cloudflare project structure, 19 frontend API routes, static assets, CCTV proxy, traffic live-analysis wiring, and the v2.3 Authorized ANPR+ pipeline all pass local checks.
+PASS — local project checks, Cloudflare routing, CCTV proxy, ANPR wiring, and playback-first live-analysis checks all passed.
 
-## Checks performed
+## Playback changes verified
 
-- `npm run check` — PASS
-  - required Cloudflare files present
-  - Worker main/static-assets routing configuration valid
-  - `/api/health` and legacy `/api/data?action=health` return 200
-  - all 19 frontend API actions have Worker routes
-  - live-vision tracking / queue / direction / plate-shield code present
-  - Authorized ANPR / Tesseract.js integration present
-- `npm run test:cctv` — PASS
-  - wrapper discovery -> HLS
-  - master/child playlists rewritten through same-origin proxy
-  - segment streaming
-  - Cookie / Referer forwarding
-  - cross-host HLS resource rejected
-- `npm run test:anpr` — PASS
-  - standard plate normalization samples
-  - common OCR confusion repair (`O/0`, `I/1`, `Z/2`, `S/5`, `B/8`, `G/6`)
-  - default ANPR allowlist empty
-  - authorization requires an exact allowlisted camera ID
-  - night enhancement / luminance processing present
-  - Otsu thresholding present
-  - skew-angle compensation present
-  - lightweight keystone compensation present
-  - motorcycle ROI variants present
-  - multi-frame vote state and stable-read threshold present
-  - per-camera ANPR tuning present
+- HLS low-latency chasing is disabled in favor of a stable live buffer.
+- Forward buffer increased to 30 seconds with a 45-second maximum.
+- Live edge sync uses 3 segments and allows up to 8 segments of latency before recovery.
+- Fatal HLS network and media errors have automatic recovery paths.
+- Live analysis waits for a rendered video frame before copying pixels.
+- Analysis resolution is capped at 480px on desktop and 360px on mobile.
+- Object detection uses a reduced result count and higher threshold to reduce main-thread work.
+- Analysis cadence adapts to measured processing time.
+- Analysis is skipped while the video does not have enough buffered data.
+- Plate OCR runs asynchronously from the main object-detection loop.
+- Default plate OCR load is reduced to one vehicle per OCR cycle and a 3-second interval.
+- Heavy backdrop blur and decorative CCTV analysis effects were removed.
+- CCTV analysis labels and side text were simplified to normal Chinese wording.
 
-## ANPR scope
+## Commands executed
 
-`AUTHORIZED ANPR` is off and hidden by default. It appears only for exact camera IDs listed in `public/anpr-config.js`. Merely receiving a public camera object is not enough to unlock OCR. OCR runs in the browser, remains transient, and is cleared on camera changes/stops. The application does not add a plate database, plate-history API, owner lookup, cross-camera plate search, or cross-camera identity correlation.
+- `node --check public/app.js`
+- `npm run check`
+- `npm run test:playback`
+- `npm run test:anpr`
+- `npm run test:cctv`
 
-## v2.3 recognition behavior
+## Passed checks
 
-Each tracked authorized vehicle is sampled over successive frames rather than trusted from one OCR pass. Candidate plate regions cycle through ROI hypotheses; preprocessing cycles between contrast-enhanced / binary / inverted variants; skew and keystone compensation cycle through configured values. A read normally needs at least two agreeing votes before it is shown as stable, unless it reaches the high-confidence single-read fallback. Night/day mode, current skew, keystone setting and OCR-attempt count are visible in the live analysis panel.
+- Cloudflare project files present.
+- Static Assets configuration valid.
+- `/api/health` returns 200 in local worker test.
+- Legacy `/api/data?action=health` adapter returns 200.
+- 19 frontend API actions are routed.
+- CCTV wrapper discovery → HLS master → child playlist → media segment rewriting passes.
+- Cookie and Referer propagation passes.
+- Cross-host HLS resource guard passes.
+- Authorized-camera ANPR allowlist remains locked by default.
+- Night enhancement, skew correction, keystone adjustment, and multi-frame vote wiring remain present.
+- Playback-first HLS configuration and adaptive analysis scheduling are present.
 
-## Deployment verification still required
+## Not covered locally
 
-After Cloudflare deployment, run:
+A real deployed `workers.dev` URL and real third-party CCTV feeds were not available in this local test. After deployment run:
 
 ```bash
-BASE_URL=https://<your-worker>.workers.dev npm run smoke
+BASE_URL=https://your-project.workers.dev npm run smoke
 ```
-
-OCR accuracy must also be calibrated using an owned or explicitly authorized real feed because local tests cannot reproduce the deployed camera's plate pixel size, shutter speed, night illumination, IR glare, viewing angle, compression, focus, or browser media behavior.
