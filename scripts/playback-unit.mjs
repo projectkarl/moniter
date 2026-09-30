@@ -23,6 +23,6 @@ for(const needle of [
   "const bridgeQuery = options.bridge === true ? '&bridge=1' : '&bridge=0'",
 ]) app.includes(needle)?ok(needle):bad(`missing ${needle}`);
 for(const forbidden of ["video.addEventListener('pause', onPause)",'highBufferWatchdogPeriod: 2','maxBufferLength: 24','LIVE SENSOR // INLINE','ANPR MODE','PLATE SHIELD']) !app.includes(forbidden)?ok(`removed ${forbidden}`):bad(`legacy playback behavior remains: ${forbidden}`);
-for(const needle of ['即時分析','2.6.0 CF','來源直連優先 · 即時分析','即時監視器']) html.includes(needle)?ok(needle):bad(`missing UI ${needle}`);
+for(const needle of ['即時分析','INITIAL 1.0 CF','官方來源優先 · 即時影像','即時監視器']) html.includes(needle)?ok(needle):bad(`missing UI ${needle}`);
 if(failed){console.error(`\nPLAYBACK UNIT FAILED: ${failed}`);process.exit(1)}
 console.log('\nPLAYBACK UNIT PASSED: direct-source-first playback, proxy fallback and latest-frame analysis wiring are present.');

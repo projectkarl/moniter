@@ -1,7 +1,8 @@
 const zlib = require('node:zlib');
 const { fetchText, fetchBuffer, tag, xmlBlocks } = require('./_utils');
 
-const CACHE_MS = 6 * 60 * 60 * 1000;
+const LIVE_CACHE_MS = 5 * 60 * 1000;
+const POSITION_CACHE_MS = 60 * 60 * 1000;
 const registryCache = new Map();
 
 const SOURCES = [
@@ -298,6 +299,8 @@ function cameraRecord(source, raw, index) {
 function parseStandardXml(xml, source) {
   let blocks = xmlBlocks(xml, 'CCTV');
   if (!blocks.length) blocks = xmlBlocks(xml, 'Camera');
+  const upstreamUpdatedAt = tag(xml, 'UpdateTime') || tag(xml, 'updatetime') || '';
+  const upstreamUpdateInterval = Number(tag(xml, 'UpdateInterval') || tag(xml, 'updateinterval') || 0) || null;
   return blocks.map((block, index) => {
     const raw = {
       CCTVID: tag(block, 'CCTVID') || tag(block, 'ID'),
@@ -317,6 +320,8 @@ function parseStandardXml(xml, source) {
       rec.start = raw.Start || '';
       rec.end = raw.End || '';
       rec.mile = raw.LocationMile || '';
+      rec.upstreamUpdatedAt = upstreamUpdatedAt;
+      rec.upstreamUpdateInterval = upstreamUpdateInterval;
     }
     return rec;
   }).filter(Boolean);
@@ -467,11 +472,12 @@ async function fetchSource(source, { force = false, timeoutCap = null } = {}) {
     const items = source.kind === 'ods-generic'
       ? parseOdsGeneric(await fetchBuffer(source.url, {}, timeout, 16 * 1024 * 1024), source)
       : parseSourceText(await fetchText(source.url, {}, timeout), source);
-    registryCache.set(source.id, { items, expiresAt: now + CACHE_MS });
+    const cacheMs = ['live','live-wrapper'].includes(source.access) ? LIVE_CACHE_MS : POSITION_CACHE_MS;
+    registryCache.set(source.id, { items, fetchedAt:now, expiresAt: now + cacheMs, stale:false, lastError:null });
     return items;
   } catch (err) {
     // Keep the last known official registry usable during a temporary upstream timeout.
-    if (cached?.items?.length) return cached.items;
+    if (cached?.items?.length) { cached.stale = true; cached.lastError = String(err?.message || err || 'SOURCE OFFLINE').slice(0,140); return cached.items; }
     throw err;
   }
 }
@@ -485,7 +491,16 @@ async function loadRegistry(options = {}) {
   settled.forEach((result, index) => {
     const source = sourceList[index];
     if (result.status === 'fulfilled') {
-      sourceStatus.push({ id:source.id, name:source.name, region:source.region, ok:true, count:result.value.length, access:source.access });
+      const cacheMeta = registryCache.get(source.id) || {};
+      const upstreamTimes = result.value.map((x)=>x.upstreamUpdatedAt).filter(Boolean);
+      sourceStatus.push({
+        id:source.id, name:source.name, region:source.region, ok:true, count:result.value.length, access:source.access,
+        fetchedAt:cacheMeta.fetchedAt || null,
+        cacheAgeSeconds:cacheMeta.fetchedAt ? Math.max(0,Math.round((Date.now()-cacheMeta.fetchedAt)/1000)) : null,
+        upstreamUpdatedAt:upstreamTimes[0] || null,
+        upstreamUpdateInterval:result.value.find((x)=>Number.isFinite(Number(x.upstreamUpdateInterval)))?.upstreamUpdateInterval || null,
+        stale:Boolean(cacheMeta.stale), lastError:cacheMeta.lastError || null,
+      });
       result.value.forEach((camera) => {
         const streamKey = camera.streamUrl ? String(camera.streamUrl).replace(/^http:/i, 'https:') : '';
         const key = streamKey || `${camera.lat.toFixed(5)},${camera.lon.toFixed(5)},${keyNorm(camera.road)}`;

@@ -138,7 +138,7 @@ async function resolveMediaTarget(camera) {
     const headers = {
       Accept: '*/*',
       'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.6',
-      'User-Agent': 'Mozilla/5.0 (compatible; SENTINEL-Taiwan-Cloudflare/2.6; public-cctv-inline)',
+      'User-Agent': 'Mozilla/5.0 (compatible; SENTINEL-Taiwan-Cloudflare/1.0; public-cctv-inline)',
     };
     if (referer) headers.Referer = referer;
     if (cookie) headers.Cookie = cookie;
@@ -265,7 +265,7 @@ function forwardedHeaders(request, resolved) {
   const headers = {
     Accept: request.headers.get('accept') || '*/*',
     'Accept-Language': request.headers.get('accept-language') || 'zh-TW,zh;q=0.9,en;q=0.6',
-    'User-Agent': 'Mozilla/5.0 (compatible; SENTINEL-Taiwan-Cloudflare/2.6; public-cctv-inline)',
+    'User-Agent': 'Mozilla/5.0 (compatible; SENTINEL-Taiwan-Cloudflare/1.0; public-cctv-inline)',
   };
   const range = request.headers.get('range');
   if (range) headers.Range = range;
@@ -295,7 +295,7 @@ export async function handleCctvFeed(request, env = {}) {
         headers: {
           Accept: request.headers.get('accept') || 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
           'Accept-Language': request.headers.get('accept-language') || 'zh-TW,zh;q=0.9,en;q=0.6',
-          'User-Agent': 'Mozilla/5.0 (compatible; SENTINEL-Taiwan-Cloudflare/2.6; cctv-snapshot)',
+          'User-Agent': 'Mozilla/5.0 (compatible; SENTINEL-Taiwan-Cloudflare/1.0; cctv-snapshot)',
           ...(camera.pageUrl ? { Referer:camera.pageUrl } : {}),
         },
         cf: { cacheTtlByStatus: { '200-299': 1, '404': 1, '500-599': 0 } },

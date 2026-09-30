@@ -1,4 +1,4 @@
-// SENTINEL v2.6 — authorized camera list and local tuning
+// SENTINEL Initial 1.0 — authorized camera list and local tuning
 // Add ONLY camera IDs for cameras you own or have explicit permission to process.
 // Public government CCTV IDs should remain absent. ANPR is locked unless the exact ID is here.
 window.SENTINEL_ANPR_AUTHORIZED_IDS = [];

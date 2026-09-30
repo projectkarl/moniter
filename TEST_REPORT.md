@@ -1,47 +1,35 @@
-# SENTINEL // TAIWAN v2.6.0 Cloudflare — Test Report
+# SENTINEL // TAIWAN — Initial 1.0 Test Report
+
+日期：2026-09-30
 
 ## 結果
 
-PASS — 2026-09-30
+`npm test`：PASS（本地結構、模擬串流與靜態/RWD 檢查）
 
-## 已測試
+- Cloudflare project / routes：PASS
+- 前端 19 個 API action routing：PASS
+- CCTV wrapper → original media discovery：PASS
+- Direct-source-first / same-camera proxy fallback：PASS
+- HLS master / child playlist / cross-CDN segment：PASS
+- Cookie / Referer / signed proxy / open-proxy guard：PASS
+- CCTV registry parsers / official source definitions：PASS
+- 禁止 silent nearby-camera substitution：PASS
+- CCTV stale source status：已加入
+- Latest-frame analysis / `requestVideoFrameCallback` wiring：PASS
+- ANPR allowlist / night enhancement / multi-frame voting：PASS
+- Navigation one-shot turn cue：PASS
+- Navigation one-shot speed-camera cue：PASS
+- Navigation start / reroute / traffic-risk repetitive speech：REMOVED
+- HTML duplicate IDs：0
+- Local HTML asset refs：PASS
+- CSS parser：0 top-level parse errors
+- 舊版 literal `\\n` CSS regression：REMOVED
+- Mobile 920px / 520px / landscape viewport guards：PASS
 
-- Cloudflare Worker / Static Assets 專案結構
-- `/api/health`
-- `/api/data?action=health`
-- 19 個前端 API action routing
-- CCTV source resolver
-- 原始媒體 URL 回傳（direct-first）
-- 同源 proxy fallback URL
-- HTML wrapper -> HLS master
-- HLS master -> cross-CDN child playlist
-- child playlist -> cross-CDN segment
-- Range / Cookie / Referer forwarding
-- signed cross-CDN URL 防止 open proxy
-- 前端 source-direct-first routing
-- HLS low-latency 設定
-- 舊 aggressive pause/restart watchdog 已移除
-- latest-frame analysis / requestVideoFrameCallback wiring
-- snapshot analysis fallback wiring
-- official-source priority / resolver bridge fallback
-- ANPR allowlist
-- ANPR locked UI visible
-- CCTV 區塊已移除 LIVE SENSOR / ANPR MODE / PLATE SHIELD 等裝飾文字
-- plate candidate ROI visible
-- Tesseract.js OCR wiring
-- night enhancement / skew / keystone / multi-frame voting
+## 手機瀏覽器限制
 
-## 本地測試命令
+容器內 Chromium 本身無法完成 headless 啟動（D-Bus/Mojo runtime timeout），所以無法在這個執行環境宣稱做過真正的 Chrome/iPhone 像素級渲染。測試改為：CSS parser、viewport、固定寬度/overflow guard、portrait/landscape RWD 規則與頁面結構檢查。部署後仍建議用實機 iPhone Safari 與 Android Chrome 各做一次最終 UI smoke test。
 
-```bash
-node scripts/check.mjs
-node scripts/playback-unit.mjs
-node scripts/anpr-unit.mjs
-node scripts/cctv-unit.mjs
-```
+## 即時 CCTV 限制
 
-全部通過。
-
-## 限制
-
-目前執行環境無法直接對所有台灣 CCTV 上游主機進行完整實網影音播放測試，因此真實部署後仍應執行 `npm run smoke`，並以實際瀏覽器檢查來源直連 / 備援播放狀態。程式已改為不讓 Cloudflare proxy 成為健康官方串流的必經路徑。
+本地環境無法直接對所有官方即時 CDN 做真實網路播放驗證，因此不把 mock HLS 測試寫成「官方串流全部在線」。專案新增 `npm run audit:cctv`；部署後由 Cloudflare edge 實際檢查 registry 與 probe，才能確認當下官方來源可用性。

@@ -23,7 +23,7 @@ import parking from './services/parking.js';
 import construction from './services/construction.js';
 import flood from './services/flood.js';
 
-const BUILD = '2.6.0-cloudflare-direct-cctv';
+const BUILD = 'initial-1.0.0-cloudflare-stable';
 const HANDLERS = {
   geocode,
   'reverse-geocode': reverseGeocode,

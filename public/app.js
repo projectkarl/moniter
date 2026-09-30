@@ -1510,7 +1510,7 @@
         const stage = $(stageId);
         if (!stage || !state.cctvPreviewLayer?.hasLayer?.(marker)) return;
         if (hasDirectCameraMedia(cam)) renderCameraMedia(stage, cam, { fast:true, preview:true }).catch?.(() => {});
-        else renderNearbyCctvWidget(stage, cam, cam.name || cam.road || '附近公開 CCTV');
+        else stage.innerHTML = '<div class="camera-placeholder"><b>僅官方點位</b><span>此位置未提供公開播放串流。</span></div>';
       }, index * 45);
     });
     setTimeout(layoutTargetCctvPreviews, 0);
@@ -1995,7 +1995,6 @@
     $('app').classList.add('condition-red');
     tactile(45);
     playAlertTone();
-    speak('警告。規劃路線偵測到嚴重壅塞或交通事件。已顯示原因與替代路線。', true);
   }
 
   function forecastForArrival(weatherData, minutes) {
@@ -2596,17 +2595,19 @@
 
   function announceTurnStep(next, speed) {
     if (!next?.step) return;
-    const d = next.distance;
-    const firstKm = Number.isFinite(speed) && speed >= 70 ? 1.2 : Number.isFinite(speed) && speed >= 40 ? .75 : .45;
-    const threshold = d <= .07 ? 'NOW' : d <= .22 ? 'NEAR' : d <= firstKm ? 'EARLY' : null;
-    if (!threshold) return;
-    const key = `TURN:${next.index}:${threshold}`;
+    const d = Number(next.distance);
+    if (!Number.isFinite(d)) return;
+    // One concise spoken cue per maneuver.  The old three-stage EARLY/NEAR/NOW
+    // prompts were noisy during GPS updates and could repeat on dense urban routes.
+    const triggerKm = Number.isFinite(speed) && speed >= 80 ? .60 : Number.isFinite(speed) && speed >= 50 ? .42 : .28;
+    if (d > triggerKm) return;
+    const key = `TURN:${next.index}`;
     if (state.navigation.announced.has(key)) return;
     state.navigation.announced.add(key);
     const action = navTurnText(next.step);
-    const lead = threshold === 'NOW' ? '現在' : threshold === 'NEAR' ? `前方${navDistanceLabel(d)}` : `準備，前方${navDistanceLabel(d)}`;
+    const lead = d <= .07 ? '現在' : `前方${navDistanceLabel(d)}`;
     speak(`${lead}${action}。`, true);
-    tactile(threshold === 'NOW' ? 24 : threshold === 'NEAR' ? 16 : 8);
+    tactile(d <= .07 ? 20 : 10);
   }
 
   function hideNavTurnScene() {
@@ -2678,7 +2679,6 @@
     state.navigation.rerouting = true;
     state.navigation.lastRerouteAt = now;
     navWarningHtml('RECALCULATING', '已偏離路線，正在重新規劃', 'AUTO REROUTE', 'danger');
-    speak('已偏離原路線，正在重新規劃。', true);
     try {
       const cur = state.currentRoute;
       const target = cur.target;
@@ -2719,7 +2719,6 @@
       const zoom = Math.max(16, state.map.getZoom?.() || 17);
       state.map.setView([point.lat, point.lon], zoom, { animate:true });
       navWarningHtml('ROUTE UPDATED', '已重新規劃並繼續導航', `${Math.round(selected.duration/60)} min · ${(selected.distance/1000).toFixed(1)} km`, 'live');
-      speak(`路線已重新規劃，預計剩餘約 ${Math.round(selected.duration/60)} 分鐘。`, true);
     } catch (err) {
       navWarningHtml('REROUTE FAILED', '自動重算暫時失敗', err.message || 'ROUTER OFFLINE', 'danger');
     } finally {
@@ -2816,7 +2815,6 @@
     state.navigation.flowTimer = setInterval(refreshNavigationFlow, 60000);
     refreshNavigationFlow().catch(() => {});
     tactile(16);
-    speak('導航情報模式已啟動。行車請以道路現場標誌與官方號誌為準。');
   }
 
   function stopNavigation(showToast = true) {
@@ -2884,26 +2882,27 @@
 
   function speedAlertEarlyKm(currentSpeed) {
     const speed = Number(currentSpeed);
-    if (Number.isFinite(speed) && speed >= 80) return 5.2;
-    if (Number.isFinite(speed) && speed >= 50) return 3.2;
-    return 2.2;
+    // Used for map look-ahead only. Spoken alerts use a much closer one-shot threshold.
+    if (Number.isFinite(speed) && speed >= 80) return 2.2;
+    if (Number.isFinite(speed) && speed >= 50) return 1.5;
+    return 1.0;
   }
 
   function announceSpeedCamera(cam, distanceKmValue, currentSpeed = null) {
     if (!state.speedAlerts || !cam) return;
-    const meters = Math.max(0, Math.round(distanceKmValue * 1000 / 50) * 50);
-    const earlyKm = speedAlertEarlyKm(currentSpeed);
-    const threshold = distanceKmValue <= .55 ? 'FINAL' : distanceKmValue <= 1.55 ? 'MID' : distanceKmValue <= earlyKm ? 'EARLY' : null;
-    if (!threshold) return;
-    const key = `SPEED:${cam.id}:${threshold}`;
+    const d = Number(distanceKmValue);
+    if (!Number.isFinite(d)) return;
+    const speed = Number(currentSpeed);
+    const triggerKm = Number.isFinite(speed) && speed >= 80 ? .95 : Number.isFinite(speed) && speed >= 50 ? .70 : .48;
+    if (d > triggerKm) return;
+    const key = `SPEED:${cam.id}`;
     if (state.navigation.announced.has(key)) return;
     state.navigation.announced.add(key);
+    const meters = Math.max(50, Math.round(d * 1000 / 50) * 50);
     const publishedLimit = Number(cam.limit);
-    const limit = Number.isFinite(publishedLimit) ? `，該公開執法點資料標示速限 ${publishedLimit}` : '';
-    const distanceText = meters >= 1500 ? `約 ${Math.round(meters / 100) / 10} 公里` : `約 ${meters} 公尺`;
-    const stageText = threshold === 'EARLY' ? '提早提醒' : threshold === 'MID' ? '再次提醒' : '即將接近';
-    speak(`${stageText}。前方${distanceText}有公開測速執法點${limit}。請提早確認車速，實際速限以道路現場標誌為準。`, true);
-    tactile(threshold === 'FINAL' ? 30 : threshold === 'MID' ? 20 : 12);
+    const limit = Number.isFinite(publishedLimit) ? `，標示速限 ${publishedLimit}` : '';
+    speak(`前方約 ${meters} 公尺有公開測速執法點${limit}。`, true);
+    tactile(18);
   }
 
   function renderNavCameraHandoff(cam, distance) {
@@ -3036,8 +3035,8 @@
   async function openCctvWall() {
     const c = getOpsCenter();
     openOverlayPanel('wallDrawer');
-    signalAcquire(true, 'CAMERA SIGNAL ACQUISITION');
-    $('wallGrid').innerHTML = '<div class="ops-empty" style="grid-column:1/-1">ACQUIRING PUBLIC CAMERA SIGNALS…</div>';
+    signalAcquire(true, '正在取得公開攝影機');
+    $('wallGrid').innerHTML = '<div class="ops-empty" style="grid-column:1/-1">正在取得公開攝影機…</div>';
     const items = await loadCctv(c.lat, c.lon, false, 35);
     renderCctvWall(items.slice(0, 9));
     signalAcquire(false);
@@ -3048,8 +3047,8 @@
     grid.innerHTML = '';
     const valid = (items || []).filter((cam) => Number.isFinite(Number(cam?.lat)) && Number.isFinite(Number(cam?.lon))).slice(0, 9);
     if (!valid.length) {
-      grid.innerHTML = '<div class="ops-empty" style="grid-column:1/-1">NO PUBLIC CAMERA SIGNAL IN RANGE</div>';
-      $('wallMain').innerHTML = '<div class="camera-placeholder">NO CCTV POINT</div>';
+      grid.innerHTML = '<div class="ops-empty" style="grid-column:1/-1">附近沒有公開攝影機</div>';
+      $('wallMain').innerHTML = '<div class="camera-placeholder">沒有可用的 CCTV 點位</div>';
       return;
     }
     valid.forEach((cam, index) => {
@@ -3232,89 +3231,8 @@
   function renderOriginalSourceUnavailable(stage, cam = {}) {
     if (!stage) return;
     clearCameraStage(stage);
-    stage.innerHTML = `<div class="camera-loading"><i></i><b>尋找附近攝影機</b><span>${escapeHtml(cam.road || cam.name || '此 CCTV')} 目前沒有可直接播放影像，正在自動切換附近公開鏡頭…</span></div>`;
-    renderNearbyCctvWidget(stage, cam, cam.name || cam.road || '附近公開 CCTV');
-  }
-
-
-  function renderNearbyCctvWidget(stage, place = {}, label = '附近公開 CCTV') {
-    if (!stage) return false;
-    clearCameraStage(stage);
-    stage.innerHTML = `<div class="camera-loading"><i></i><b>尋找可播放影像</b><span>正在自動尋找附近可直接播放的公開影像…</span></div>`;
-    const lat = Number(place?.lat), lon = Number(place?.lon ?? place?.lng);
-    const currentId = String(place?.id || '');
-    const currentRegion = String(place?.region || '').replace(/臺/g,'台').trim();
-    const directKinds = new Set(['hls','image','mjpeg','video']);
-    stage._eyeTriedCctv ||= new Set();
-    if (currentId) stage._eyeTriedCctv.add(currentId);
-    const distance = (cam) => Number.isFinite(lat) && Number.isFinite(lon)
-      ? haversineKm(lat, lon, Number(cam?.lat), Number(cam?.lon)) : Number(cam?.distance || 9999);
-    const sameRegion = (cam) => {
-      const r = String(cam?.region || '').replace(/臺/g,'台').trim();
-      return currentRegion && r && (r === currentRegion || r.includes(currentRegion) || currentRegion.includes(r));
-    };
-    const updateSelectedCamera = (cam, d) => {
-      const meta = `附近影像 · ${Number.isFinite(d) ? d.toFixed(1) : '?'} km · ${cam.source || '公開攝影機'}`;
-      if (stage.id === 'cctvPopupStage') {
-        if (state.anprRunning && !isAnprAuthorizedCamera(cam)) stopAuthorizedAnpr();
-        state.activeCamera = cam; state.inlineCamera = cam; setAnprButtons();
-        if ($('cctvPopupTitle')) $('cctvPopupTitle').textContent = shortName(cam.name || cam.road || '公開攝影機');
-        if ($('cctvPopupMeta')) $('cctvPopupMeta').textContent = meta;
-      } else if (stage.id === 'inlineCameraStage') {
-        if (state.anprRunning && !isAnprAuthorizedCamera(cam)) stopAuthorizedAnpr();
-        state.inlineCamera = cam; setAnprButtons();
-        if ($('inlineCameraTitle')) $('inlineCameraTitle').textContent = shortName(cam.name || cam.road || '公開攝影機');
-        if ($('inlineCameraSignal')) $('inlineCameraSignal').textContent = '附近即時影像';
-        if ($('inlineCameraMeta')) $('inlineCameraMeta').textContent = meta;
-      }
-    };
-    const tryCandidates = async (items = []) => {
-      const list = (items || [])
-        .filter((cam) => cam?.id && String(cam.id) !== currentId && !stage._eyeTriedCctv.has(String(cam.id)) && Number.isFinite(Number(cam?.lat)) && Number.isFinite(Number(cam?.lon)))
-        .sort((a,b) => {
-          const ar = sameRegion(a) ? 0 : 1, br = sameRegion(b) ? 0 : 1;
-          const ap = cameraPlaybackPriority(a);
-          const bp = cameraPlaybackPriority(b);
-          return ar-br || ap-bp || distance(a)-distance(b);
-        })
-        .slice(0, 6);
-      for (const cam of list) {
-        stage._eyeTriedCctv.add(String(cam.id));
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 5200);
-        try {
-          const probe = cam._probe || await probeCameraFeed(cam, ctrl.signal);
-          if (probe?.kind) cam._probe = probe;
-          if (!directKinds.has(String(probe?.kind || ''))) continue;
-          clearCameraStage(stage);
-          const d = distance(cam);
-          updateSelectedCamera(cam, d);
-          renderResolvedMedia(stage, cam, probe);
-          return true;
-        } catch (_) {
-        } finally {
-          clearTimeout(timer);
-        }
-      }
-      return false;
-    };
-    (async () => {
-      let candidates = (state.latestCctv || []).filter((cam) => distance(cam) <= 8);
-      if (await tryCandidates(candidates)) return;
-      if (Number.isFinite(lat) && Number.isFinite(lon)) {
-        for (const radius of [8, 25]) {
-          try {
-            const data = await jsonFetch(`/api/data?action=cctv&lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}&radius=${radius}&limit=72&bridge=1`);
-            candidates = data?.items || [];
-            if (await tryCandidates(candidates)) return;
-          } catch (_) {}
-        }
-      }
-      if (!stage.isConnected) return;
-      clearCameraStage(stage);
-      stage.innerHTML = '<div class="camera-placeholder"><b>附近暫無可播放影像</b><span>地圖仍保留可查到的公開攝影機位置。</span></div>';
-    })();
-    return true;
+    const label = escapeHtml(cam.road || cam.name || '此 CCTV');
+    stage.innerHTML = `<div class="camera-placeholder"><b>此攝影機目前沒有可播放影像</b><span>${label} 的官方點位仍保留；不會自動替換成其他位置的攝影機。</span></div>`;
   }
 
 
@@ -3325,15 +3243,20 @@
     if ($('inlineCameraCard')) $('inlineCameraCard').hidden = false;
     if ($('inlineCameraTitle')) $('inlineCameraTitle').textContent = shortName(cam.name || cam.road || '公開攝影機');
     if ($('inlineCameraSignal')) $('inlineCameraSignal').textContent = '尋找附近影像';
-    if ($('inlineCameraMeta')) $('inlineCameraMeta').textContent = `${cam.road || cam.name || ''} · 無可播放媒體時自動換成附近最近公開 CCTV。`;
-    renderNearbyCctvWidget($('inlineCameraStage'), cam, cam.name || cam.road || '附近公開 CCTV');
+    if ($('inlineCameraMeta')) $('inlineCameraMeta').textContent = `${cam.road || cam.name || ''} · 此點位目前未提供可直接播放的公開影像。`;
+    const exactStage = $('inlineCameraStage');
+    if (exactStage) {
+      clearCameraStage(exactStage);
+      exactStage.innerHTML = '<div class="camera-placeholder"><b>此攝影機目前沒有可播放影像</b><span>保留官方點位，不會用其他鏡頭冒充此位置。</span></div>';
+    }
     const popup = $('cctvPopup');
     if (popup && !popup.hidden) {
       clearCameraStage($('inlineCameraStage'));
       resetCctvPopupPosition();
       $('cctvPopupTitle').textContent = shortName(cam.name || cam.road || '公開攝影機');
-      $('cctvPopupMeta').textContent = '附近即時影像';
-      renderNearbyCctvWidget($('cctvPopupStage'), cam, cam.name || cam.road || '附近公開 CCTV');
+      $('cctvPopupMeta').textContent = '此點位目前沒有可播放影像';
+      const popupStage = $('cctvPopupStage');
+      if (popupStage) popupStage.innerHTML = '<div class="camera-placeholder"><b>無可播放影像</b><span>不自動替換成其他位置的 CCTV。</span></div>';
     }
   }
 
@@ -3796,8 +3719,7 @@
       clearTimeout(timer);
       if (stage.dataset.renderToken!==token) return;
       clearCameraStage(stage);
-      if (cam?.indexed || cam?.resolverBridge) renderNearbyCctvWidget(stage,cam,cam.name || cam.road || '附近公開 CCTV');
-      else stage.innerHTML='<div class="camera-placeholder"><b>目前無法取得影像</b><span>來源暫時沒有回應，請切換附近鏡頭。</span></div>';
+      stage.innerHTML='<div class="camera-placeholder"><b>目前無法取得此鏡頭影像</b><span>來源暫時沒有回應；不會自動替換成其他位置的 CCTV。</span></div>';
     }
   }
 
@@ -4534,10 +4456,10 @@
       $('inlineCameraTitle').textContent = '附近公開攝影機';
       $('inlineCameraSignal').textContent = positions.length ? `${positions.length} 個攝影機點位` : '暫無可播放影像';
       $('inlineCameraMeta').textContent = positions.length
-        ? `找到 ${positions.length} 個附近官方 CCTV 點位；正在自動尋找最近可直接播放的替代鏡頭。`
+        ? `找到 ${positions.length} 個附近官方 CCTV 點位；未提供公開播放串流的點位只顯示位置。`
         : '附近目前沒有可直接使用的原始公開 CCTV。';
-      const center = focus || positions[0] || { lat:Number(state.target?.lat), lon:Number(state.target?.lon) };
-      renderNearbyCctvWidget(stage, center, '附近公開 CCTV');
+      clearCameraStage(stage);
+      stage.innerHTML = '<div class="camera-placeholder"><b>附近暫無可播放影像</b><span>只顯示來源可驗證的官方攝影機，不自動替換成其他位置。</span></div>';
       choices.innerHTML = positions.slice(0,8).map((cam, i) => `<button type="button" data-position-camera="${escapeAttr(String(cam.id || i))}"><span>POINT ${String(i+1).padStart(2,'0')}</span><b>${escapeHtml(shortName(cam.name || cam.road || 'OFFICIAL CCTV'))}</b></button>`).join('');
       choices.querySelectorAll('[data-position-camera]').forEach((btn) => btn.addEventListener('click', () => {
         const cam = positions.find((x, i) => String(x.id || i) === btn.dataset.positionCamera);

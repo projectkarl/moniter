@@ -195,7 +195,7 @@ module.exports = async (req, res) => {
       ? deadline(loadScenicForQuery(q, lat, lon, 5), 4600, [])
       : Promise.resolve([]);
     const playbackSeeds = hasCoords && !national ? playbackSeedsNear(lat, lon) : [];
-    const bridgePromise = hasCoords && !national && String(req.query.bridge || '1') !== '0'
+    const bridgePromise = hasCoords && !national && String(req.query.bridge || '0') === '1'
       ? (playbackSeeds.length ? Promise.resolve(playbackSeeds) : deadline(loadPublicIndexNearby(lat, lon, Math.min(12, limit)), fast ? 2200 : 4200, []))
       : Promise.resolve([]);
 
@@ -254,17 +254,19 @@ module.exports = async (req, res) => {
     const officialEmbedCount = 0;
     const positionOnlyCount = items.filter((x) => !x.streamUrl).length;
     const cacheControl = items.length
-      ? (fast ? 's-maxage=120, stale-while-revalidate=900' : 's-maxage=900, stale-while-revalidate=7200')
+      ? (fast ? 's-maxage=60, stale-while-revalidate=180' : 's-maxage=300, stale-while-revalidate=600')
       : 'no-store';
     return json(res, 200, {
       zeroKey:true,
       query:q || undefined,
-      activeSources:sourceStatus.filter((x)=>x.ok).map((x)=>x.name),
+      activeSources:sourceStatus.filter((x)=>x.ok && !x.stale).map((x)=>x.name),
+      staleSources:sourceStatus.filter((x)=>x.ok && x.stale).map((x)=>x.name),
       failedSources:sourceStatus.filter((x)=>!x.ok).map((x)=>x.name),
       sourceStatus,
       coverage:{
         sourceCount:sourceStatus.length,
-        activeSourceCount:sourceStatus.filter((x)=>x.ok).length,
+        activeSourceCount:sourceStatus.filter((x)=>x.ok && !x.stale).length,
+        staleSourceCount:sourceStatus.filter((x)=>x.ok && x.stale).length,
         registryCount:registry.length,
         liveCount,
         viewableCount:liveCount,
@@ -277,7 +279,7 @@ module.exports = async (req, res) => {
       },
       items,
       discovery: hasCoords ? {
-        provider:'official-original+resolver-bridge+in-app-fallback', referencePlayback:true, resolverBridge:true, fast,
+        provider:'official-original-first', referencePlayback:Boolean(bridgeItems.length), resolverBridge:Boolean(bridgeItems.length), fast,
         externalNavigation:false, playback:'sentinel-inline-only'
       } : undefined,
       message: items.length ? undefined : (q
@@ -285,7 +287,7 @@ module.exports = async (req, res) => {
         : '此範圍目前沒有取得 CCTV 點位或可直接播放影像。'),
       note: national
         ? '全台模式使用高速公路局、公路局與已整合地方政府原始公開來源。'
-        : '區域模式融合道路 CCTV 與景點官方直播；公開索引僅在後端解析原始媒體，前端不顯示、不跳轉索引頁。',
+        : '區域模式以政府原始道路 CCTV 與景點官方直播為主；未提供公開影像的官方點位只顯示位置，不自動替換成其他鏡頭。',
     }, cacheControl);
   } catch (e) {
     return json(res, 502, { error:`CCTV 資料暫時無法取得：${e.message}` }, 'no-store');

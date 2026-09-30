@@ -1,6 +1,6 @@
 {
-  "name": "sentinel-taiwan-cloudflare",
-  "version": "2.6.0",
+  "name": "sentinel-taiwan-cloudflare-initial",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,13 @@
     "smoke": "node scripts/smoke.mjs",
     "test:cctv": "node scripts/cctv-unit.mjs",
     "test:anpr": "node scripts/anpr-unit.mjs",
-    "test:playback": "node scripts/playback-unit.mjs"
+    "test:playback": "node scripts/playback-unit.mjs",
+    "test:navigation": "node scripts/navigation-unit.mjs",
+    "test:cctv-registry": "node scripts/cctv-registry-unit.mjs",
+    "test:mobile": "node scripts/mobile-unit.mjs",
+    "test:page": "python3 scripts/page-audit.py",
+    "audit:cctv": "node scripts/live-cctv-audit.mjs",
+    "test": "npm run check && npm run test:cctv && npm run test:cctv-registry && npm run test:playback && npm run test:navigation && npm run test:anpr && npm run test:page && npm run test:mobile"
   },
   "devDependencies": {
     "wrangler": "^4.69.0"
