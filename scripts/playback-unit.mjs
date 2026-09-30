@@ -9,9 +9,16 @@ for(const needle of [
   "&resolve=1",
   'function renderResolvedMedia(',
   "setPlaybackPath(stage,sourcePath,'hls')",
-  'lowLatencyMode:true',
-  'liveSyncDurationCount:2',
-  'maxBufferLength:8',
+  'const previewMode=!!options.preview;',
+  'lowLatencyMode:!previewMode',
+  'liveSyncDurationCount:previewMode?4:3',
+  'maxBufferLength:previewMode?18:12',
+  'function stageHasCameraMedia(',
+  'function clearAllCctvPreviews()',
+  'Never tear down a camera that is already playing',
+  'const liveBudget = mobile ? 1 : 2',
+  'Keep a very small live-preview budget',
+  "if (!stage.querySelector('video,img,iframe')) stage.innerHTML",
   'function installPlaybackGuard(',
   'performance.now()-lastProgressAt > 9000',
   'function drawLatestAnalysisFrame(',
@@ -22,7 +29,13 @@ for(const needle of [
   'cameraPlaybackPriority(a)-cameraPlaybackPriority(b)',
   "const bridgeQuery = options.bridge === true ? '&bridge=1' : '&bridge=0'",
 ]) app.includes(needle)?ok(needle):bad(`missing ${needle}`);
-for(const forbidden of ["video.addEventListener('pause', onPause)",'highBufferWatchdogPeriod: 2','maxBufferLength: 24','LIVE SENSOR // INLINE','ANPR MODE','PLATE SHIELD']) !app.includes(forbidden)?ok(`removed ${forbidden}`):bad(`legacy playback behavior remains: ${forbidden}`);
+for(const forbidden of [
+  "video.addEventListener('pause', onPause)",
+  `state.cctvPreviewLayer.clearLayers();
+    state.cctvPreviewCards = [];
+    if (!place`,
+  'LIVE SENSOR // INLINE','ANPR MODE','PLATE SHIELD'
+]) !app.includes(forbidden)?ok(`removed ${forbidden}`):bad(`legacy playback behavior remains: ${forbidden}`);
 for(const needle of ['即時分析','INITIAL 1.0 CF','官方來源優先 · 即時影像','即時監視器']) html.includes(needle)?ok(needle):bad(`missing UI ${needle}`);
 if(failed){console.error(`\nPLAYBACK UNIT FAILED: ${failed}`);process.exit(1)}
-console.log('\nPLAYBACK UNIT PASSED: direct-source-first playback, proxy fallback and latest-frame analysis wiring are present.');
+console.log('\nPLAYBACK UNIT PASSED: active streams survive registry enrichment, map preview decoder load is bounded, and direct-source/proxy playback remains wired.');

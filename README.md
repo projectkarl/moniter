@@ -60,3 +60,9 @@ npm run test:mobile
 ```
 
 完整結果見 `TEST_REPORT.md`，資料源查核見 `CCTV_AUDIT.md`。
+
+## Initial 1.0.1 playback stabilization
+
+This patch fixes a front-end lifecycle bug that could stop all CCTV video after background camera datasets finished loading. Active streams are now preserved during registry enrichment, map previews update incrementally, and old HLS instances are destroyed only on a real context change. To reduce mobile decoder pressure, the map keeps at most one live preview on mobile and two on desktop; tapping any CCTV card opens the full live stream.
+
+After deployment, hard refresh once so the new Service Worker shell (`initial101`) replaces the previous cached player.
