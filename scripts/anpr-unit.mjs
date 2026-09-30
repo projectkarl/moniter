@@ -21,7 +21,7 @@ function normalizePlateText(text=''){
 const cases=[['ABC1234','ABC-1234'],['abc-1234','ABC-1234'],['1234 AB','1234-AB'],['AB 123','AB-123'],['ABC12S4','ABC-1254'],['12O4AB','1204-AB'],['@@@','']];
 for(const [input,want] of cases){ const got=normalizePlateText(input); got===want?ok(`normalize ${input} -> ${got||'empty'}`):bad(`normalize ${input}: ${got} != ${want}`); }
 const app=fs.readFileSync(path.join(root,'public/app.js'),'utf8');
-for(const needle of ['isAnprAuthorizedCamera','runAuthorizedAnpr','tesseract.js@7.0.0','state.anprReads','state.anprVotes','function otsuThreshold(','function enhancePlateCanvas(','function rotatePlateCanvas(','function keystonePlateCanvas(','function voteAnprRead(','skewAngles','keystoneStrengths','stableVotes','NIGHT']) app.includes(needle)?ok(`app ${needle}`):bad(`app missing ${needle}`);
+for(const needle of ['isAnprAuthorizedCamera','runAuthorizedAnpr','tesseract.js@7.0.0','state.anprReads','state.anprVotes','function otsuThreshold(','function enhancePlateCanvas(','function rotatePlateCanvas(','function keystonePlateCanvas(','function voteAnprRead(','skewAngles','keystoneStrengths','stableVotes','NIGHT','車牌辨識（未授權）','anpr-plate-roi','車牌候選']) app.includes(needle)?ok(`app ${needle}`):bad(`app missing ${needle}`);
 if(/return Boolean\(id && anprAuthorizedIds\(\)\.has\(id\)\)/.test(app))ok('ANPR requires explicit allowlist ID'); else bad('ANPR authorization must require explicit allowlist ID');
 const config=fs.readFileSync(path.join(root,'public/anpr-config.js'),'utf8');
 /ANPR_AUTHORIZED_IDS\s*=\s*\[\s*\]/.test(config)?ok('default allowlist is empty'):bad('default allowlist must be empty');

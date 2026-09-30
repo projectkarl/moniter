@@ -1,45 +1,83 @@
-# SENTINEL // TAIWAN — Cloudflare v2.5.0
+# SENTINEL // TAIWAN — Cloudflare v2.6.0
 
-這一版專門修正 CCTV 播放會反覆暫停、卡住或載一段就停止的問題。
+本版針對 CCTV「來源本身能播，但進入 SENTINEL 後卡頓、暫停、分析落後」重新整理播放架構。
 
-## v2.5.0 修正
+## v2.6.0 主要修正
 
-- CCTV 播放優先，任何分析流程都不會呼叫 `video.pause()`。
-- 新增播放守護：遇到 `pause`、`waiting`、`stalled`、`suspend` 時自動續播。
-- 偵測播放時間長時間不前進時，自動要求 HLS 重新載入。
-- HLS.js 增加 buffer stall recovery、nudge 與 fragment retry。
-- fatal network / media error 會自動恢復；其他 fatal error 最多重建播放器 3 次。
-- 放大 CCTV 時只保留一條串流，關閉放大視窗後再恢復內嵌播放器，避免同一鏡頭同時拉兩份 HLS。
-- HLS master / child playlist / segment 可安全跨 CDN 播放。playlist 內的跨網域資源會被 Worker 簽章，避免被濫用成任意公開 proxy。
-- 公開道路 CCTV 的即時分析與授權 ANPR 功能保留。
-- Service Worker cache 已換版，部署後會更新前端播放器程式。
+### 1. 官方來源直連優先
+- 攝影機資料回傳真正媒體網址後，瀏覽器先直接播放原始來源。
+- Cloudflare `/api/cctv-feed` 不再是所有 HLS 的必經路徑。
+- 只有直連因 CORS、Referer、Cookie、wrapper 或瀏覽器格式限制失敗時，才自動切換到同源 Worker 代理。
+- 畫面右上角會顯示「來源直連」或「備援播放」。
+
+### 2. HLS 改成低延遲播放
+- `lowLatencyMode: true`
+- live sync 由原本較深 buffer 改成 2 個 segment 左右。
+- buffer 上限縮短，避免播放器長時間落後實況。
+- 移除舊版會反覆 `startLoad()` / 強制續播的 aggressive watchdog；只有真的超過約 9 秒完全沒有進度才恢復。
+
+### 3. 官方來源優先，解析橋接只當備援
+- 一般 CCTV 查詢預設 `bridge=0`。
+- 先使用高速公路局、公路局、地方政府等原始公開來源。
+- 只有附近完全沒有可播放的原始媒體時，才進入 resolver bridge 搜尋。
+
+### 4. 即時分析改成最新影格
+- 使用 `requestVideoFrameCallback()` 對齊新影片 frame。
+- 桌機基準約 420ms、手機約 620ms，再依實際 inference 時間自動調整。
+- 不再固定 1.25–3 秒後才抓畫面。
+- TensorFlow.js 優先使用 WebGL，模型載入後先 warm-up 一次，降低第一次分析延遲。
+- 分析畫布縮到適合即時偵測的尺寸，避免 AI 與影片播放搶 GPU。
+
+### 5. 播放與分析分離
+- 畫面可以保持原始來源直連。
+- 若來源提供獨立 JPEG snapshot，分析在需要時可從同源 Worker 取 snapshot，不必讓可見影片改走 proxy。
+- 若直接影片可安全讀 frame，就直接分析目前正在顯示的 frame。
+
+### 6. 車牌功能不再「看起來消失」
+- 車牌辨識按鈕永遠可見。
+- 公開 CCTV 顯示「車牌辨識（未授權）」並顯示車牌候選區，但不進行 OCR。
+- 自有或已明確授權鏡頭加入 `public/anpr-config.js` 後，按鈕會解鎖。
+- 啟用後即使 OCR 尚未完成，也會先顯示車牌 ROI 與「辨識中」。
+- OCR 成功後才顯示實際字元與信心值。
+
+## 授權鏡頭開啟車牌 OCR
+
+編輯 `public/anpr-config.js`：
+
+```js
+window.SENTINEL_ANPR_AUTHORIZED_IDS = [
+  'private-gate-01'
+];
+```
+
+只有清單內的 camera ID 可以讀取車牌字元。公開政府 CCTV 不應加入此清單。
 
 ## 部署
 
 ```bash
 npm install
 npm run check
-npm run test:cctv
 npm run test:playback
+npm run test:cctv
 npm run test:anpr
 npx wrangler login
 npm run deploy
 ```
 
-正式環境建議另外設定一組自己的 HLS proxy 簽章密鑰：
-
-```bash
-npx wrangler secret put CCTV_PROXY_SECRET
-```
-
-沒有設定時仍可運作，專案內含此版本專用 fallback key；設定 Cloudflare Secret 則更適合長期部署。
-
-部署後可執行：
+部署後：
 
 ```bash
 BASE_URL=https://你的網址.workers.dev npm run smoke
 ```
 
-## 如果仍有特定 CCTV 無法播放
+## CCTV_PROXY_SECRET
 
-這通常代表來源本身已停止串流、需要來源端 session/token、編碼格式瀏覽器不支援，或官方只提供週期性 JPEG 而不是影片。v2.5.0 不會為這些情況偽造直播，會改由既有的附近可播放公開鏡頭備援流程處理。
+若使用 HLS proxy fallback，建議設定：
+
+```bash
+npx wrangler secret put CCTV_PROXY_SECRET
+```
+
+## 注意
+
+道路 CCTV 的原始解析度、鏡頭角度與壓縮率會直接限制 AI 與車牌辨識效果。即使程式能正確抓取畫面，也不能從原始影像不存在的細節重建出可靠車牌字元。

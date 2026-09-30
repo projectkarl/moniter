@@ -23,7 +23,7 @@ import parking from './services/parking.js';
 import construction from './services/construction.js';
 import flood from './services/flood.js';
 
-const BUILD = '2.5.0-cloudflare-continuous-cctv';
+const BUILD = '2.6.0-cloudflare-direct-cctv';
 const HANDLERS = {
   geocode,
   'reverse-geocode': reverseGeocode,
@@ -120,7 +120,7 @@ export default {
         runtime: 'module-worker',
         zeroKey: true,
         actions: Object.keys(HANDLERS),
-        cctv: { inlineOnly: true, hlsRewrite: true, signedCrossCdn: true, continuousPlayback: true, webStreams: true, wrapperResolve: true },
+        cctv: { directFirst: true, proxyFallback: true, snapshotAnalysis: true, hlsRewrite: true, signedCrossCdn: true, webStreams: true, wrapperResolve: true },
         time: new Date().toISOString(),
       }, 200, { 'Cache-Control': 'no-store', 'X-Sentinel-Build': BUILD });
     }

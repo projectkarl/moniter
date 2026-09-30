@@ -138,7 +138,7 @@ async function resolveMediaTarget(camera) {
     const headers = {
       Accept: '*/*',
       'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.6',
-      'User-Agent': 'Mozilla/5.0 (compatible; SENTINEL-Taiwan-Cloudflare/2.0; public-cctv-inline)',
+      'User-Agent': 'Mozilla/5.0 (compatible; SENTINEL-Taiwan-Cloudflare/2.6; public-cctv-inline)',
     };
     if (referer) headers.Referer = referer;
     if (cookie) headers.Cookie = cookie;
@@ -218,6 +218,14 @@ async function proxyUrl(id, value, env = {}) {
   return `/api/cctv-feed?id=${encodeURIComponent(id)}&resource=${encodeURIComponent(value)}&exp=${exp}&sig=${encodeURIComponent(sig)}`;
 }
 
+function plainProxyUrl(id) {
+  return `/api/cctv-feed?id=${encodeURIComponent(id)}`;
+}
+
+function snapshotProxyUrl(id) {
+  return `/api/cctv-feed?id=${encodeURIComponent(id)}&snapshot=1`;
+}
+
 async function rewritePlaylist(text, sourceUrl, id, env = {}) {
   const base = new URL(sourceUrl);
   const lines = String(text).split(/\r?\n/);
@@ -257,7 +265,7 @@ function forwardedHeaders(request, resolved) {
   const headers = {
     Accept: request.headers.get('accept') || '*/*',
     'Accept-Language': request.headers.get('accept-language') || 'zh-TW,zh;q=0.9,en;q=0.6',
-    'User-Agent': 'Mozilla/5.0 (compatible; SENTINEL-Taiwan-Cloudflare/2.0; public-cctv-inline)',
+    'User-Agent': 'Mozilla/5.0 (compatible; SENTINEL-Taiwan-Cloudflare/2.6; public-cctv-inline)',
   };
   const range = request.headers.get('range');
   if (range) headers.Range = range;
@@ -275,11 +283,53 @@ export async function handleCctvFeed(request, env = {}) {
 
   try {
     const camera = await resolveCamera(id);
+
+    // Snapshot mode is deliberately independent from HLS playback. When an official
+    // still-image endpoint exists, AI can sample it without touching the live video
+    // pipeline or adding latency to playback.
+    const wantsSnapshot = url.searchParams.get('snapshot') === '1';
+    if (wantsSnapshot && camera.imageUrl) {
+      const target = safePublicHttpUrl(camera.imageUrl);
+      const upstream = await fetchTimeout(target.toString(), {
+        method: request.method,
+        headers: {
+          Accept: request.headers.get('accept') || 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+          'Accept-Language': request.headers.get('accept-language') || 'zh-TW,zh;q=0.9,en;q=0.6',
+          'User-Agent': 'Mozilla/5.0 (compatible; SENTINEL-Taiwan-Cloudflare/2.6; cctv-snapshot)',
+          ...(camera.pageUrl ? { Referer:camera.pageUrl } : {}),
+        },
+        cf: { cacheTtlByStatus: { '200-299': 1, '404': 1, '500-599': 0 } },
+      }, 8000);
+      if (!upstream.ok || (request.method !== 'HEAD' && !upstream.body)) return new Response(`CCTV snapshot HTTP ${upstream.status}`, { status:502 });
+      const headers = new Headers();
+      headers.set('Content-Type', upstream.headers.get('content-type') || 'image/jpeg');
+      headers.set('Cache-Control', 'no-store, max-age=0');
+      headers.set('Access-Control-Allow-Origin', '*');
+      return withSecurity(new Response(request.method === 'HEAD' ? null : upstream.body, { status:upstream.status, headers }));
+    }
+
     const resolved = await resolveMediaTarget(camera);
     const base = safePublicHttpUrl(resolved.url.toString());
 
+    if (url.searchParams.get('resolve') === '1') {
+      const snapshotDirectUrl = camera.imageUrl ? safePublicHttpUrl(camera.imageUrl).toString() : '';
+      return json({
+        id,
+        kind:resolved.kind,
+        contentType:resolved.contentType || '',
+        directUrl:base.toString(),
+        proxyUrl:plainProxyUrl(id),
+        snapshotDirectUrl,
+        snapshotProxyUrl:snapshotDirectUrl ? snapshotProxyUrl(id) : '',
+        resolverBridge:Boolean(camera.resolverBridge),
+        playbackPolicy:camera.playbackPolicy || '',
+        source:camera.source || '',
+        directFirst:true,
+      }, 200, { 'Cache-Control':'no-store' });
+    }
+
     if (url.searchParams.get('probe') === '1') {
-      return json({ id, kind: resolved.kind, contentType: resolved.contentType, proxied: true, cloudflareNative: true }, 200, { 'Cache-Control': 'no-store' });
+      return json({ id, kind: resolved.kind, contentType: resolved.contentType, proxied: true, cloudflareNative: true, directUrl:base.toString() }, 200, { 'Cache-Control': 'no-store' });
     }
 
     let target = base;

@@ -678,7 +678,7 @@ body::before {
 .inline-camera-head b { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#c8c3b5; font:500 10px ui-monospace,SFMono-Regular,Menlo,monospace; }
 .inline-camera-head span { flex:0 0 auto; color:#82ad93; font:6px ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.13em; }
 .inline-camera-stage { position:relative; width:100%; aspect-ratio:16/9; display:grid; place-items:center; overflow:hidden; border:1px solid rgba(205,176,107,.14); background:#030404; }
-.inline-camera-stage::before { content:'LIVE SENSOR // INLINE'; position:absolute; z-index:5; left:8px; top:7px; color:#b89e62; font:6px ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.14em; padding:4px 5px; border:1px solid rgba(205,176,107,.17); background:rgba(3,4,4,.7); pointer-events:none; }
+.inline-camera-stage::before { content:none; }
 .inline-camera-stage::after { content:''; position:absolute; inset:0; z-index:4; pointer-events:none; background:linear-gradient(90deg,transparent 49.7%,rgba(205,176,107,.1) 50%,transparent 50.3%),linear-gradient(0deg,transparent 49.7%,rgba(205,176,107,.08) 50%,transparent 50.3%); opacity:.55; }
 .inline-camera-stage img,.inline-camera-stage video { width:100%; height:100%; object-fit:contain; background:#030404; }
 .inline-camera-stage.privacy-shield img,.inline-camera-stage.privacy-shield video { filter:blur(6px) saturate(.65) brightness(.78); transform:scale(1.025); }
@@ -2532,3 +2532,10 @@ body.camera-expanded-open{overflow:auto!important;}
 @media(max-width:920px){.live-vision-box span{font-size:6px!important}.live-vision-stamp{font-size:6px!important}}
 
 .vision-corners,.vision-reticle{display:none!important}
+
+/* v2.6 CCTV playback / analysis clarity */
+.anpr-action.locked,.anpr-action:disabled{opacity:.58;cursor:not-allowed;filter:none!important;box-shadow:none!important}
+.anpr-plate-roi{position:absolute;z-index:7;min-width:12px;min-height:7px;border:1.5px solid rgba(126,218,164,.95);background:transparent;pointer-events:none}
+.plate-candidate-label{position:absolute;z-index:8;padding:2px 4px;border-radius:2px;background:rgba(5,8,7,.86);color:#d7c67e;font:700 7px/1.15 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:nowrap;pointer-events:none}
+.inline-camera-stage[data-playback-path="direct"]::after,.cctv-popup-stage[data-playback-path="direct"]::after{content:"來源直連";position:absolute;right:7px;top:7px;z-index:5;padding:3px 6px;background:rgba(0,0,0,.62);border-radius:3px;color:rgba(255,255,255,.86);font:600 9px/1.2 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;pointer-events:none}
+.inline-camera-stage[data-playback-path="proxy"]::after,.cctv-popup-stage[data-playback-path="proxy"]::after{content:"備援播放";position:absolute;right:7px;top:7px;z-index:5;padding:3px 6px;background:rgba(0,0,0,.62);border-radius:3px;color:rgba(255,255,255,.86);font:600 9px/1.2 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;pointer-events:none}

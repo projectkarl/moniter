@@ -33,6 +33,11 @@ try {
   const pd = await probe.json();
   assert(probe.ok && pd.kind === 'hls' && pd.cloudflareNative === true, 'wrapper discovery resolves to HLS');
 
+  const resolved = await handleCctvFeed(new Request(`https://sentinel.invalid/api/cctv-feed?id=${encodeURIComponent(id)}&resolve=1`), env);
+  const rd = await resolved.json();
+  assert(resolved.ok && rd.kind === 'hls' && rd.directFirst === true && rd.directUrl === 'https://media.example.com/live/cam/master.m3u8', 'resolver exposes original media for browser direct playback');
+  assert(rd.proxyUrl === `/api/cctv-feed?id=${encodeURIComponent(id)}`, 'resolver keeps same-origin proxy as fallback only');
+
   const p1 = await handleCctvFeed(new Request(`https://sentinel.invalid/api/cctv-feed?id=${encodeURIComponent(id)}`), env);
   const t1 = await p1.text();
   const nestedPath = t1.split('\n').find(x => x.startsWith('/api/cctv-feed?'));
